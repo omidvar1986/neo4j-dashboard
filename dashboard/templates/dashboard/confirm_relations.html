@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Confirm Relationships</title>
+</head>
+<body>
+    {% extends 'dashboard/base.html' %}
+    {% block content %}
+        <h1>Confirm Relationships</h1>
+        <p>Please review the relationships:</p>
+        <ul>
+            {% for relation in relations_data %}
+                <li>{{ relation.from }} ➔ {{ relation.to }}</li>
+            {% endfor %}
+        </ul>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" name="action" value="confirm">Confirm and Import</button>
+            <button type="submit" name="action" value="cancel">Cancel</button>
+        </form>
+    {% endblock %}
+</body>
+</html>

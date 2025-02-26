@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Define Relationships Among New Nodes</title>
+</head>
+<body>
+    {% extends 'dashboard/base.html' %}
+    {% block content %}
+        <h1>Define Relationships Among New Nodes</h1>
+        <form method="post">
+            {% csrf_token %}
+            <p>Select relationships:</p>
+            {% for node1 in new_nodes %}
+                {% for node2 in new_nodes %}
+                    {% if node1 != node2 %}
+                        <label>
+                            <input type="checkbox" name="relations" value="{{ node1 }},{{ node2 }}">
+                            {{ node1 }} ➔ {{ node2 }}
+                        </label><br>
+                    {% endif %}
+                {% endfor %}
+                <hr>
+            {% endfor %}
+            <button type="submit">Next</button>
+        </form>
+    {% endblock %}
+</body>
+</html>

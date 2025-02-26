@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Define Node Relationships</title>
+    <style>
+        .relation-item {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+        .relation-options {
+            margin-left: 20px;
+            display: none;
+            margin-top: 10px;
+        }
+        .relation-options label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .relation-options input[type="text"] {
+            width: 100%;
+            padding: 5px;
+        }
+        .relation-item h2 {
+            margin-top: 0;
+        }
+        .submit-button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Define Node Relationships</h1>
+    <form method="POST">
+        {% csrf_token %}
+        {% for node in new_nodes %}
+            <div class="relation-item">
+                <h2>Node: {{ node }}</h2>
+                <p>Does this node relate to an existing node?</p>
+
+                <label>
+                    <input type="radio" name="relation_{{ forloop.counter }}" value="yes" data-index="{{ forloop.counter }}" required>
+                    Yes
+                </label>
+                <label>
+                    <input type="radio" name="relation_{{ forloop.counter }}" value="no" data-index="{{ forloop.counter }}">
+                    No
+                </label>
+
+                <div id="existing-node-{{ forloop.counter }}" class="relation-options">
+                    <label for="existing_node_{{ forloop.counter }}">Enter the name of the existing node it relates to:</label>
+                    <input type="text" name="existing_node_{{ forloop.counter }}" id="existing_node_{{ forloop.counter }}">
+                </div>
+
+                <div id="new-node-{{ forloop.counter }}" class="relation-options">
+                    <label for="related_node_{{ forloop.counter }}">Enter the name of the new node it relates to:</label>
+                    <input type="text" name="related_node_{{ forloop.counter }}" id="related_node_{{ forloop.counter }}">
+                </div>
+            </div>
+        {% endfor %}
+        <button type="submit" class="submit-button">Establish Relations</button>
+    </form>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all radio buttons that determine relation type
+            const radioButtons = document.querySelectorAll('input[type=radio][name^="relation_"]');
+
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const index = this.getAttribute('data-index');
+                    const existingNodeDiv = document.getElementById(`existing-node-${index}`);
+                    const newNodeDiv = document.getElementById(`new-node-${index}`);
+
+                    if (this.value === 'yes') {
+                        existingNodeDiv.style.display = 'block';
+                        newNodeDiv.style.display = 'none';
+                    } else {
+                        existingNodeDiv.style.display = 'none';
+                        newNodeDiv.style.display = 'block';
+                    }
+                });
+
+                // Trigger change event on page load if a radio button is pre-selected
+                if (radio.checked) {
+                    radio.dispatchEvent(new Event('change'));
+                }
+            });
+        });
+    </script>
+</body>
+</html>

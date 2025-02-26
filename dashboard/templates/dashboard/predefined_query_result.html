@@ -1,0 +1,190 @@
+{% extends 'dashboard/base.html' %}
+{% block header %}{% endblock %}  <!-- Suppress the header (Neo4j Dashboard title) -->
+{% block nav %}{% endblock %}     <!-- Suppress the navigation (options) -->
+{% block content %}
+    <div id="back-to-home" style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
+        <a href="{% url 'home' %}" class="button">Back to Home</a>
+    </div>
+    <h1>Predefined Query Result: {{ query_name }}</h1>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    {% if result_json %}
+        <div id="debug-output" style="margin-bottom: 10px; background: #f9f9f9; padding: 10px; border: 1px solid #ddd; max-height: 200px; overflow-y: auto;"></div>
+        <div id="graph" style="width: 100%; max-width: 1000px; height: 600px; border: 1px solid #ccc; overflow: auto; margin: 0 auto;"></div>
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+        <script>
+            // Try direct parsing with {{ result_json|safe }}, fall back to JSON.parse with debugging
+            let data;
+            const debugOutput = document.getElementById('debug-output');
+            const graphDiv = document.getElementById('graph');
+
+            if (!graphDiv) {
+                debugOutput.innerHTML += '<p class="error">Graph container (#graph) not found in DOM.</p>';
+                console.error('Graph container not found.');
+                return;
+            }
+
+            debugOutput.innerHTML = '<p>Attempting to parse result_json...</p>';
+            const rawJson = '{{ result_json|safe }}';
+            debugOutput.innerHTML += `<p>Raw Result JSON: ${rawJson.replace(/\n/g, '<br>').replace(/ /g, ' ')}</p>`;
+            console.log('Raw Result JSON:', rawJson);
+
+            try {
+                // First, try direct parsing with {{ result_json|safe }}
+                data = eval('(' + rawJson + ')');
+                debugOutput.innerHTML += '<p>Direct parsing with |safe succeeded.</p>';
+                console.log('Direct Parsed Data:', data);
+            } catch (directError) {
+                debugOutput.innerHTML += `<p class="error">Direct parsing failed: ${directError.message}. Attempting JSON.parse...</p>`;
+                console.error('Direct parsing error:', directError);
+                try {
+                    data = JSON.parse(rawJson);
+                    debugOutput.innerHTML += `<p>Parsed Data (JSON.parse): ${JSON.stringify(data, null, 2).replace(/\n/g, '<br>').replace(/ /g, ' ')}</p>`;
+                    console.log('Parsed Data (JSON.parse):', data);
+                } catch (parseError) {
+                    debugOutput.innerHTML += `<p class="error">Error parsing result_json with JSON.parse: ${parseError.message}</p>`;
+                    console.error('Error parsing result_json with JSON.parse:', parseError);
+                    alert('Invalid data format from server. Check console and debug output for details.');
+                    return;
+                }
+            }
+
+            // Check if nodes and edges exist, with detailed logging
+            if (!data.nodes || !data.edges || (!data.nodes.length && !data.edges.length)) {
+                debugOutput.innerHTML += '<p class="error">No nodes or relationships found in the result. Nodes: ' + (data.nodes ? data.nodes.length : 'undefined') + ', Edges: ' + (data.edges ? data.edges.length : 'undefined') + '</p>';
+                console.warn('No nodes or edges in data:', data);
+                alert("No nodes or relationships found in the result.");
+                return;
+            } else {
+                debugOutput.innerHTML += `<p>Nodes Count: ${data.nodes.length}, Edges Count: ${data.edges.length}</p>`;
+                debugOutput.innerHTML += '<p>Sample Node: ' + JSON.stringify(data.nodes[0] || 'None') + '</p>';
+                debugOutput.innerHTML += '<p>Sample Edge: ' + JSON.stringify(data.edges[0] || 'None') + '</p>';
+                console.log('Nodes:', data.nodes, 'Edges:', data.edges);
+            }
+
+            const width = Math.min(1000, window.innerWidth - 40),  // Responsive width, max 1000px
+                  height = 600;
+
+            const svg = d3.select("#graph")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Scale nodes and edges to fit within bounds, matching manual_query
+            const scaleFactor = Math.min(width / 1000, height / 600);
+            const scaledNodes = data.nodes.map(d => ({
+                ...d,
+                x: d.x * scaleFactor || Math.random() * width,
+                y: d.y * scaleFactor || Math.random() * height
+            }));
+            const scaledEdges = data.edges.map(d => ({
+                ...d,
+                source: scaledNodes.find(n => n.id === d.source),
+                target: scaledNodes.find(n => n.id === d.target)
+            }));
+
+            try {
+                const simulation = d3.forceSimulation(scaledNodes)
+                    .force("link", d3.forceLink(scaledEdges).id(d => d.id).distance(100 * scaleFactor))
+                    .force("charge", d3.forceManyBody().strength(-100 * scaleFactor))
+                    .force("collide", d3.forceCollide(20 * scaleFactor))
+                    .force("center", d3.forceCenter(width / 2, height / 2))
+                    .alphaDecay(0.02);
+
+                const link = svg.append("g")
+                    .selectAll("line")
+                    .data(scaledEdges)
+                    .enter().append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-opacity", 0.6)
+                    .attr("stroke-width", 2);
+
+                const node = svg.append("g")
+                    .selectAll("circle")
+                    .data(scaledNodes)
+                    .enter().append("circle")
+                    .attr("r", 15 * scaleFactor)
+                    .attr("fill", "#69b3a2")
+                    .call(d3.drag()
+                        .on("start", dragstarted)
+                        .on("drag", dragged)
+                        .on("end", dragended));
+
+                node.append("title").text(d => d.label);
+
+                const linkText = svg.append("g")
+                    .selectAll("text")
+                    .data(scaledEdges)
+                    .enter().append("text")
+                    .text(d => d.label || "RELATED_TO")
+                    .attr("font-size", 12 * scaleFactor)
+                    .attr("fill", "#333")
+                    .attr("text-anchor", "middle")
+                    .attr("dy", -5 * scaleFactor);
+
+                const nodeText = svg.append("g")
+                    .selectAll("text")
+                    .data(scaledNodes)
+                    .enter().append("text")
+                    .text(d => d.label)
+                    .attr("dx", 20 * scaleFactor)
+                    .attr("dy", ".35em")
+                    .attr("font-size", 14 * scaleFactor)
+                    .attr("fill", "#333");
+
+                simulation.on("tick", () => {
+                    link.attr("x1", d => Math.max(10, Math.min(width - 10, d.source.x)))
+                        .attr("y1", d => Math.max(10, Math.min(height - 10, d.source.y)))
+                        .attr("x2", d => Math.max(10, Math.min(width - 10, d.target.x)))
+                        .attr("y2", d => Math.max(10, Math.min(height - 10, d.target.y)));
+
+                    node.attr("cx", d => Math.max(10, Math.min(width - 10, d.x)))
+                        .attr("cy", d => Math.max(10, Math.min(height - 10, d.y)));
+
+                    linkText.attr("x", d => Math.max(10, Math.min(width - 10, (d.source.x + d.target.x) / 2)))
+                        .attr("y", d => Math.max(10, Math.min(height - 10, (d.source.y + d.target.y) / 2)));
+
+                    nodeText.attr("x", d => Math.max(20, Math.min(width - 20, d.x)))
+                        .attr("y", d => Math.max(20, Math.min(height - 20, d.y)));
+                });
+
+                function dragstarted(event, d) {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = Math.max(10, Math.min(width - 10, d.x));
+                    d.fy = Math.max(10, Math.min(height - 10, d.y));
+                }
+
+                function dragged(event, d) {
+                    d.fx = Math.max(10, Math.min(width - 10, event.x));
+                    d.fy = Math.max(10, Math.min(height - 10, event.y));
+                    simulation.alpha(0.3).restart();
+                }
+
+                function dragended(event, d) {
+                    if (!event.active) simulation.alphaTarget(0);
+                    d.fx = null;
+                    d.fy = null;
+                }
+            } catch (renderError) {
+                debugOutput.innerHTML += `<p class="error">Error rendering graph: ${renderError.message}</p>`;
+                console.error('Error rendering graph:', renderError);
+                alert('Error rendering graph. Check console and debug output for details.');
+                return;
+            }
+
+            // Verify D3.js is loaded
+            if (typeof d3 === 'undefined') {
+                debugOutput.innerHTML += '<p class="error">D3.js library failed to load. Check network tab.</p>';
+                console.error('D3.js not loaded.');
+                return;
+            }
+        </script>
+    {% endif %}
+    {% if saved_queries %}
+        <h3>Recent Queries</h3>
+        <ul style="list-style-type: none; padding: 0;">
+            {% for sq in saved_queries %}
+                <li style="margin: 5px 0;">{{ sq.query }} ({{ sq.executed_at }})</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock %}

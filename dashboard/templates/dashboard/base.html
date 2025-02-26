@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome to the Neo4j Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+        nav ul { list-style-type: none; padding: 0; }
+        nav ul li { margin: 10px 0; }
+        form { margin: 20px 0; }
+        button { margin: 5px; padding: 5px 10px; }
+        textarea, input[type="text"] { padding: 5px; }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        /* Position "Back to Home" button in top-right corner */
+        #back-to-home {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000; /* Ensure it stays above other content */
+        }
+    </style>
+</head>
+<body>
+    {% if messages %}
+        {% for message in messages %}
+            <p class="{% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+    {% block header %}
+        <header>
+            <h1>Neo4j Dashboard</h1>
+            <div id="back-to-home">
+                <a href="{% url 'home' %}" class="button">Back to Home</a>
+            </div>
+        </header>
+    {% endblock %}
+    {% block nav %}
+        <nav>
+            <ul>
+                {% if user.is_authenticated %}
+                    <li><a href="{% url 'add_nodes' %}">Add Nodes</a></li>
+                    <li><a href="{% url 'manual_query' %}">Manual Query Execution</a></li>
+                    {% if user.is_staff or user.is_superuser %}
+                        <li><a href="{% url 'admin_queries' %}">Admin Queries</a></li>
+                    {% endif %}
+                {% endif %}
+            </ul>
+        </nav>
+    {% endblock %}
+    {% block content %}{% endblock %}
+</body>
+</html>

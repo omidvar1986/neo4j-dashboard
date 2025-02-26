@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Predefined Queries</title>
+</head>
+<body>
+    {% extends 'dashboard/base.html' %}
+    {% block content %}
+        {% if not user.is_staff and not user.is_superuser %}
+            <p class="error">Access denied. Only admins can access this page.</p>
+        {% else %}
+            <h1>Admin Predefined Queries</h1>
+            <h2>Create New Query</h2>
+            <form method="post">
+                {% csrf_token %}
+                <label for="query_name">Query Name:</label>
+                <input type="text" name="query_name" id="query_name" required><br><br>
+                <label for="query_text">Query Text:</label>
+                <textarea name="query_text" id="query_text" rows="5" cols="60" required placeholder="Enter Cypher query (e.g., MATCH (n)-[r]->(m) RETURN n,r,m)"></textarea><br><br>
+                <button type="submit">Create Query</button>
+            </form>
+
+            <h2>Existing Queries</h2>
+            <ul>
+                {% for query in queries %}
+                    <li>{{ query.name }} - {{ query.query }}
+                        <form method="post" action="{% url 'delete_predefined_query' query.id %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" onclick="return confirm('Are you sure you want to delete this query?')">Delete</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endblock %}
+</body>
+</html>

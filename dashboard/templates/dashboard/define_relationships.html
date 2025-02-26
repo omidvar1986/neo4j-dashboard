@@ -1,0 +1,27 @@
+<!-- define_relationships.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Select Relationships</title>
+</head>
+<body>
+    <h1>Select Existing Nodes to Relate With:</h1>
+    <form method="POST">
+        {% csrf_token %}
+        <h2>New Nodes:</h2>
+        <ul>
+            {% for node in request.session.nodes %}
+                <li>{{ node }}</li>
+            {% endfor %}
+        </ul>
+        <h2>Existing Nodes:</h2>
+        {% for node in existing_nodes %}
+            <input type="checkbox" name="existing_nodes" value="{{ node }}" id="{{ node }}">
+            <label for="{{ node }}">{{ node }}</label><br>
+        {% endfor %}
+        <br>
+        <button type="submit">Create Relationships</button>
+    </form>
+</body>
+</html>

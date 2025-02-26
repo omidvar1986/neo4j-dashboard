@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Define Relationships with Existing Nodes</title>
+</head>
+<body>
+    {% extends 'dashboard/base.html' %}
+    {% block content %}
+        <h1>Define Relationships with Existing Nodes</h1>
+        <form method="post">
+            {% csrf_token %}
+            {% for new_node in new_nodes %}
+                <h3>{{ new_node }}</h3>
+                {% for existing_node in existing_nodes %}
+                    <label>
+                        <input type="checkbox" name="relations" value="{{ new_node }},{{ existing_node }}">
+                        {{ new_node }} ➔ {{ existing_node }}
+                    </label><br>
+                {% endfor %}
+                <hr>
+            {% endfor %}
+            <button type="submit">Next</button>
+        </form>
+    {% endblock %}
+</body>
+</html>

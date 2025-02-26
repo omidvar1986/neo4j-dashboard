@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add New Nodes</title>
+</head>
+<body>
+    {% extends 'dashboard/base.html' %}
+    {% block header %}{% endblock %}  <!-- Suppress the header (Neo4j Dashboard title) -->
+    {% block nav %}{% endblock %}     <!-- Suppress the navigation (options) -->
+    {% block content %}
+        <div id="back-to-home" style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
+            <a href="{% url 'home' %}" class="button">Back to Home</a>
+        </div>
+        <h1>Enter New Nodes</h1>
+        <form method="post">
+            {% csrf_token %}
+            <div id="nodes-container"></div>
+            <button type="button" onclick="addNodeField()">Add Node</button>
+            <button type="submit">Finish Adding Nodes</button>
+        </form>
+        <script>
+            let nodeCount = 0;
+            function addNodeField(name = '') {
+                nodeCount++;
+                const container = document.getElementById('nodes-container');
+                const nodeItem = document.createElement('div');
+                nodeItem.className = 'node-item';
+                nodeItem.id = 'node-' + nodeCount;
+                nodeItem.style.display = 'flex';
+                nodeItem.style.alignItems = 'center';
+                nodeItem.style.marginBottom = '5px';
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.name = 'nodes';
+                input.value = name;
+                input.placeholder = 'Node Name';
+                input.style.marginRight = '10px';
+                input.required = true;
+                const renameButton = document.createElement('button');
+                renameButton.type = 'button';
+                renameButton.textContent = 'Rename';
+                renameButton.onclick = function() {
+                    const newName = prompt('Enter new name:', input.value);
+                    if (newName) input.value = newName;
+                };
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.textContent = 'Delete';
+                deleteButton.onclick = function() {
+                    container.removeChild(nodeItem);
+                };
+                nodeItem.appendChild(input);
+                nodeItem.appendChild(renameButton);
+                nodeItem.appendChild(deleteButton);
+                container.appendChild(nodeItem);
+            }
+            window.onload = function() {
+                addNodeField();
+            };
+        </script>
+    {% endblock %}
+</body>
+</html>

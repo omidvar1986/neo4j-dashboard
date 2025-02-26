@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enter Existing Nodes</title>
+</head>
+<body>
+    {% extends 'dashboard/base.html' %}
+    {% block content %}
+        <h1>Enter Existing Nodes</h1>
+        {% if invalid_nodes %}
+            <p class="error">Invalid nodes: {{ invalid_nodes|join:", " }}</p>
+            <p>Select from available nodes:</p>
+            <form method="post">
+                {% csrf_token %}
+                {% for node in existing_nodes_list %}
+                    <label>
+                        <input type="checkbox" name="existing_nodes" value="{{ node }}"> {{ node }}
+                    </label><br>
+                {% endfor %}
+                <button type="submit">Next</button>
+            </form>
+        {% else %}
+            <form method="post">
+                {% csrf_token %}
+                <p>Enter one existing node per line (available: {{ existing_nodes_list|join:", " }}):</p>
+                <textarea name="existing_nodes" rows="5" cols="30" placeholder="Node1\nNode2"></textarea><br>
+                <button type="submit">Next</button>
+            </form>
+        {% endif %}
+    {% endblock %}
+</body>
+</html>

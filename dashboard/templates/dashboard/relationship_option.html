@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Relationship Option</title>
+</head>
+<body>
+    {% extends 'dashboard/base.html' %}
+    {% block content %}
+        <h1>Do the new nodes have relationships with existing nodes?</h1>
+        <form method="post">
+            {% csrf_token %}
+            <label>
+                <input type="radio" name="option" value="yes" required> Yes
+            </label><br>
+            <label>
+                <input type="radio" name="option" value="no"> No
+            </label><br>
+            <button type="submit">Next</button>
+        </form>
+    {% endblock %}
+</body>
+</html>
