@@ -30,6 +30,10 @@ def get_existing_nodes():
 # @user_passes_test(lambda u: u.is_staff or u.is_superuser)
 
 
+
+
+
+
 @staff_member_required
 def register(request):
     if request.method == 'POST':
