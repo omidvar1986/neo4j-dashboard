@@ -11,7 +11,7 @@
             <h1></h1>
         </header>
         {% if predefined_queries %}
-            <h2>Predefined Queries</h2>
+            <h2>Predefined Queries</h2> 
             {% for query in predefined_queries %}
                 <a href="{% url 'predefined_query_result' query.id %}" class="button">{{ query.name }}</a>
             {% endfor %}

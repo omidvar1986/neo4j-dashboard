@@ -56,6 +56,17 @@ def home(request):
     predefined_queries = PredefinedQuery.objects.all() if request.user.is_authenticated else None
     return render(request, 'dashboard/home.html', {'options': options, 'predefined_queries': predefined_queries})
 
+# @login_required
+# def add_nodes(request):
+#     if request.method == 'POST':
+#         nodes = request.POST.getlist('nodes')
+#         nodes = [node.strip() for node in nodes if node.strip()]
+#         if not nodes:
+#             messages.error(request, 'Please enter at least one node name.')
+#             return render(request, 'dashboard/add_nodes.html')
+#         request.session['nodes'] = nodes
+#         return redirect('relationship_option')
+#     return render(request, 'dashboard/add_nodes.html')
 @login_required
 def add_nodes(request):
     if request.method == 'POST':
@@ -64,6 +75,15 @@ def add_nodes(request):
         if not nodes:
             messages.error(request, 'Please enter at least one node name.')
             return render(request, 'dashboard/add_nodes.html')
+        
+        # Get existing nodes from Neo4j
+        existing_nodes = get_existing_nodes()
+        duplicate_nodes = [node for node in nodes if node in existing_nodes]
+        
+        if duplicate_nodes:
+            messages.error(request, f'The following nodes already exist: {", ".join(duplicate_nodes)}. Please use unique names.')
+            return render(request, 'dashboard/add_nodes.html', {'duplicate_nodes': duplicate_nodes})
+        
         request.session['nodes'] = nodes
         return redirect('relationship_option')
     return render(request, 'dashboard/add_nodes.html')

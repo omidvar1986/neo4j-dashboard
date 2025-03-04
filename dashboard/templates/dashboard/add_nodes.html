@@ -13,6 +13,10 @@
             <a href="{% url 'home' %}" class="button">Back to Home</a>
         </div>
         <h1>Enter New Nodes</h1>
+        <!-- Display duplicate nodes message if present -->
+        {% if duplicate_nodes %}
+            <p style="color: red;">The following nodes already exist: {{ duplicate_nodes|join:", " }}. Please use unique names.</p>
+        {% endif %}
         <form method="post">
             {% csrf_token %}
             <div id="nodes-container"></div>
