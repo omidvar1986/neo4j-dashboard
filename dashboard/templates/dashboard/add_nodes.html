@@ -13,21 +13,54 @@
             <a href="{% url 'home' %}" class="button">Back to Home</a>
         </div>
         <h1>Enter New Nodes</h1>
-        <!-- Display duplicate nodes message if present -->
+        <!-- Display duplicate nodes message if present (from form submission) -->
         {% if duplicate_nodes %}
             <p style="color: red;">The following nodes already exist: {{ duplicate_nodes|join:", " }}. Please use unique names.</p>
         {% endif %}
-        <form method="post">
+        <form method="post" id="nodes-form">
             {% csrf_token %}
             <div id="nodes-container"></div>
             <button type="button" onclick="addNodeField()">Add Node</button>
             <button type="submit">Finish Adding Nodes</button>
         </form>
+        <!-- Real-time duplicate feedback -->
+        <div id="duplicate-feedback" style="color: red; margin-top: 10px;"></div>
         <script>
             let nodeCount = 0;
-            function addNodeField(name = '') {
-                nodeCount++;
+
+            async function checkDuplicate(nodeName) {
+                if (nodeName) {
+                    const response = await fetch('/check-node-duplicate/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: 'node_name=' + encodeURIComponent(nodeName)
+                    });
+                    const data = await response.json();
+                    return data;
+                }
+                return { exists: false, message: '' };
+            }
+
+            async function addNodeField() {
+                // Get the value from the last input field, if any
                 const container = document.getElementById('nodes-container');
+                const lastInput = container.lastElementChild ? container.lastElementChild.querySelector('input') : null;
+                const nodeName = lastInput ? lastInput.value.trim() : '';
+
+                if (nodeName) {
+                    const result = await checkDuplicate(nodeName);
+                    if (result.exists) {
+                        document.getElementById('duplicate-feedback').textContent = result.message + '. Cannot add duplicate node.';
+                        return; // Prevent adding the field if duplicate
+                    } else {
+                        document.getElementById('duplicate-feedback').textContent = '';
+                    }
+                }
+
+                nodeCount++;
                 const nodeItem = document.createElement('div');
                 nodeItem.className = 'node-item';
                 nodeItem.id = 'node-' + nodeCount;
@@ -37,32 +70,58 @@
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.name = 'nodes';
-                input.value = name;
                 input.placeholder = 'Node Name';
                 input.style.marginRight = '10px';
                 input.required = true;
+                input.onblur = async function() {
+                    const checkResult = await checkDuplicate(input.value);
+                    if (checkResult.exists) {
+                        document.getElementById('duplicate-feedback').textContent = checkResult.message + '. Cannot add duplicate node.';
+                        nodeItem.classList.add('duplicate');
+                    } else {
+                        document.getElementById('duplicate-feedback').textContent = '';
+                        nodeItem.classList.remove('duplicate');
+                    }
+                };
                 const renameButton = document.createElement('button');
                 renameButton.type = 'button';
                 renameButton.textContent = 'Rename';
-                renameButton.onclick = function() {
+                renameButton.onclick = async function() {
                     const newName = prompt('Enter new name:', input.value);
-                    if (newName) input.value = newName;
+                    if (newName) {
+                        input.value = newName;
+                        const checkResult = await checkDuplicate(newName);
+                        if (checkResult.exists) {
+                            document.getElementById('duplicate-feedback').textContent = checkResult.message + '. Cannot add duplicate node.';
+                            nodeItem.classList.add('duplicate');
+                        } else {
+                            document.getElementById('duplicate-feedback').textContent = '';
+                            nodeItem.classList.remove('duplicate');
+                        }
+                    }
                 };
                 const deleteButton = document.createElement('button');
                 deleteButton.type = 'button';
                 deleteButton.textContent = 'Delete';
                 deleteButton.onclick = function() {
                     container.removeChild(nodeItem);
+                    document.getElementById('duplicate-feedback').textContent = '';
                 };
                 nodeItem.appendChild(input);
                 nodeItem.appendChild(renameButton);
                 nodeItem.appendChild(deleteButton);
                 container.appendChild(nodeItem);
             }
+
             window.onload = function() {
                 addNodeField();
             };
         </script>
+        <style>
+            .duplicate input {
+                border: 2px solid red;
+            }
+        </style>
     {% endblock %}
 </body>
 </html>

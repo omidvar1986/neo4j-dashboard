@@ -17,4 +17,5 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('admin/', admin.site.urls),
     path('register/', views.register, name='register'),
+    path('check-node-duplicate/', views.check_node_duplicate, name='check_node_duplicate'),  # New URL pattern
 ]

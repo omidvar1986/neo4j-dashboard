@@ -12,11 +12,11 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.admin.views.decorators import staff_member_required
 import logging
 
-
-
+# Initialize Neo4j driver (unchanged)
 driver = GraphDatabase.driver(settings.NEO4J_URI, auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD))
 
 logger = logging.getLogger(__name__)
+
 def get_existing_nodes():
     try:
         with driver.session() as session:
@@ -26,13 +26,16 @@ def get_existing_nodes():
         logger.error(f"Neo4j error in get_existing_nodes: {e}")
         return []
 
-# @login_required
-# @user_passes_test(lambda u: u.is_staff or u.is_superuser)
-
-
-
-
-
+@csrf_exempt  # Note: For simplicity; use CSRF token in production
+def check_node_duplicate(request):
+    if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        node_name = request.POST.get('node_name', '').strip()
+        if node_name:
+            existing_nodes = get_existing_nodes()
+            is_duplicate = node_name in existing_nodes
+            return JsonResponse({'exists': is_duplicate, 'message': f"Node '{node_name}' already exists" if is_duplicate else ''})
+        return JsonResponse({'exists': False, 'message': 'Invalid node name'})
+    return JsonResponse({'exists': False, 'message': 'Invalid request'})
 
 @staff_member_required
 def register(request):
@@ -46,7 +49,6 @@ def register(request):
         form = UserCreationForm()
     return render(request, 'dashboard/register.html', {'form': form})
 
-
 def home(request):
     options = [
         {'name': 'Add Nodes', 'url': 'add_nodes'},
@@ -56,17 +58,6 @@ def home(request):
     predefined_queries = PredefinedQuery.objects.all() if request.user.is_authenticated else None
     return render(request, 'dashboard/home.html', {'options': options, 'predefined_queries': predefined_queries})
 
-# @login_required
-# def add_nodes(request):
-#     if request.method == 'POST':
-#         nodes = request.POST.getlist('nodes')
-#         nodes = [node.strip() for node in nodes if node.strip()]
-#         if not nodes:
-#             messages.error(request, 'Please enter at least one node name.')
-#             return render(request, 'dashboard/add_nodes.html')
-#         request.session['nodes'] = nodes
-#         return redirect('relationship_option')
-#     return render(request, 'dashboard/add_nodes.html')
 @login_required
 def add_nodes(request):
     if request.method == 'POST':
@@ -76,7 +67,6 @@ def add_nodes(request):
             messages.error(request, 'Please enter at least one node name.')
             return render(request, 'dashboard/add_nodes.html')
         
-        # Get existing nodes from Neo4j
         existing_nodes = get_existing_nodes()
         duplicate_nodes = [node for node in nodes if node in existing_nodes]
         
