@@ -2,32 +2,45 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Enter Existing Nodes</title>
+    <title>Relate Nodes to Database</title>
 </head>
 <body>
     {% extends 'dashboard/base.html' %}
+    {% block header %}{% endblock %}
+    {% block nav %}{% endblock %}
     {% block content %}
-        <h1>Enter Existing Nodes</h1>
-        {% if invalid_nodes %}
-            <p class="error">Invalid nodes: {{ invalid_nodes|join:", " }}</p>
-            <p>Select from available nodes:</p>
-            <form method="post">
-                {% csrf_token %}
-                {% for node in existing_nodes_list %}
-                    <label>
-                        <input type="checkbox" name="existing_nodes" value="{{ node }}"> {{ node }}
-                    </label><br>
-                {% endfor %}
-                <button type="submit">Next</button>
-            </form>
-        {% else %}
-            <form method="post">
-                {% csrf_token %}
-                <p>Enter one existing node per line (available: {{ existing_nodes_list|join:", " }}):</p>
-                <textarea name="existing_nodes" rows="5" cols="30" placeholder="Node1\nNode2"></textarea><br>
-                <button type="submit">Next</button>
-            </form>
+        <div id="back-to-home" style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
+            <a href="{% url 'home' %}" class="button">Back to Home</a>
+        </div>
+        <h1>Relate Nodes to Database</h1>
+        {% if error_message %}
+            <p style="color: red;">{{ error_message }}</p>
         {% endif %}
+        <form method="post" id="nodes-form">
+            {% csrf_token %}
+            <h3>Pre-Entered Nodes</h3>
+            <table>
+                <tr>
+                    <th>Node Name</th>
+                </tr>
+                {% for node in nodes %}
+                    <tr>
+                        <td>{{ node }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+
+            <h3>Select Existing Nodes to Relate</h3>
+            <ul>
+                {% for node in existing_nodes_list %}
+                    <li>
+                        <input type="checkbox" name="existing_nodes" value="{{ node }}"> {{ node }}
+                    </li>
+                {% endfor %}
+            </ul>
+
+            <button type="submit">Next</button>
+        </form>
     {% endblock %}
 </body>
 </html>

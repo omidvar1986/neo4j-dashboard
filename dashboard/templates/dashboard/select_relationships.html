@@ -1,0 +1,20 @@
+{% extends 'dashboard/base.html' %}
+{% block content %}
+    <h1>Select Relationships</h1>
+    <form method="post">
+        {% csrf_token %}
+        <ul>
+            {% for from_node in all_nodes %}
+                {% for to_node in all_nodes %}
+                    {% if from_node != to_node %}
+                        <li>
+                            <input type="checkbox" name="relationships" value="{{ from_node }},{{ to_node }}">
+                            {{ from_node }} -[:R]-> {{ to_node }}
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        </ul>
+        <button type="submit">Next</button>
+    </form>
+{% endblock %}
