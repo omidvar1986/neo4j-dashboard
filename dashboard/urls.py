@@ -17,4 +17,5 @@ urlpatterns = [
     path('check-node-duplicate/', views.check_node_duplicate, name='check_node_duplicate'),
     path('select-relationships/', views.select_relationships, name='select_relationships'),
     path('confirm-relationships/', views.confirm_relationships, name='confirm_relationships'),
+    path('explore-layers/', views.explore_layers, name='explore_layers'),
 ]

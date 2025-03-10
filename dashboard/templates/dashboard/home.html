@@ -1,21 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Welcome to Neo4j Dashboard</title>
-</head>
-<body>
-    {% extends 'dashboard/base.html' %}
-    {% block content %}
-        <header>
-            <h1></h1>
-        </header>
-        {% if predefined_queries %}
-            <h2>Predefined Queries</h2> 
-            {% for query in predefined_queries %}
-                <a href="{% url 'predefined_query_result' query.id %}" class="button">{{ query.name }}</a>
-            {% endfor %}
-        {% endif %}
-    {% endblock %}
-</body>
-</html>
+{% extends 'dashboard/base.html' %}
+{% block content %}
+    <nav style="background-color: #007bff; padding: 10px 0; margin-bottom: 20px;">
+        {% for option in options %}
+            <a href="{% url option.url %}" style="margin: 0 10px; padding: 10px 20px; background-color: #0056b3; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">
+                {{ option.name }}
+            </a>
+        {% endfor %}
+    </nav>
+
+    <!-- Predefined Queries Section -->
+    {% if predefined_queries %}
+        <div>
+            <h2>Predefined Queries</h2>
+            <ul>
+                {% for query in predefined_queries %}
+                    <li><a href="{% url 'predefined_query_result' query.id %}">{{ query.name }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends 'dashboard/base.html' %}
+{% block content %}
+    <h2>Explore Node Layers</h2>
+    <form method="post" style="margin-bottom: 20px;">
+        {% csrf_token %}
+        <div style="margin-bottom: 10px;">
+            <label for="node_name" style="margin-right: 10px;">Node Name:</label>
+            <input type="text" id="node_name" name="node_name" required>
+        </div>
+        <div style="margin-bottom: 10px;">
+            <label for="depth" style="margin-right: 10px;">Number of Layers:</label>
+            <input type="number" id="depth" name="depth" min="0" required>
+        </div>
+        <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px;">Explore</button>
+    </form>
+    {% if error %}
+        <p style="color: red;">{{ error }}</p>
+    {% endif %}
+    {% if result_json %}
+        <h3>Results</h3>
+        <pre>{{ result_json | safe }}</pre>
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+        <script>
+            const data = JSON.parse('{{ result_json | escapejs }}');
+            console.log(data);
+            // Add D3.js code here to render the graph if desired
+            const width = 800, height = 600;
+            const svg = d3.select("#graph").append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const simulation = d3.forceSimulation(data.nodes)
+                .force("link", d3.forceLink(data.edges).id(d => d.id).distance(100))
+                .force("charge", d3.forceManyBody().strength(-300))
+                .force("center", d3.forceCenter(width / 2, height / 2));
+
+            const link = svg.append("g")
+                .selectAll("line")
+                .data(data.edges)
+                .enter().append("line")
+                .attr("stroke", "#999")
+                .attr("stroke-opacity", 0.6);
+
+            const node = svg.append("g")
+                .selectAll("circle")
+                .data(data.nodes)
+                .enter().append("circle")
+                .attr("r", 5)
+                .attr("fill", "#69b3a2")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            node.append("title")
+                .text(d => d.label);
+
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+            });
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        </script>
+    {% endif %}
+    <a href="{% url 'home' %}" style="display: inline-block; margin-top: 20px; padding: 5px 10px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Back to Home</a>
+{% endblock %}
