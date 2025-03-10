@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -12,14 +13,30 @@ from django.contrib.auth.forms import UserCreationForm
 # Initialize logger
 logger = logging.getLogger('dashboard')
 
-# Neo4j driver setup
-driver = GraphDatabase.driver("bolt://neo4j:7687", auth=("neo4j", "password"))
+# Neo4j driver setup with connection check
+uri = os.getenv('NEO4J_URI', 'bolt://neo4j:7687')
+user = os.getenv('NEO4J_USER', 'neo4j')
+password = os.getenv('NEO4J_PASSWORD', 'password')
+driver = None
+
+def get_driver():
+    global driver
+    if driver is None or not driver.is_open():
+        try:
+            driver = GraphDatabase.driver(uri, auth=(user, password))
+            driver.verify_connectivity()
+            logger.info("Established new Neo4j connection at %s", uri)
+        except Exception as e:
+            logger.error("Failed to establish Neo4j connection at %s: %s", uri, str(e))
+            raise
+    return driver
 
 def get_existing_nodes():
     """Retrieve all existing node names from the database."""
     logger.debug("Entering get_existing_nodes")
     try:
-        with driver.session() as session:
+        with get_driver().session() as session:
+            logger.debug("Checking Neo4j connection before query")
             result = session.run("MATCH (n:Node) RETURN n.name AS name")
             nodes = [record["name"] for record in result]
             logger.debug("Retrieved existing nodes: %s", nodes)
@@ -163,9 +180,9 @@ def confirm_relations(request):
     existing_nodes = request.session.get('existing_nodes', [])
     relationships = request.session.get('relationships', [])
     logger.debug("Retrieved session data - nodes: %s, existing_nodes: %s, relationships: %s", nodes, existing_nodes, relationships)
-    if not nodes or not existing_nodes:
+    if not nodes or not existing_nodes or not relationships:
         messages.error(request, 'Session data missing. Please start over.')
-        logger.warning("Session data missing: nodes or existing_nodes not found")
+        logger.warning("Session data missing: nodes or existing_nodes or relationships not found")
         return redirect('add_nodes')
 
     if request.method == 'POST':
@@ -187,9 +204,9 @@ def confirm_relations(request):
                 )
                 cypher_query += relationship_clauses
 
-            logger.debug("Constructed Cypher query for execution: %s", cypher_query)
+            logger.debug("Checking Neo4j connection before query")
             try:
-                with driver.session() as session:
+                with get_driver().session() as session:
                     session.run(cypher_query)
                 messages.success(request, 'Nodes and relationships created successfully.')
                 logger.info("Nodes and relationships created successfully")
@@ -241,8 +258,9 @@ def manual_query(request):
             error = 'Please enter a Cypher query.'
             logger.warning("Validation failed: No query provided")
         else:
+            logger.debug("Checking Neo4j connection before query")
             try:
-                with driver.session() as session:
+                with get_driver().session() as session:
                     result = session.run(query)
                     nodes = []
                     edges = []
@@ -316,7 +334,8 @@ def predefined_query_result(request, query_id):
     try:
         query_obj = PredefinedQuery.objects.get(id=query_id)
         logger.debug("Retrieved predefined query: %s", query_obj.query)
-        with driver.session() as session:
+        logger.debug("Checking Neo4j connection before query")
+        with get_driver().session() as session:
             result = session.run(query_obj.query)
             nodes = []
             edges = []
@@ -424,9 +443,9 @@ def confirm_relationships(request):
             cypher_query += "\nCREATE " + ", CREATE ".join(
                 [f"({rel[0].replace(' ', '_')})-[:R]->({rel[1].replace(' ', '_')})" for rel in relationships]
             )
-            logger.debug("Constructed Cypher query for execution: %s", cypher_query)
+            logger.debug("Checking Neo4j connection before query")
             try:
-                with driver.session() as session:
+                with get_driver().session() as session:
                     session.run(cypher_query)
                 messages.success(request, 'Relationships created successfully.')
                 logger.info("Relationships created successfully")
@@ -471,7 +490,8 @@ def explore_layers(request):
                     error = 'Depth must be a non-negative integer.'
                     logger.warning("Validation failed: Depth is negative (%d)", depth)
                 else:
-                    with driver.session() as session:
+                    with get_driver().session() as session:
+                        logger.debug("Checking Neo4j connection before query")
                         query = """
                             MATCH (start:Node)
                             WHERE start.name = $node_name
