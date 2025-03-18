@@ -7,8 +7,8 @@ from django.contrib import messages
 from django.http import JsonResponse
 from neo4j import GraphDatabase
 from .models import PredefinedQuery
-from django.contrib.auth import login
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login, authenticate
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 
 # Initialize logger
 logger = logging.getLogger('dashboard')
@@ -17,19 +17,31 @@ logger = logging.getLogger('dashboard')
 uri = os.getenv('NEO4J_URI', 'bolt://neo4j:7687')
 user = os.getenv('NEO4J_USER', 'neo4j')
 password = os.getenv('NEO4J_PASSWORD', 'password')
-driver = None
+
+
+logger = logging.getLogger(__name__)
+driver = None  # Global driver instance (will be reset per request in Django)
 
 def get_driver():
     global driver
-    if driver is None or not driver.is_open():
+    if driver is None:
         try:
             driver = GraphDatabase.driver(uri, auth=(user, password))
-            driver.verify_connectivity()
+            driver.verify_connectivity()  # Ensure the connection is valid
             logger.info("Established new Neo4j connection at %s", uri)
         except Exception as e:
             logger.error("Failed to establish Neo4j connection at %s: %s", uri, str(e))
             raise
     return driver
+
+# Ensure the driver is closed after each request (Django middleware or context manager)
+def close_driver():
+    global driver
+    if driver is not None:
+        driver.close()
+        logger.info("Closed Neo4j connection at %s", uri)
+        driver = None
+        
 
 def get_existing_nodes():
     """Retrieve all existing node names from the database."""
@@ -45,6 +57,7 @@ def get_existing_nodes():
         logger.error("Error retrieving existing nodes: %s", str(e))
         return []
 
+@login_required
 def home(request):
     """Display the home page with navigation options."""
     logger.debug("Entering home view with request method: %s", request.method)
@@ -59,8 +72,10 @@ def home(request):
     return render(request, 'dashboard/home.html', {
         'options': options,
         'predefined_queries': predefined_queries,
+        'user': request.user,  # Added for template consistency
     })
 
+@login_required
 def add_nodes(request):
     """Add new nodes to the database."""
     logger.debug("Entering add_nodes view with request method: %s", request.method)
@@ -86,6 +101,7 @@ def add_nodes(request):
     logger.debug("Rendering add_nodes.html")
     return render(request, 'dashboard/add_nodes.html')
 
+@login_required
 def relationship_option(request):
     """Ask if the user wants to add relationships between nodes."""
     logger.debug("Entering relationship_option view with request method: %s", request.method)
@@ -111,6 +127,7 @@ def relationship_option(request):
     logger.debug("Rendering relationship_option.html with nodes: %s", nodes)
     return render(request, 'dashboard/relationship_option.html', {'nodes': nodes})
 
+@login_required
 def input_existing_nodes(request):
     """Allow user to input existing nodes for relationships."""
     logger.debug("Entering input_existing_nodes view with request method: %s", request.method)
@@ -141,6 +158,7 @@ def input_existing_nodes(request):
         'existing_nodes': existing_nodes,
     })
 
+@login_required
 def define_new_node_relations(request):
     """Define relationships between new and existing nodes."""
     logger.debug("Entering define_new_node_relations view with request method: %s", request.method)
@@ -173,6 +191,7 @@ def define_new_node_relations(request):
         'all_nodes': all_nodes,
     })
 
+@login_required
 def confirm_relations(request):
     """Display and confirm the Cypher query before execution."""
     logger.debug("Entering confirm_relations view with request method: %s", request.method)
@@ -246,8 +265,9 @@ def confirm_relations(request):
         'cypher_query': cypher_query
     })
 
+@login_required
 def manual_query(request):
-    """Execute a manual Cypher query."""
+    """Execute a manual Cypher query and display the result as a graph."""
     logger.debug("Entering manual_query view with request method: %s", request.method)
     result = None
     error = None
@@ -264,16 +284,33 @@ def manual_query(request):
                     result = session.run(query)
                     nodes = []
                     edges = []
+                    seen_nodes = set()  # To avoid duplicate nodes
                     for record in result:
+                        logger.debug("Record values: %s", list(record.values()))
                         for item in record.values():
+                            # Handle nodes
                             if isinstance(item, dict):
-                                if 'name' in item:
-                                    node_id = item['name'].replace(' ', '_')
-                                    nodes.append({'id': node_id, 'label': item['name']})
+                                node_prop = item.get('name') or item.get('title') or item.get('id')
+                                if node_prop:
+                                    node_id = str(node_prop).replace(' ', '_')
+                                    if node_id not in seen_nodes:
+                                        nodes.append({'id': node_id, 'label': node_prop, 'x': None, 'y': None})
+                                        seen_nodes.add(node_id)
+                            # Handle relationships
                             elif hasattr(item, 'start_node') and hasattr(item, 'end_node'):
-                                source = item.start_node.get('name', '').replace(' ', '_')
-                                target = item.end_node.get('name', '').replace(' ', '_')
-                                edges.append({'id': f"{source}_{target}", 'source': source, 'target': target, 'label': 'R'})
+                                source_prop = item.start_node.get('name') or item.start_node.get('title') or item.start_node.get('id')
+                                target_prop = item.end_node.get('name') or item.end_node.get('title') or item.end_node.get('id')
+                                if source_prop and target_prop:
+                                    source_id = str(source_prop).replace(' ', '_')
+                                    target_id = str(target_prop).replace(' ', '_')
+                                    # Ensure nodes are added even if not explicitly returned
+                                    if source_id not in seen_nodes:
+                                        nodes.append({'id': source_id, 'label': source_prop, 'x': None, 'y': None})
+                                        seen_nodes.add(source_id)
+                                    if target_id not in seen_nodes:
+                                        nodes.append({'id': target_id, 'label': target_prop, 'x': None, 'y': None})
+                                        seen_nodes.add(target_id)
+                                    edges.append({'id': f"{source_id}_{target_id}", 'source': source_id, 'target': target_id, 'label': 'R'})
                     result = {'nodes': nodes, 'edges': edges}
                     logger.debug("Manual query result: %s", json.dumps(result, indent=2))
             except Exception as e:
@@ -328,6 +365,7 @@ def delete_predefined_query(request, query_id):
         logger.error("Error deleting predefined query: %s", str(e))
     return redirect('admin_queries')
 
+@login_required
 def predefined_query_result(request, query_id):
     """Execute a predefined query and display the result."""
     logger.debug("Entering predefined_query_result view with query_id: %d", query_id)
@@ -339,16 +377,29 @@ def predefined_query_result(request, query_id):
             result = session.run(query_obj.query)
             nodes = []
             edges = []
+            seen_nodes = set()  # To avoid duplicates
             for record in result:
                 for item in record.values():
                     if isinstance(item, dict):
-                        if 'name' in item:
-                            node_id = item['name'].replace(' ', '_')
-                            nodes.append({'id': node_id, 'label': item['name']})
+                        node_prop = item.get('name') or item.get('title') or item.get('id')
+                        if node_prop:
+                            node_id = str(node_prop).replace(' ', '_')
+                            if node_id not in seen_nodes:
+                                nodes.append({'id': node_id, 'label': node_prop, 'x': None, 'y': None})
+                                seen_nodes.add(node_id)
                     elif hasattr(item, 'start_node') and hasattr(item, 'end_node'):
-                        source = item.start_node.get('name', '').replace(' ', '_')
-                        target = item.end_node.get('name', '').replace(' ', '_')
-                        edges.append({'id': f"{source}_{target}", 'source': source, 'target': target, 'label': 'R'})
+                        source_prop = item.start_node.get('name') or item.start_node.get('title') or item.start_node.get('id')
+                        target_prop = item.end_node.get('name') or item.end_node.get('title') or item.end_node.get('id')
+                        if source_prop and target_prop:
+                            source_id = str(source_prop).replace(' ', '_')
+                            target_id = str(target_prop).replace(' ', '_')
+                            if source_id not in seen_nodes:
+                                nodes.append({'id': source_id, 'label': source_prop, 'x': None, 'y': None})
+                                seen_nodes.add(source_id)
+                            if target_id not in seen_nodes:
+                                nodes.append({'id': target_id, 'label': target_prop, 'x': None, 'y': None})
+                                seen_nodes.add(target_id)
+                            edges.append({'id': f"{source_id}_{target_id}", 'source': source_id, 'target': target_id, 'label': 'R'})
             result = {'nodes': nodes, 'edges': edges}
             logger.debug("Predefined query result: %s", json.dumps(result, indent=2))
     except PredefinedQuery.DoesNotExist:
@@ -385,6 +436,31 @@ def register(request):
     logger.debug("Rendering register.html with form")
     return render(request, 'dashboard/register.html', {'form': form})
 
+def user_login(request):
+    """Handle user login."""
+    logger.debug("Entering user_login view with request method: %s", request.method)
+    if request.method == 'POST':
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password')
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                login(request, user)
+                messages.success(request, f'Welcome back, {username}!')
+                logger.info("User logged in successfully: %s", username)
+                return redirect('home')
+            else:
+                messages.error(request, 'Invalid username or password.')
+                logger.warning("Login failed: Invalid username or password for %s", username)
+        else:
+            logger.warning("Login form invalid: %s", form.errors)
+    else:
+        form = AuthenticationForm()
+    logger.debug("Rendering login.html with form")
+    return render(request, 'dashboard/login.html', {'form': form})
+
+@login_required
 def check_node_duplicate(request):
     """Check if a node name already exists."""
     logger.debug("Entering check_node_duplicate view with request method: %s", request.method)
@@ -395,6 +471,7 @@ def check_node_duplicate(request):
     logger.debug("Node exists: %s", exists)
     return JsonResponse({'exists': exists})
 
+@login_required
 def select_relationships(request):
     """Select relationships between nodes."""
     logger.debug("Entering select_relationships view with request method: %s", request.method)
@@ -422,6 +499,7 @@ def select_relationships(request):
     logger.debug("Rendering select_relationships.html with all_nodes: %s", all_nodes)
     return render(request, 'dashboard/select_relationships.html', {'all_nodes': all_nodes})
 
+@login_required
 def confirm_relationships(request):
     """Confirm relationships before saving."""
     logger.debug("Entering confirm_relationships view with request method: %s", request.method)
@@ -522,7 +600,7 @@ def explore_layers(request):
                             })
 
                         result = {
-                            'nodes': [{'id': data['id'], 'label': data['label']} for data in nodes.values()],
+                            'nodes': [{'id': data['id'], 'label': data['label'], 'x': None, 'y': None} for data in nodes.values()],
                             'edges': edges
                         }
                         logger.debug("Result JSON: %s", json.dumps(result, indent=2))

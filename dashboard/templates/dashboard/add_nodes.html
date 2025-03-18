@@ -1,80 +1,112 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Add New Nodes</title>
-</head>
-<body>
-    {% extends 'dashboard/base.html' %}
-    {% block header %}{% endblock %}  <!-- Suppress the header (Neo4j Dashboard title) -->
-    {% block nav %}{% endblock %}     <!-- Suppress the navigation (options) -->
-    {% block content %}
-        <div id="back-to-home" style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
-            <a href="{% url 'home' %}" class="button">Back to Home</a>
-        </div>
-        <h1>Enter New Nodes</h1>
-        <!-- Display duplicate nodes message if present (from form submission) -->
-        {% if duplicate_nodes %}
-            <p style="color: red;">The following nodes already exist: {{ duplicate_nodes|join:", " }}. Please use unique names.</p>
-        {% endif %}
-        <form method="post" id="nodes-form">
-            {% csrf_token %}
-            <div id="nodes-container"></div>
-            <button type="button" onclick="addNodeField()">Add Node</button>
-            <button type="submit">Finish Adding Nodes</button>
-        </form>
-        <!-- Real-time duplicate feedback -->
-        <div id="duplicate-feedback" style="color: red; margin-top: 10px;"></div>
-        <script>
-            let nodeCount = 0;
+{% extends 'dashboard/base.html' %}
+{% block header %}{% endblock %}  <!-- Suppress the header (Neo4j Dashboard title) -->
+{% block nav %}{% endblock %}     <!-- Suppress the navigation (options) -->
+{% block content %}
+    <!-- Back to Home Button -->
+    <div style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
+        <a href="{% url 'home' %}" style="padding: 5px 10px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; cursor: pointer;">Back to Home</a>
+    </div>
 
-            async function checkDuplicate(nodeName) {
-                if (nodeName) {
-                    const response = await fetch('/check-node-duplicate/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: 'node_name=' + encodeURIComponent(nodeName)
-                    });
-                    const data = await response.json();
-                    return data;
+    <h2>Enter New Nodes</h2>
+
+    <!-- Messages and Duplicate Feedback -->
+    {% if messages %}
+        <div style="margin-bottom: 20px;">
+            {% for message in messages %}
+                <div style="padding: 10px; background-color: {% if message.tags == 'success' %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if message.tags == 'success' %}#155724{% else %}#721c24{% endif %}; border: 1px solid {% if message.tags == 'success' %}#c3e6cb{% else %}#f5c6cb{% endif %}; border-radius: 5px;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% if duplicate_nodes %}
+        <p style="color: #dc3545; margin-bottom: 20px;">The following nodes already exist: {{ duplicate_nodes|join:", " }}. Please use unique names.</p>
+    {% endif %}
+    <div id="duplicate-feedback" style="color: #dc3545; margin-top: 10px;"></div>
+
+    <!-- Node Form -->
+    <form method="post" id="nodes-form" style="max-width: 600px;">
+        {% csrf_token %}
+        <div id="nodes-container"></div>
+        <div style="margin-top: 10px;">
+            <button type="button" onclick="addNodeField()" style="padding: 5px 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Add Node</button>
+            <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Finish Adding Nodes</button>
+        </div>
+    </form>
+
+    <script>
+        let nodeCount = 0;
+
+        async function checkDuplicate(nodeName) {
+            if (nodeName) {
+                const response = await fetch('/check-node-duplicate/?node_name=' + encodeURIComponent(nodeName), {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                return data.exists ? { exists: true, message: `Node '${nodeName}' already exists` } : { exists: false, message: '' };
+            }
+            return { exists: false, message: '' };
+        }
+
+        async function addNodeField() {
+            const container = document.getElementById('nodes-container');
+            const lastInput = container.lastElementChild ? container.lastElementChild.querySelector('input') : null;
+            const nodeName = lastInput ? lastInput.value.trim() : '';
+
+            if (nodeName) {
+                const result = await checkDuplicate(nodeName);
+                if (result.exists) {
+                    document.getElementById('duplicate-feedback').textContent = result.message + '. Cannot add duplicate node.';
+                    return; // Prevent adding the field if duplicate
+                } else {
+                    document.getElementById('duplicate-feedback').textContent = '';
                 }
-                return { exists: false, message: '' };
             }
 
-            async function addNodeField() {
-                // Get the value from the last input field, if any
-                const container = document.getElementById('nodes-container');
-                const lastInput = container.lastElementChild ? container.lastElementChild.querySelector('input') : null;
-                const nodeName = lastInput ? lastInput.value.trim() : '';
-
-                if (nodeName) {
-                    const result = await checkDuplicate(nodeName);
-                    if (result.exists) {
-                        document.getElementById('duplicate-feedback').textContent = result.message + '. Cannot add duplicate node.';
-                        return; // Prevent adding the field if duplicate
-                    } else {
-                        document.getElementById('duplicate-feedback').textContent = '';
-                    }
+            nodeCount++;
+            const nodeItem = document.createElement('div');
+            nodeItem.className = 'node-item';
+            nodeItem.id = 'node-' + nodeCount;
+            nodeItem.style.display = 'flex';
+            nodeItem.style.alignItems = 'center';
+            nodeItem.style.marginBottom = '10px';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = 'nodes';
+            input.placeholder = 'Node Name';
+            input.style.padding = '5px';
+            input.style.border = '1px solid #ccc';
+            input.style.borderRadius = '4px';
+            input.style.marginRight = '10px';
+            input.required = true;
+            input.onblur = async function() {
+                const checkResult = await checkDuplicate(input.value);
+                if (checkResult.exists) {
+                    document.getElementById('duplicate-feedback').textContent = checkResult.message + '. Cannot add duplicate node.';
+                    nodeItem.classList.add('duplicate');
+                } else {
+                    document.getElementById('duplicate-feedback').textContent = '';
+                    nodeItem.classList.remove('duplicate');
                 }
-
-                nodeCount++;
-                const nodeItem = document.createElement('div');
-                nodeItem.className = 'node-item';
-                nodeItem.id = 'node-' + nodeCount;
-                nodeItem.style.display = 'flex';
-                nodeItem.style.alignItems = 'center';
-                nodeItem.style.marginBottom = '5px';
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.name = 'nodes';
-                input.placeholder = 'Node Name';
-                input.style.marginRight = '10px';
-                input.required = true;
-                input.onblur = async function() {
-                    const checkResult = await checkDuplicate(input.value);
+            };
+            const renameButton = document.createElement('button');
+            renameButton.type = 'button';
+            renameButton.textContent = 'Rename';
+            renameButton.style.padding = '5px 10px';
+            renameButton.style.backgroundColor = '#007bff';
+            renameButton.style.color = 'white';
+            renameButton.style.border = 'none';
+            renameButton.style.borderRadius = '5px';
+            renameButton.style.cursor = 'pointer';
+            renameButton.style.marginRight = '5px';
+            renameButton.onclick = async function() {
+                const newName = prompt('Enter new name:', input.value);
+                if (newName) {
+                    input.value = newName;
+                    const checkResult = await checkDuplicate(newName);
                     if (checkResult.exists) {
                         document.getElementById('duplicate-feedback').textContent = checkResult.message + '. Cannot add duplicate node.';
                         nodeItem.classList.add('duplicate');
@@ -82,46 +114,35 @@
                         document.getElementById('duplicate-feedback').textContent = '';
                         nodeItem.classList.remove('duplicate');
                     }
-                };
-                const renameButton = document.createElement('button');
-                renameButton.type = 'button';
-                renameButton.textContent = 'Rename';
-                renameButton.onclick = async function() {
-                    const newName = prompt('Enter new name:', input.value);
-                    if (newName) {
-                        input.value = newName;
-                        const checkResult = await checkDuplicate(newName);
-                        if (checkResult.exists) {
-                            document.getElementById('duplicate-feedback').textContent = checkResult.message + '. Cannot add duplicate node.';
-                            nodeItem.classList.add('duplicate');
-                        } else {
-                            document.getElementById('duplicate-feedback').textContent = '';
-                            nodeItem.classList.remove('duplicate');
-                        }
-                    }
-                };
-                const deleteButton = document.createElement('button');
-                deleteButton.type = 'button';
-                deleteButton.textContent = 'Delete';
-                deleteButton.onclick = function() {
-                    container.removeChild(nodeItem);
-                    document.getElementById('duplicate-feedback').textContent = '';
-                };
-                nodeItem.appendChild(input);
-                nodeItem.appendChild(renameButton);
-                nodeItem.appendChild(deleteButton);
-                container.appendChild(nodeItem);
-            }
-
-            window.onload = function() {
-                addNodeField();
+                }
             };
-        </script>
-        <style>
-            .duplicate input {
-                border: 2px solid red;
-            }
-        </style>
-    {% endblock %}
-</body>
-</html>
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.textContent = 'Delete';
+            deleteButton.style.padding = '5px 10px';
+            deleteButton.style.backgroundColor = '#dc3545';
+            deleteButton.style.color = 'white';
+            deleteButton.style.border = 'none';
+            deleteButton.style.borderRadius = '5px';
+            deleteButton.style.cursor = 'pointer';
+            deleteButton.onclick = function() {
+                container.removeChild(nodeItem);
+                document.getElementById('duplicate-feedback').textContent = '';
+            };
+            nodeItem.appendChild(input);
+            nodeItem.appendChild(renameButton);
+            nodeItem.appendChild(deleteButton);
+            container.appendChild(nodeItem);
+        }
+
+        window.onload = function() {
+            addNodeField();
+        };
+    </script>
+
+    <style>
+        .duplicate input {
+            border: 2px solid #dc3545;
+        }
+    </style>
+{% endblock %}

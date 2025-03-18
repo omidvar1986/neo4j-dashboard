@@ -1,7 +1,11 @@
 from django.urls import path
 from . import views
+from django.contrib.auth import views as auth_views
+# from django.urls import path, include
+
 
 urlpatterns = [
+    
     path('', views.home, name='home'),
     path('add-nodes/', views.add_nodes, name='add_nodes'),
     path('relationship-option/', views.relationship_option, name='relationship_option'),
@@ -18,4 +22,8 @@ urlpatterns = [
     path('select-relationships/', views.select_relationships, name='select_relationships'),
     path('confirm-relationships/', views.confirm_relationships, name='confirm_relationships'),
     path('explore-layers/', views.explore_layers, name='explore_layers'),
+    path('login/', views.user_login, name='login'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
+
+
 ]

@@ -1,29 +1,44 @@
 {% extends 'dashboard/base.html' %}
 {% block content %}
     <h2>Explore Node Layers</h2>
+    <!-- Messages Section -->
+    {% if messages %}
+        <div style="margin-bottom: 20px;">
+            {% for message in messages %}
+                <div style="padding: 10px; background-color: {% if message.tags == 'success' %}#d4edda{% else %}#f8d7da{% endif %}; color: #155724; border: 1px solid {% if message.tags == 'success' %}#c3e6cb{% else %}#f5c6cb{% endif %}; border-radius: 5px;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Exploration Form -->
     <form method="post" style="margin-bottom: 20px;">
         {% csrf_token %}
         <div style="margin-bottom: 10px;">
-            <label for="node_name" style="margin-right: 10px;">Node Name:</label>
-            <input type="text" id="node_name" name="node_name" required>
+            <label for="node_name" style="margin-right: 10px; color: #333;">Node Name:</label>
+            <input type="text" id="node_name" name="node_name" required style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
         </div>
         <div style="margin-bottom: 10px;">
-            <label for="depth" style="margin-right: 10px;">Number of Layers:</label>
-            <input type="number" id="depth" name="depth" min="0" required>
+            <label for="depth" style="margin-right: 10px; color: #333;">Number of Layers:</label>
+            <input type="number" id="depth" name="depth" min="0" required style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
         </div>
-        <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px;">Explore</button>
+        <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Explore</button>
     </form>
+
+    <!-- Error Display -->
     {% if error %}
-        <p style="color: red;">{{ error }}</p>
+        <p style="color: #dc3545; margin-bottom: 20px;">{{ error }}</p>
     {% endif %}
+
+    <!-- Results Section -->
     {% if result_json %}
         <h3>Results</h3>
-        <pre>{{ result_json | safe }}</pre>
+        <div id="graph" style="margin-bottom: 20px;"></div>
         <script src="https://d3js.org/d3.v7.min.js"></script>
         <script>
             const data = JSON.parse('{{ result_json | escapejs }}');
             console.log(data);
-            // Add D3.js code here to render the graph if desired
             const width = 800, height = 600;
             const svg = d3.select("#graph").append("svg")
                 .attr("width", width)
@@ -85,5 +100,7 @@
             }
         </script>
     {% endif %}
-    <a href="{% url 'home' %}" style="display: inline-block; margin-top: 20px; padding: 5px 10px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Back to Home</a>
+
+    <!-- Back to Home Button -->
+    <a href="{% url 'home' %}" style="display: inline-block; margin-top: 20px; padding: 5px 10px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; cursor: pointer;">Back to Home</a>
 {% endblock %}

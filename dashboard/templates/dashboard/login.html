@@ -1,6 +1,6 @@
 {% extends 'dashboard/base.html' %}
 {% block content %}
-    <h2>Register</h2>
+    <h2>Login</h2>
 
     <!-- Messages Section -->
     {% if messages %}
@@ -13,10 +13,16 @@
         </div>
     {% endif %}
 
-    <!-- Registration Form -->
+    <!-- Login Form -->
     <form method="post" style="max-width: 400px;">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Register</button>
+        <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Login</button>
     </form>
+
+    <!-- Register Link -->
+    <p style="margin-top: 10px;">
+        Don't have an account? 
+        <a href="{% url 'register' %}" style="color: #007bff; text-decoration: none;">Register</a>
+    </p>
 {% endblock %}

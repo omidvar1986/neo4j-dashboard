@@ -1,142 +1,148 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Manual Query Execution</title>
-</head>
-<body>
-    {% extends 'dashboard/base.html' %}
-    {% block content %}
-        <h1>Execute Manual Query</h1>
-        <form method="post">
-            {% csrf_token %}
-            <textarea name="query" rows="5" cols="60" placeholder="Enter Cypher query (e.g., MATCH (n)-[r]->(m) RETURN n,r,m)">{{ query }}</textarea><br>
-            <button type="submit">Run Query</button>
-        </form>
-        {% if error %}<p class="error">{{ error }}</p>{% endif %}
-        {% if result_json %}
-            <div id="graph" style="width: 100%; max-width: 2000px; height: 600px; border: 1px solid #5c5858; overflow: auto; margin: 0 auto;"></div>
-            <script src="https://d3js.org/d3.v7.min.js"></script>
-            <script>
-                const data = {{ result_json|safe }};
-                    if (data && data.nodes && data.edges) {
-                        if (data.nodes.length === 0 && data.edges.length === 0) {
-                            alert("No nodes or relationships found in the result.");}
-                        else {
-                            const width = window.innerWidth - 100,  // Responsive width, max 1000px
-                                height = 600;
-    
-                        const svg = d3.select("#graph")
-                            .append("svg")
-                            .attr("width", width)
-                            .attr("height", height);
-    
-                        // Scale nodes and edges to fit within bounds
-                        const scaleFactor = Math.min(width / 1000, height / 600);
-                        const scaledNodes = data.nodes.map(d => ({
-                            ...d,
-                            x: d.x * scaleFactor || Math.random() * width,
-                            y: d.y * scaleFactor || Math.random() * height
-                        }));
-                        const scaledEdges = data.edges.map(d => ({
-                            ...d,
-                            source: scaledNodes.find(n => n.id === d.source),
-                            target: scaledNodes.find(n => n.id === d.target)
-                        }));
-    
-                        const simulation = d3.forceSimulation(scaledNodes)
-                            .force("link", d3.forceLink(scaledEdges).id(d => d.id).distance(100 * scaleFactor))
-                            .force("charge", d3.forceManyBody().strength(-100 * scaleFactor))  // Reduced strength
-                            .force("collide", d3.forceCollide(20 * scaleFactor))  // Prevent overlap
-                            .force("center", d3.forceCenter(width / 2, height / 2))
-                            .alphaDecay(0.02);  // Slow down decay for better settling
-    
-                        const link = svg.append("g")
-                            .selectAll("line")
-                            .data(scaledEdges)
-                            .enter().append("line")
-                            .attr("stroke", "#999")
-                            .attr("stroke-opacity", 0.6)
-                            .attr("stroke-width", 2);
-    
-                        const node = svg.append("g")
-                            .selectAll("circle")
-                            .data(scaledNodes)
-                            .enter().append("circle")
-                            .attr("r", 15 * scaleFactor)
-                            .attr("fill", "#69b3a2")
-                            .call(d3.drag()
-                                .on("start", dragstarted)
-                                .on("drag", dragged)
-                                .on("end", dragended));
-    
-                        node.append("title").text(d => d.label);
-    
-                        const linkText = svg.append("g")
-                            .selectAll("text")
-                            .data(scaledEdges)
-                            .enter().append("text")
-                            .text(d => d.label || "RELATED_TO")
-                            .attr("font-size", 12 * scaleFactor)
-                            .attr("fill", "#333")
-                            .attr("text-anchor", "middle")
-                            .attr("dy", -5 * scaleFactor);
-    
-                        const nodeText = svg.append("g")
-                            .selectAll("text")
-                            .data(scaledNodes)
-                            .enter().append("text")
-                            .text(d => d.label)
-                            .attr("dx", 20 * scaleFactor)
-                            .attr("dy", ".35em")
-                            .attr("font-size", 14 * scaleFactor)
-                            .attr("fill", "#333");
-    
-                        simulation.on("tick", () => {
-                            link.attr("x1", d => Math.max(10, Math.min(width - 10, d.source.x)))
-                                .attr("y1", d => Math.max(10, Math.min(height - 10, d.source.y)))
-                                .attr("x2", d => Math.max(10, Math.min(width - 10, d.target.x)))
-                                .attr("y2", d => Math.max(10, Math.min(height - 10, d.target.y)));
-    
-                            node.attr("cx", d => Math.max(10, Math.min(width - 10, d.x)))
-                                .attr("cy", d => Math.max(10, Math.min(height - 10, d.y)));
-    
-                            linkText.attr("x", d => Math.max(10, Math.min(width - 10, (d.source.x + d.target.x) / 2)))
-                                .attr("y", d => Math.max(10, Math.min(height - 10, (d.source.y + d.target.y) / 2)));
-    
-                            nodeText.attr("x", d => Math.max(20, Math.min(width - 20, d.x)))
-                                .attr("y", d => Math.max(20, Math.min(height - 20, d.y)));
-                        });
-    
-                        function dragstarted(event, d) {
-                            if (!event.active) simulation.alphaTarget(0.3).restart();
-                            d.fx = Math.max(10, Math.min(width - 10, d.x));
-                            d.fy = Math.max(10, Math.min(height - 10, d.y));
-                        }
-    
-                        function dragged(event, d) {
-                            d.fx = Math.max(10, Math.min(width - 10, event.x));
-                            d.fy = Math.max(10, Math.min(height - 10, event.y));
-                            simulation.alpha(0.3).restart();  // Ensure immediate visual update
-                        }
-    
-                        function dragended(event, d) {
-                            if (!event.active) simulation.alphaTarget(0);
-                            d.fx = null;
-                            d.fy = null;
-                        }
-                        }
-                    } 
-            </script>
-        {% endif %}
-        {% if saved_queries %}
-            <h3>Recent Queries</h3>
-            <ul style="list-style-type: none; padding: 0;">
-                {% for sq in saved_queries %}
-                    <li style="margin: 5px 0;">{{ sq.query }} ({{ sq.executed_at }})</li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-    {% endblock %}
-</body>
-</html>
+{% extends 'dashboard/base.html' %}
+{% block content %}
+    <h2>Execute Manual Query</h2>
+    <!-- Query Form -->
+    <form method="post" style="margin-bottom: 20px;">
+        {% csrf_token %}
+        <div style="margin-bottom: 10px;">
+            <label for="query" style="margin-right: 10px; color: #333;">Enter Cypher Query:</label><br>
+            <textarea id="query" name="query" rows="5" cols="60" placeholder="Enter Cypher query (e.g., MATCH (n)-[r]->(m) RETURN n,r,m)" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;"></textarea>
+        </div>
+        <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Run Query</button>
+    </form>
+
+    <!-- Error Display -->
+    {% if error %}
+        <p style="color: #dc3545; margin-bottom: 20px;">{{ error }}</p>
+    {% endif %}
+
+    <!-- Results Section -->
+    {% if result_json %}
+        <h3>Query Results</h3>
+        <div id="graph" style="width: 100%; max-width: 2005px; height: 600px; border: 1px solid #5c5858; overflow: auto; margin: 3 auto;"></div>
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+        <script>
+            const data = {{ result_json|safe }};
+            console.log("Graph Data:", data); // Debug: Log the data to the console
+
+            if (data && data.nodes && data.edges) {
+                if (data.nodes.length === 0 && data.edges.length === 0) {
+                    d3.select("#graph").append("p")
+                        .text("No nodes or relationships found in the result.")
+                        .style("color", "#dc3545")
+                        .style("text-align", "center")
+                        .style("margin-top", "20px");
+                } else {
+                    const width = Math.min(window.innerWidth - 110, 2005); // Responsive width
+                    const height = 600;
+
+                    const svg = d3.select("#graph")
+                        .append("svg")
+                        .attr("width", width)
+                        .attr("height", height);
+
+                    // Scale nodes and edges to fit within bounds
+                    const scaleFactor = Math.min(width / 1000, height / 600);
+                    const scaledNodes = data.nodes.map(d => ({
+                        ...d,
+                        x: d.x ? d.x * scaleFactor : Math.random() * width,
+                        y: d.y ? d.y * scaleFactor : Math.random() * height
+                    }));
+                    const scaledEdges = data.edges.map(d => ({
+                        ...d,
+                        source: scaledNodes.find(n => n.id === d.source),
+                        target: scaledNodes.find(n => n.id === d.target)
+                    }));
+
+                    const simulation = d3.forceSimulation(scaledNodes)
+                        .force("link", d3.forceLink(scaledEdges).id(d => d.id).distance(100 * scaleFactor))
+                        .force("charge", d3.forceManyBody().strength(-100 * scaleFactor))
+                        .force("collide", d3.forceCollide(20 * scaleFactor))
+                        .force("center", d3.forceCenter(width / 2, height / 2))
+                        .alphaDecay(0.02);
+
+                    const link = svg.append("g")
+                        .selectAll("line")
+                        .data(scaledEdges)
+                        .enter().append("line")
+                        .attr("stroke", "#999")
+                        .attr("stroke-opacity", 0.6)
+                        .attr("stroke-width", 2);
+
+                    const node = svg.append("g")
+                        .selectAll("circle")
+                        .data(scaledNodes)
+                        .enter().append("circle")
+                        .attr("r", 15 * scaleFactor)
+                        .attr("fill", "#69b3a2")
+                        .call(d3.drag()
+                            .on("start", dragstarted)
+                            .on("drag", dragged)
+                            .on("end", dragended));
+
+                    node.append("title").text(d => d.label);
+
+                    const linkText = svg.append("g")
+                        .selectAll("text")
+                        .data(scaledEdges)
+                        .enter().append("text")
+                        .text(d => d.label || "RELATED_TO")
+                        .attr("font-size", 12 * scaleFactor)
+                        .attr("fill", "#333")
+                        .attr("text-anchor", "middle")
+                        .attr("dy", -5 * scaleFactor);
+
+                    const nodeText = svg.append("g")
+                        .selectAll("text")
+                        .data(scaledNodes)
+                        .enter().append("text")
+                        .text(d => d.label)
+                        .attr("dx", 20 * scaleFactor)
+                        .attr("dy", ".35em")
+                        .attr("font-size", 14 * scaleFactor)
+                        .attr("fill", "#333");
+
+                    simulation.on("tick", () => {
+                        link.attr("x1", d => Math.max(10, Math.min(width - 10, d.source.x)))
+                            .attr("y1", d => Math.max(10, Math.min(height - 10, d.source.y)))
+                            .attr("x2", d => Math.max(10, Math.min(width - 10, d.target.x)))
+                            .attr("y2", d => Math.max(10, Math.min(height - 10, d.target.y)));
+
+                        node.attr("cx", d => Math.max(10, Math.min(width - 10, d.x)))
+                            .attr("cy", d => Math.max(10, Math.min(height - 10, d.y)));
+
+                        linkText.attr("x", d => Math.max(10, Math.min(width - 10, (d.source.x + d.target.x) / 2)))
+                            .attr("y", d => Math.max(10, Math.min(height - 10, (d.source.y + d.target.y) / 2)));
+
+                        nodeText.attr("x", d => Math.max(20, Math.min(width - 20, d.x)))
+                            .attr("y", d => Math.max(20, Math.min(height - 20, d.y)));
+                    });
+
+                    function dragstarted(event, d) {
+                        if (!event.active) simulation.alphaTarget(0.3).restart();
+                        d.fx = Math.max(10, Math.min(width - 10, d.x));
+                        d.fy = Math.max(10, Math.min(height - 10, d.y));
+                    }
+
+                    function dragged(event, d) {
+                        d.fx = Math.max(10, Math.min(width - 10, event.x));
+                        d.fy = Math.max(10, Math.min(height - 10, event.y));
+                        simulation.alpha(0.3).restart();
+                    }
+
+                    function dragended(event, d) {
+                        if (!event.active) simulation.alphaTarget(0);
+                        d.fx = null;
+                        d.fy = null;
+                    }
+                }
+            } else {
+                d3.select("#graph").append("p")
+                    .text("Invalid query result format.")
+                    .style("color", "#dc3545")
+                    .style("text-align", "center")
+                    .style("margin-top", "20px");
+            }
+        </script>
+    {% endif %}
+{% endblock %}

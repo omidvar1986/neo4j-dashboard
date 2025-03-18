@@ -25,12 +25,38 @@
         .btn:hover {
             background-color: #0056b3;
         }
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .user-info {
+            color: #333;
+            font-weight: bold;
+        }
+        .logout-btn {
+            padding: 5px 10px;
+            background-color: #dc3545;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
     </style>
     <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
-    <div style="margin-bottom: 20px;">
+    <div class="nav-container">
         <h1>Neo4j Dashboard</h1>
+        {% if user.is_authenticated %}
+            <div class="user-info">
+                Welcome, {{ user.username }}! 
+                <a href="{% url 'logout' %}" class="logout-btn">Logout</a>
+            </div>
+        {% endif %}
     </div>
     {% if messages %}
         {% for message in messages %}
@@ -41,6 +67,8 @@
     {% endif %}
     {% block content %}
     {% endblock %}
-    <a href="{% url 'home' %}" style="position: fixed; top: 20px; right: 20px; padding: 5px 10px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Back to Home</a>
+    {% if request.path != '/' %}
+    <a href="{% url 'home' %}" style="position: fixed; top: 10px; right: 20px; padding: 5px 10px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Back to Home</a>
+    {% endif %}
 </body>
 </html>
