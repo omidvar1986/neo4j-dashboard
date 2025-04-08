@@ -1,25 +1,36 @@
 {% extends 'dashboard/base.html' %}
 {% block content %}
     <h2>Execute Manual Query</h2>
+
     <!-- Query Form -->
-    <form method="post" style="margin-bottom: 20px;">
+    <form method="post" style="max-width: 600px; margin-bottom: 20px;">
         {% csrf_token %}
         <div style="margin-bottom: 10px;">
             <label for="query" style="margin-right: 10px; color: #333;">Enter Cypher Query:</label><br>
-            <textarea id="query" name="query" rows="5" cols="60" placeholder="Enter Cypher query (e.g., MATCH (n)-[r]->(m) RETURN n,r,m)" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;"></textarea>
+            <textarea id="query" name="query" rows="5" cols="60" placeholder="Enter Cypher query (e.g., MATCH (n)-[r]->(m) RETURN n,r,m)" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box;"></textarea>
         </div>
         <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Run Query</button>
     </form>
 
     <!-- Error Display -->
     {% if error %}
-        <p style="color: #dc3545; margin-bottom: 20px;">{{ error }}</p>
+        <div style="padding: 10px; margin-bottom: 20px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 5px;">
+            {{ error }}
+        </div>
     {% endif %}
 
     <!-- Results Section -->
     {% if result_json %}
         <h3>Query Results</h3>
-        <div id="graph" style="width: 100%; max-width: 2005px; height: 600px; border: 1px solid #5c5858; overflow: auto; margin: 3 auto;"></div>
+        <div style="position: relative; width: 100%; max-width: 1200px; height: 600px; margin: 0 auto;"> 
+            <!-- دکمه‌های زوم -->
+            <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
+                <button id="zoom-in" style="padding: 5px 10px; margin-right: 5px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">+</button>
+                <button id="zoom-out" style="padding: 5px 10px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">-</button>
+            </div>
+            <!-- کادر گراف -->
+            <div id="graph" style="width: 100%; height: 100%; border: 1px solid #5c5858; overflow: hidden;"></div>
+        </div>
         <script src="https://d3js.org/d3.v7.min.js"></script>
         <script>
             const data = {{ result_json|safe }};
@@ -33,13 +44,16 @@
                         .style("text-align", "center")
                         .style("margin-top", "20px");
                 } else {
-                    const width = Math.min(window.innerWidth - 110, 2005); // Responsive width
+                    const width = Math.min(window.innerWidth - 110, 1200); // Responsive width
                     const height = 600;
 
                     const svg = d3.select("#graph")
                         .append("svg")
                         .attr("width", width)
                         .attr("height", height);
+
+                    // ایجاد یک گروه (g) برای اعمال زوم
+                    const g = svg.append("g");
 
                     // Scale nodes and edges to fit within bounds
                     const scaleFactor = Math.min(width / 1000, height / 600);
@@ -61,7 +75,7 @@
                         .force("center", d3.forceCenter(width / 2, height / 2))
                         .alphaDecay(0.02);
 
-                    const link = svg.append("g")
+                    const link = g.append("g")
                         .selectAll("line")
                         .data(scaledEdges)
                         .enter().append("line")
@@ -69,7 +83,7 @@
                         .attr("stroke-opacity", 0.6)
                         .attr("stroke-width", 2);
 
-                    const node = svg.append("g")
+                    const node = g.append("g")
                         .selectAll("circle")
                         .data(scaledNodes)
                         .enter().append("circle")
@@ -82,7 +96,7 @@
 
                     node.append("title").text(d => d.label);
 
-                    const linkText = svg.append("g")
+                    const linkText = g.append("g")
                         .selectAll("text")
                         .data(scaledEdges)
                         .enter().append("text")
@@ -92,7 +106,7 @@
                         .attr("text-anchor", "middle")
                         .attr("dy", -5 * scaleFactor);
 
-                    const nodeText = svg.append("g")
+                    const nodeText = g.append("g")
                         .selectAll("text")
                         .data(scaledNodes)
                         .enter().append("text")
@@ -135,6 +149,24 @@
                         d.fx = null;
                         d.fy = null;
                     }
+
+                    // تنظیم زوم
+                    const zoom = d3.zoom()
+                        .scaleExtent([0.1, 10])
+                        .on("zoom", (event) => {
+                            g.attr("transform", event.transform);
+                        });
+
+                    svg.call(zoom);
+
+                    // دکمه‌های زوم
+                    d3.select("#zoom-in").on("click", () => {
+                        zoom.scaleBy(svg.transition().duration(300), 1.2);
+                    });
+
+                    d3.select("#zoom-out").on("click", () => {
+                        zoom.scaleBy(svg.transition().duration(300), 0.8);
+                    });
                 }
             } else {
                 d3.select("#graph").append("p")

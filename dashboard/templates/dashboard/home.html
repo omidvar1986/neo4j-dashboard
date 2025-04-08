@@ -1,23 +1,18 @@
 {% extends 'dashboard/base.html' %}
 {% block content %}
-    <!-- Navigation Links -->
-    <nav style="background-color: #007bff; padding: 10px 0; margin-bottom: 20px;">
-        {% for option in options %}
-            <a href="{% url option.url %}" style="margin: 0 10px; padding: 10px 20px; background-color: #0056b3; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">
-                {{ option.name }}
-            </a>
-        {% endfor %}
-    </nav>
-
     <!-- Predefined Queries Section -->
     {% if predefined_queries %}
         <div>
             <h2>Predefined Queries</h2>
-            <ul>
+            <ul style="list-style-type: none; padding: 0;">
                 {% for query in predefined_queries %}
-                    <li><a href="{% url 'predefined_query_result' query.id %}">{{ query.name }}</a></li>
+                    <li style="margin-bottom: 10px;">
+                        <a href="{% url 'predefined_query_result' query.id %}" style="color: #007bff; text-decoration: none;">{{ query.name }}</a>
+                    </li>
                 {% endfor %}
             </ul>
         </div>
+    {% else %}
+        <p style="color: #333;">No predefined queries available.</p>
     {% endif %}
 {% endblock %}

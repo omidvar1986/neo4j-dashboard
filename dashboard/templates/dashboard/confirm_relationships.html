@@ -1,11 +1,35 @@
 {% extends 'dashboard/base.html' %}
 {% block content %}
-    <h1>Confirm Relationships</h1>
-    <p>Generated Cypher Query:</p>
-    <pre>{{ cypher_query }}</pre>
-    <form method="post">
+    <h2>Confirm Relationships</h2>
+
+    <!-- Error and Success Messages -->
+    {% if error %}
+        <div style="padding: 10px; margin-bottom: 20px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 5px;">
+            {{ error }}
+        </div>
+    {% endif %}
+    {% if success %}
+        <div style="padding: 10px; margin-bottom: 20px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 5px;">
+            {{ success }}
+        </div>
+    {% endif %}
+
+    <!-- Cypher Query Display -->
+    <p style="margin-bottom: 10px; color: #333;">Cypher Query to be executed:</p>
+    <pre style="background-color: #f8f9fa; padding: 10px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 20px;">{{ cypher_query }}</pre>
+
+    <!-- Relationship Confirmation -->
+    <p style="margin-bottom: 10px; color: #333;">Please review the relationships:</p>
+    <ul style="list-style-type: none; padding: 0; margin-bottom: 20px;">
+        {% for relation in relationships %}
+            <li style="margin-bottom: 5px; color: #333;">{{ relation.0 }} ➔ {{ relation.1 }}</li>
+        {% endfor %}
+    </ul>
+
+    <!-- Confirmation Form -->
+    <form method="post" style="max-width: 400px;">
         {% csrf_token %}
-        <button type="submit" name="action" value="confirm">Confirm and Execute</button>
-        <button type="submit" name="action" value="cancel">Cancel</button>
+        <button type="submit" name="action" value="confirm" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Confirm and Execute</button>
+        <button type="submit" name="action" value="cancel" style="padding: 5px 10px; background-color: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
     </form>
 {% endblock %}

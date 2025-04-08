@@ -31,19 +31,8 @@
             align-items: center;
             margin-bottom: 20px;
         }
-        .user-info {
-            color: #333;
-            font-weight: bold;
-        }
-        .logout-btn {
-            padding: 5px 10px;
-            background-color: #dc3545;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-        .logout-btn:hover {
-            background-color: #c82333;
+        .nav-links {
+            margin-top: 10px;
         }
     </style>
     <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -51,20 +40,13 @@
 <body>
     <div class="nav-container">
         <h1>Neo4j Dashboard</h1>
-        {% if user.is_authenticated %}
-            <div class="user-info">
-                Welcome, {{ user.username }}! 
-                <a href="{% url 'logout' %}" class="logout-btn">Logout</a>
-            </div>
-        {% endif %}
     </div>
-    {% if messages %}
-        {% for message in messages %}
-            <div style="padding: 10px; margin-bottom: 10px; background-color: {% if message.tags == 'error' %}#f8d7da{% else %}#d4edda{% endif %}; color: {% if message.tags == 'error' %}#721c24{% else %}#155724{% endif %}; border: 1px solid {% if message.tags == 'error' %}#f5c6cb{% else %}#c3e6cb{% endif %}; border-radius: 5px;">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
+    <div class="nav-links">
+        <a href="{% url 'add_nodes' %}" class="btn">Add Nodes</a>
+        <a href="{% url 'explore_layers' %}" class="btn">Explore Layers</a>
+        <a href="{% url 'manual_query' %}" class="btn">Manual Query</a>
+        <a href="{% url 'admin_queries' %}" class="btn">Admin Queries</a>
+    </div>
     {% block content %}
     {% endblock %}
     {% if request.path != '/' %}

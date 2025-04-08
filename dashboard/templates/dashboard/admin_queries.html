@@ -1,48 +1,142 @@
-{% extends 'dashboard/base.html' %}
-{% block content %}
-    {% if not user.is_staff and not user.is_superuser %}
-        <p style="color: #dc3545; margin-bottom: 20px;">Access denied. Only admins can access this page.</p>
-    {% else %}
-        <h2>Admin Predefined Queries</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Queries - Neo4j Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .message {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .query-list {
+            margin-top: 20px;
+        }
+        .query-item {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .query-item:last-child {
+            border-bottom: none;
+        }
+        .query-actions {
+            margin-top: 10px;
+        }
+        .query-actions a, .query-actions button {
+            margin-right: 10px;
+            text-decoration: none;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Manage Predefined Queries</h1>
 
-        <!-- Messages Section -->
-        {% if messages %}
-            <div style="margin-bottom: 20px;">
-                {% for message in messages %}
-                    <div style="padding: 10px; background-color: {% if message.tags == 'success' %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if message.tags == 'success' %}#155724{% else %}#721c24{% endif %}; border: 1px solid {% if message.tags == 'success' %}#c3e6cb{% else %}#f5c6cb{% endif %}; border-radius: 5px;">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
+        <!-- نمایش پیام‌های موفقیت یا خطا -->
+        {% if success %}
+            <div class="message success">{{ success }}</div>
+        {% endif %}
+        {% if error %}
+            <div class="message error">{{ error }}</div>
         {% endif %}
 
-        <!-- Create New Query Form -->
-        <h3>Create New Query</h3>
-        <form method="post" style="max-width: 600px; margin-bottom: 20px;">
+        <!-- فرم برای ایجاد کوئری جدید -->
+        <form method="post">
             {% csrf_token %}
-            <div style="margin-bottom: 10px;">
-                <label for="query_name" style="margin-right: 10px; color: #333;">Query Name:</label>
-                <input type="text" name="query_name" id="query_name" required style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
-            </div>
-            <div style="margin-bottom: 10px;">
-                <label for="query_text" style="margin-right: 10px; color: #333;">Query Text:</label>
-                <textarea name="query_text" id="query_text" rows="5" cols="60" required placeholder="Enter Cypher query (e.g., MATCH (n)-[r]->(m) RETURN n,r,m)" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;"></textarea>
-            </div>
-            <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Create Query</button>
+            <label for="query_name">Query Name:</label>
+            <input type="text" id="query_name" name="query_name" required>
+            
+            <label for="query_text">Cypher Query:</label>
+            <textarea id="query_text" name="query_text" rows="5" required></textarea>
+            
+            <button type="submit">Add Query</button>
         </form>
 
-        <!-- Existing Queries -->
-        <h3>Existing Queries</h3>
-        <ul style="list-style-type: none; padding: 0;">
-            {% for query in queries %}
-                <li style="margin-bottom: 10px; color: #333;">
-                    {{ query.name }} - {{ query.query }}
-                    <form method="post" action="{% url 'delete_predefined_query' query.id %}" style="display: inline; margin-left: 10px;">
-                        {% csrf_token %}
-                        <button type="submit" style="padding: 5px 10px; background-color: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;" onclick="return confirm('Are you sure you want to delete this query?')">Delete</button>
-                    </form>
-                </li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-{% endblock %}
+        <!-- لیست کوئری‌های از پیش تعریف‌شده -->
+        <div class="query-list">
+            <h2>Existing Queries</h2>
+            {% if predefined_queries %}
+                {% for query in predefined_queries %}
+                    <div class="query-item">
+                        <p><strong>Name:</strong> {{ query.name }}</p>
+                        <p><strong>Query:</strong> {{ query.query }}</p>
+                        <div class="query-actions">
+                            <!-- دکمه برای نمایش نتیجه کوئری -->
+                            <a href="{% url 'predefined_query_result' query.id %}">
+                                <button>View Result</button>
+                            </a>
+                            <!-- دکمه برای حذف کوئری -->
+                            <a href="{% url 'delete_predefined_query' query.id %}">
+                                <button class="delete-btn">Delete</button>
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>No predefined queries available.</p>
+            {% endif %}
+        </div>
+
+        <!-- لینک بازگشت به صفحه اصلی -->
+        <p><a href="{% url 'home' %}">Back to Home</a></p>
+    </div>
+</body>
+</html>
