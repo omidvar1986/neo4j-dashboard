@@ -1,0 +1,31 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Predefined Queries - Neo4j Dashboard{% endblock %}
+{% block extra_head %}
+    <style>
+        .section { padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .query-list { list-style: none; padding: 0; }
+        .query-item { padding: 15px; border-bottom: 1px solid #ddd; }
+        .query-item:last-child { border-bottom: none; }
+        .query-item a { text-decoration: none; color: #007bff; font-weight: bold; }
+        .query-item a:hover { color: #0056b3; }
+        .query-item p { margin: 5px 0 0; color: #666; font-size: 14px; }
+        .no-queries { color: #666; font-style: italic; }
+    </style>
+{% endblock %}
+{% block content %}
+    <div class="section">
+        <h2>Predefined Queries</h2>
+        {% if predefined_queries %}
+            <ul class="query-list">
+                {% for query in predefined_queries %}
+                    <li class="query-item">
+                        <a href="{% url 'predefined_query_result' query.id %}">{{ query.name }}</a>
+                        <p>{{ query.query }}</p>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="no-queries">No predefined queries available.</p>
+        {% endif %}
+    </div>
+{% endblock %}

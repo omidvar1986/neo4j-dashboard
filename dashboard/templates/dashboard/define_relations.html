@@ -1,0 +1,408 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}
+Define Relationships - Neo4j Dashboard
+{% endblock %}
+
+{% block extra_head %}
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 1000px;
+            position: relative;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        #graph-container {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .node circle[type="new"] {
+            fill: #007bff;
+        }
+        .node circle[type="existing"] {
+            fill: #6c757d;
+        }
+        .node text {
+            font-size: 12px;
+            fill: #333;
+            font-family: 'Vazir', sans-serif;
+        }
+        .link line {
+            stroke: #ccc;
+            stroke-width: 3;
+            marker-end: url(#arrow);
+        }
+        .link text {
+            font-size: 12px;
+            fill: #333;
+            font-family: 'Vazir', sans-serif;
+        }
+        .relations-list {
+            margin-top: 10px;
+        }
+        .relation-group {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .relation-item {
+            margin-left: 20px;
+            margin-bottom: 5px;
+        }
+        .target-node {
+            margin-left: 5px;
+            color: #555;
+        }
+        .description {
+            font-size: 0.9em;
+            color: #777;
+            margin-left: 10px;
+        }
+        #node-search {
+            margin-bottom: 20px;
+            padding: 8px;
+            width: 100%;
+            max-width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="section">
+        <a href="{% url 'dashboard:home' %}" class="btn btn-primary">Back to Home</a>
+        <h2>Define Relationships</h2>
+
+        {% if error_message %}
+            <div class="alert alert-danger">
+                {{ error_message }}
+            </div>
+        {% endif %}
+
+        <form method="post" id="relationship-form">
+            {% csrf_token %}
+
+            <!-- Select existing nodes (only if has_existing_relations == 'yes') -->
+            {% if has_existing_relations == 'yes' %}
+                <div class="form-group">
+                    <label>Select existing nodes to include in relationships (optional):</label>
+                    <div class="checkbox-group">
+                        {% for node in existing_nodes %}
+                            <label>
+                                <input type="checkbox" name="existing_nodes" value="{{ node }}"> {{ node }}
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Define all relationships -->
+            <div class="form-group">
+                <label>Define all relationships:</label>
+                <div class="form-group">
+                    <input type="text" id="node-search" placeholder="Search for a node...">
+                </div>
+                <div class="relations-list" id="relations-list">
+                    <!-- We'll populate this dynamically with JavaScript -->
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary" id="show-graph-btn">Show Graph</button>
+                <a href="{% url 'dashboard:home' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+
+        <!-- Modal for Graph Preview -->
+        <div id="graph-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">×</span>
+                <h3>Graph Preview</h3>
+                <div id="graph-container"></div>
+                <div class="modal-actions">
+                    <button class="btn btn-success" id="confirm-save-btn">Confirm and Save to Database</button>
+                    <button class="btn btn-secondary close-modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('graph-modal');
+    const showGraphBtn = document.getElementById('show-graph-btn');
+    const closeModal = document.querySelectorAll('.close, .close-modal');
+    const confirmSaveBtn = document.getElementById('confirm-save-btn');
+
+    // Get the data from Django context
+    const allNodes = {{ all_nodes_json|safe }};
+    const nodesRelations = {{ nodes_relations_json|safe }};
+    const nodesData = {{ nodes_data_json|safe }};
+    const hasExistingRelations = {{ has_existing_relations_json|safe }};
+
+    // Populate the relations list dynamically
+    const relationsList = document.getElementById('relations-list');
+    allNodes.sort((a, b) => a.localeCompare(b)); // Sort nodes A-Z
+    allNodes.forEach(node => {
+        const relationGroup = document.createElement('div');
+        relationGroup.className = 'relation-group';
+        relationGroup.setAttribute('data-node-name', node);
+
+        const nodeTitle = document.createElement('h4');
+        nodeTitle.textContent = `Relationships for ${node}`;
+        relationGroup.appendChild(nodeTitle);
+
+        const relations = nodesRelations[node] || [];
+        if (relations.length > 0) {
+            relations.forEach(rel => {
+                const relationItem = document.createElement('div');
+                relationItem.className = 'relation-item';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'all_relations';
+                checkbox.value = `${rel.source},${rel.target}`;
+                relationItem.appendChild(checkbox);
+
+                const label = document.createElement('label');
+                const targetSpan = document.createElement('span');
+                targetSpan.className = 'target-node';
+                targetSpan.textContent = rel.display;
+                label.appendChild(targetSpan);
+
+                // Add description if available (for new nodes)
+                const isNewNodeSource = nodesData.some(n => n.name === rel.source);
+                const isNewNodeTarget = nodesData.some(n => n.name === rel.target);
+                if (hasExistingRelations === 'no') {
+                    if (isNewNodeSource) {
+                        const targetNode = nodesData.find(n => n.name === rel.target);
+                        if (targetNode) {
+                            const descSpan = document.createElement('span');
+                            descSpan.className = 'description';
+                            descSpan.textContent = `(${targetNode.description || 'No description'})`;
+                            label.appendChild(descSpan);
+                        }
+                    } else if (isNewNodeTarget) {
+                        const sourceNode = nodesData.find(n => n.name === rel.source);
+                        if (sourceNode) {
+                            const descSpan = document.createElement('span');
+                            descSpan.className = 'description';
+                            descSpan.textContent = `(${sourceNode.description || 'No description'})`;
+                            label.appendChild(descSpan);
+                        }
+                    }
+                }
+
+                relationItem.appendChild(label);
+                relationGroup.appendChild(relationItem);
+            });
+        } else {
+            const noRelations = document.createElement('p');
+            noRelations.textContent = `No relationships available for ${node}.`;
+            relationGroup.appendChild(noRelations);
+        }
+
+        relationsList.appendChild(relationGroup);
+    });
+
+    // Search functionality
+    document.getElementById('node-search').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const relationGroups = document.querySelectorAll('.relation-group');
+        relationGroups.forEach(group => {
+            const nodeName = group.getAttribute('data-node-name').toLowerCase();
+            if (searchTerm === '' || nodeName.includes(searchTerm)) {
+                group.style.display = 'block';
+            } else {
+                group.style.display = 'none';
+            }
+        });
+    });
+
+    showGraphBtn.addEventListener('click', function() {
+        modal.style.display = 'block';
+        renderGraph();
+    });
+
+    closeModal.forEach(btn => {
+        btn.addEventListener('click', function() {
+            modal.style.display = 'none';
+            document.getElementById('graph-container').innerHTML = '';
+        });
+    });
+
+    window.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+            document.getElementById('graph-container').innerHTML = '';
+        }
+    });
+
+    function renderGraph() {
+        const selectedNodes = Array.from(document.querySelectorAll('input[name="existing_nodes"]:checked'))
+            .map(input => input.value);
+        const nodesFromSession = {{ nodes_json|safe }};
+        const newNodes = nodesFromSession.map(node => node.id);
+        const relationships = Array.from(document.querySelectorAll('input[name="all_relations"]:checked'))
+            .map(input => {
+                const [source, target] = input.value.split(',');
+                return { source, target };
+            });
+
+        const nodesSet = new Set([...selectedNodes, ...newNodes]);
+        relationships.forEach(rel => {
+            nodesSet.add(rel.source);
+            nodesSet.add(rel.target);
+        });
+
+        const nodes = Array.from(nodesSet).map(id => ({
+            id: id,
+            type: newNodes.includes(id) ? 'new' : 'existing'
+        }));
+
+        const links = relationships.map(rel => ({
+            source: rel.source,
+            target: rel.target,
+            label: 'R'
+        }));
+
+        const width = document.getElementById('graph-container').clientWidth;
+        const height = document.getElementById('graph-container').clientHeight;
+
+        const svg = d3.select('#graph-container')
+            .append('svg')
+            .attr('width', '100%')
+            .attr('height', height)
+            .call(d3.zoom().on('zoom', function(event) {
+                svgGroup.attr('transform', event.transform);
+            }))
+            .append('g');
+
+        const svgGroup = svg.append('g');
+
+        // Add arrow marker for directed links
+        svg.append('defs').append('marker')
+            .attr('id', 'arrow')
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 15)
+            .attr('refY', 0)
+            .attr('markerWidth', 6)
+            .attr('markerHeight', 6)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-5L10,0L0,5')
+            .attr('fill', '#ccc');
+
+        const simulation = d3.forceSimulation(nodes)
+            .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+            .force('charge', d3.forceManyBody().strength(-300))
+            .force('center', d3.forceCenter(width / 2, height / 2));
+
+        const link = svgGroup.append('g')
+            .selectAll('.link')
+            .data(links)
+            .enter()
+            .append('g')
+            .attr('class', 'link');
+
+        link.append('line');
+
+        link.append('text')
+            .attr('dy', -5)
+            .attr('text-anchor', 'middle')
+            .text(d => d.label);
+
+        const node = svgGroup.append('g')
+            .selectAll('.node')
+            .data(nodes)
+            .enter()
+            .append('g')
+            .attr('class', 'node');
+
+        node.append('circle')
+            .attr('r', 10)
+            .attr('type', d => d.type);
+
+        node.append('text')
+            .attr('dx', 15)
+            .attr('dy', '.35em')
+            .text(d => d.id);
+
+        simulation.on('tick', () => {
+            link.select('line')
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+
+            link.select('text')
+                .attr('x', d => (d.source.x + d.target.x) / 2)
+                .attr('y', d => (d.source.y + d.target.y) / 2);
+
+            node.attr('transform', d => `translate(${d.x},${d.y})`);
+        });
+
+        confirmSaveBtn.dataset.nodes = JSON.stringify([...newNodes, ...selectedNodes]);
+        confirmSaveBtn.dataset.relationships = JSON.stringify(relationships);
+    }
+
+    confirmSaveBtn.addEventListener('click', function() {
+        const nodes = JSON.parse(this.dataset.nodes);
+        const relationships = JSON.parse(this.dataset.relationships);
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "dashboard:confirm_relationships" %}';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        form.appendChild(csrfInput);
+
+        const nodesInput = document.createElement('input');
+        nodesInput.type = 'hidden';
+        nodesInput.name = 'nodes';
+        nodesInput.value = JSON.stringify(nodes);
+        form.appendChild(nodesInput);
+
+        const relationshipsInput = document.createElement('input');
+        relationshipsInput.type = 'hidden';
+        relationshipsInput.name = 'relationships';
+        relationshipsInput.value = JSON.stringify(relationships);
+        form.appendChild(relationshipsInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    });
+});
+</script>
+{% endblock %}

@@ -1,18 +1,82 @@
 {% extends 'dashboard/base.html' %}
+{% block title %}Neo4j Dashboard - Home{% endblock %}
+{% block extra_head %}
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            text-align: center;
+        }
+        .welcome-message {
+            margin-bottom: 40px;
+        }
+        .welcome-message h1 {
+            font-size: 36px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .welcome-message p {
+            font-size: 18px;
+            color: #666;
+        }
+        .options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .option-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .option-card:hover {
+            transform: translateY(-5px);
+        }
+        .option-card a {
+            text-decoration: none;
+            color: #007bff;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .option-card a:hover {
+            color: #0056b3;
+        }
+        .option-card p {
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+{% endblock %}
 {% block content %}
-    <!-- Predefined Queries Section -->
-    {% if predefined_queries %}
-        <div>
-            <h2>Predefined Queries</h2>
-            <ul style="list-style-type: none; padding: 0;">
-                {% for query in predefined_queries %}
-                    <li style="margin-bottom: 10px;">
-                        <a href="{% url 'predefined_query_result' query.id %}" style="color: #007bff; text-decoration: none;">{{ query.name }}</a>
-                    </li>
-                {% endfor %}
-            </ul>
+    <div class="container">
+        <div class="welcome-message">
+            <h1>Welcome to Neo4j Dashboard</h1>
+            <p>Choose an option below to get started with managing your graph database.</p>
         </div>
-    {% else %}
-        <p style="color: #333;">No predefined queries available.</p>
-    {% endif %}
+        <div class="options">
+            <div class="option-card">
+                <a href="{% url 'dashboard:add_nodes' %}">Add Nodes</a>
+                <p>Create new nodes and define relationships.</p>
+            </div>
+            <div class="option-card">
+                <a href="{% url 'dashboard:explore_layers' %}">Explore Layers</a>
+                <p>Visualize nodes and their connections up to a specified depth.</p>
+            </div>
+            <div class="option-card">
+                <a href="{% url 'dashboard:manual_queries' %}">Manual Query</a>
+                <p>Run custom Cypher queries and view results.</p>
+            </div>
+            <div class="option-card">
+                <a href="{% url 'dashboard:admin_queries' %}">Admin Queries</a>
+                <p>Manage predefined Cypher queries.</p>
+            </div>
+            <div class="option-card">
+                <a href="{% url 'dashboard:predefined_queries' %}">Predefined Queries</a>
+                <p>View and execute predefined queries.</p>
+            </div>
+        </div>
+    </div>
 {% endblock %}

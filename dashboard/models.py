@@ -1,21 +1,16 @@
 from django.db import models
 
-class SavedQuery(models.Model):
-    query = models.TextField()
-    executed_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Query executed at {self.executed_at}"
-
-    class Meta:
-        ordering = ['-executed_at']
-
-class PredefinedQuery(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    query = models.TextField()
-
-    def __str__(self):
-        return self.name
+class AdminQuery(models.Model):
+    title = models.CharField(max_length=200, verbose_name="Title")
+    query_text = models.TextField(verbose_name="Query Text")
+    created_by = models.CharField(max_length=100, verbose_name="Created By", default="Admin")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+    is_active = models.BooleanField(default=True, verbose_name="Active")
 
     class Meta:
-        ordering = ['name']
+        verbose_name = "Admin Query"
+        verbose_name_plural = "Admin Queries"
+
+    def __str__(self):
+        return self.title

@@ -1,0 +1,147 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Graph Visualization - Neo4j Dashboard{% endblock %}
+{% block extra_head %}
+    <script src="{% static 'dashboard/js/d3.v7.min.js' %}"></script>
+{% endblock %}
+{% block content %}
+    <div class="section">
+        <h2>Graph Visualization</h2>
+        <div style="position: relative;">
+            <div class="zoom-controls">
+                <button class="zoom-btn" onclick="zoomIn()">+</button>
+                <button class="zoom-btn" onclick="zoomOut()">-</button>
+            </div>
+            <svg id="graph"></svg>
+        </div>
+
+        <script>
+            const nodes = [
+                {% for node in nodes %}
+                { id: "{{ node.id }}", label: "{{ node.label }}" },
+                {% endfor %}
+            ];
+            const links = [
+                {% for edge in edges %}
+                { source: "{{ edge.from }}", target: "{{ edge.to }}", label: "{{ edge.label }}" },
+                {% endfor %}
+            ];
+            console.log("Nodes:", nodes);
+            console.log("Links:", links);
+
+            if (!Array.isArray(nodes) || nodes.length === 0) {
+                console.warn("No valid nodes to display");
+                d3.select("#graph").append("text")
+                    .attr("x", 50)
+                    .attr("y", 50)
+                    .text("No nodes to display");
+            } else {
+                const svg = d3.select("#graph");
+                const container = svg.node().parentNode;
+                const width = container.offsetWidth;
+                const height = 600;
+
+                svg.attr("width", width).attr("height", height);
+
+                svg.append("defs").append("marker")
+                    .attr("id", "arrow")
+                    .attr("viewBox", "0 -5 10 10")
+                    .attr("refX", 15)
+                    .attr("refY", 0)
+                    .attr("markerWidth", 6)
+                    .attr("markerHeight", 6)
+                    .attr("orient", "auto")
+                    .append("path")
+                    .attr("d", "M0,-5L10,0L0,5")
+                    .attr("class", "arrow");
+
+                const g = svg.append("g");
+                const zoom = d3.zoom()
+                    .scaleExtent([0.1, 4])
+                    .on("zoom", (event) => g.attr("transform", event.transform));
+
+                svg.call(zoom);
+
+                function zoomIn() {
+                    svg.transition().call(zoom.scaleBy, 1.2);
+                }
+
+                function zoomOut() {
+                    svg.transition().call(zoom.scaleBy, 0.8);
+                }
+
+                const simulation = d3.forceSimulation(nodes)
+                    .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+                    .force("charge", d3.forceManyBody().strength(-200))
+                    .force("center", d3.forceCenter(width / 2, height / 2));
+
+                const link = g.append("g")
+                    .attr("class", "links")
+                    .selectAll("g")
+                    .data(links)
+                    .enter().append("g")
+                    .attr("class", "link");
+
+                link.append("line")
+                    .attr("marker-end", "url(#arrow)");
+
+                link.append("text")
+                    .attr("dy", -5)
+                    .attr("text-anchor", "middle")
+                    .text(d => d.label || "");
+
+                const node = g.append("g")
+                    .attr("class", "nodes")
+                    .selectAll("g")
+                    .data(nodes)
+                    .enter().append("g")
+                    .attr("class", "node")
+                    .call(d3.drag()
+                        .on("start", dragstarted)
+                        .on("drag", dragged)
+                        .on("end", dragended));
+
+                node.append("circle")
+                    .attr("r", 10);
+
+                node.append("text")
+                    .attr("dx", 12)
+                    .attr("dy", ".35em")
+                    .text(d => d.label || "");
+
+                simulation.on("tick", ticked);
+
+                function ticked() {
+                    link.select("line")
+                        .attr("x1", d => d.source.x)
+                        .attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x)
+                        .attr("y2", d => d.target.y);
+
+                    link.select("text")
+                        .attr("x", d => (d.source.x + d.target.x) / 2)
+                        .attr("y", d => (d.source.y + d.target.y) / 2);
+
+                    node
+                        .attr("transform", d => `translate(${d.x},${d.y})`);
+                }
+
+                function dragstarted(event, d) {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x;
+                    d.fy = d.y;
+                }
+
+                function dragged(event, d) {
+                    d.fx = event.x;
+                    d.fy = event.y;
+                }
+
+                function dragended(event, d) {
+                    if (!event.active) simulation.alphaTarget(0);
+                    d.fx = null;
+                    d.fy = null;
+                }
+            }
+        </script>
+    </div>
+{% endblock %}

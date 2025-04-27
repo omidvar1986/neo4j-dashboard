@@ -1,37 +1,38 @@
 {% extends 'dashboard/base.html' %}
+{% block title %}Predefined Query Result - Neo4j Dashboard{% endblock %}
 {% block content %}
     <div style="display: flex; flex-direction: column; height: 100vh; width: 100vw; margin: 0; box-sizing: border-box;">
-        <!-- عنوان و اطلاعات کوئری -->
+        <!-- Query Title and Details -->
         <div style="padding: 10px 20px; background-color: #fff; border-bottom: 1px solid #ddd;">
             <h2 style="margin: 0 0 10px 0;">Predefined Query Result: {{ query.name }}</h2>
             <p style="margin: 5px 0;"><strong>Query:</strong> {{ query.query }}</p>
         </div>
 
-        <!-- نمایش پیام خطا -->
+        <!-- Error Message Display -->
         {% if error %}
             <div style="padding: 10px 20px; background-color: #f8d7da; color: #721c24; border-bottom: 1px solid #f5c6cb;">
                 {{ error }}
             </div>
         {% endif %}
 
-        <!-- کادر گراف و دکمه‌های زوم -->
+        <!-- Graph Container and Zoom Buttons -->
         <div style="position: relative; flex: 1; width: 100%;">
-            <!-- دکمه‌های زوم -->
+            <!-- Zoom Buttons -->
             <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
                 <button id="zoom-in" style="padding: 5px 10px; margin-right: 5px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">+</button>
                 <button id="zoom-out" style="padding: 5px 10px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">-</button>
             </div>
-            <!-- کادر گراف -->
+            <!-- Graph Container -->
             <div id="graph" style="width: 100%; height: 100%; border: 1px solid #5c5858; overflow: hidden;"></div>
         </div>
 
-        <!-- لینک بازگشت -->
+        <!-- Back Link -->
         <div style="padding: 10px 20px; background-color: #fff; border-top: 1px solid #ddd;">
             <a href="{% url 'admin_queries' %}" style="color: #007bff; text-decoration: none;">Back to Admin Queries</a>
         </div>
     </div>
 
-    <!-- اسکریپت برای رندر گراف -->
+    <!-- Script for Rendering the Graph -->
     {% if result_json %}
         <script src="https://d3js.org/d3.v7.min.js"></script>
         <script>
@@ -46,7 +47,7 @@
                         .style("text-align", "center")
                         .style("margin-top", "20px");
                 } else {
-                    // تنظیم عرض و ارتفاع به صورت پویا
+                    // Dynamically set width and height
                     const container = document.getElementById("graph");
                     const width = container.clientWidth;
                     const height = container.clientHeight;
@@ -56,10 +57,10 @@
                         .attr("width", width)
                         .attr("height", height);
 
-                    // ایجاد یک گروه (g) برای اعمال زوم
+                    // Create a group (g) for zoom application
                     const g = svg.append("g");
 
-                    // مقیاس‌بندی نودها و لبه‌ها
+                    // Scale nodes and edges
                     const scaleFactor = Math.min(width / 1000, height / 600);
                     const scaledNodes = data.nodes.map(d => ({
                         ...d,
@@ -154,16 +155,16 @@
                         d.fy = null;
                     }
 
-                    // تنظیم زوم
+                    // Zoom setup
                     const zoom = d3.zoom()
-                        .scaleExtent([0.1, 10]) // محدوده زوم: از 0.1x تا 10x
+                        .scaleExtent([0.1, 10]) // Zoom range: from 0.1x to 10x
                         .on("zoom", (event) => {
                             g.attr("transform", event.transform);
                         });
 
                     svg.call(zoom);
 
-                    // دکمه‌های زوم
+                    // Zoom buttons
                     d3.select("#zoom-in").on("click", () => {
                         zoom.scaleBy(svg.transition().duration(300), 1.2);
                     });
@@ -172,7 +173,7 @@
                         zoom.scaleBy(svg.transition().duration(300), 0.8);
                     });
 
-                    // تنظیم اندازه SVG با تغییر اندازه پنجره
+                    // Resize SVG on window resize
                     window.addEventListener('resize', () => {
                         const newWidth = container.clientWidth;
                         const newHeight = container.clientHeight;

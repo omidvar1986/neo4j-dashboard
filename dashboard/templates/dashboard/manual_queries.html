@@ -1,0 +1,233 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+{% block title %}Manual Queries - Neo4j Dashboard{% endblock %}
+{% block extra_head %}
+    <script src="{% static 'dashboard/d3.v7.min.js' %}"></script>
+    <style>
+        .section { margin: 20px 0; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+        .form-group textarea { width: 100%; height: 100px; padding: 10px; font-family: monospace; }
+        .buttons { margin-top: 10px; }
+        .btn { padding: 8px 16px; margin-right: 10px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-primary:hover { background-color: #0056b3; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .btn-secondary:hover { background-color: #5a6268; }
+        .message { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .message.success { background-color: #d4edda; color: #155724; }
+        .message.error { background-color: #f8d7da; color: #721c24; }
+        .zoom-controls { position: absolute; top: 10px; right: 10px; }
+        .zoom-btn { padding: 5px 10px; margin-left: 5px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .zoom-btn:hover { background-color: #0056b3; }
+        #graph { width: 100%; height: 600px; border: 1px solid #ddd; }
+        .links line { stroke: #999; stroke-opacity: 0.6; }
+        .links text { font-size: 10px; fill: #333; }
+        .nodes circle { stroke: #fff; stroke-width: 1.5px; }
+        .nodes text { font-size: 12px; fill: #333; }
+        .tooltip { position: absolute; background-color: white; border: 1px solid #ddd; padding: 5px; font-size: 12px; pointer-events: none; }
+    </style>
+{% endblock %}
+{% block content %}
+    <div class="section">
+        <h2>Manual Query</h2>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="cypher_query">Enter Cypher Query:</label>
+                <textarea id="cypher_query" name="cypher_query" placeholder="e.g., MATCH (n)-[r]->(m) RETURN n, r, m">{{ cypher_query }}</textarea>
+            </div>
+            <div class="buttons">
+                <button type="submit" name="action" value="execute" class="btn btn-primary">Execute Query</button>
+                <button type="submit" name="action" value="clear" class="btn btn-secondary">Clear</button>
+            </div>
+        </form>
+
+        {% if success_message %}
+            <div class="message success">{{ success_message }}</div>
+        {% endif %}
+        {% if error_message %}
+            <div class="message error">{{ error_message }}</div>
+        {% endif %}
+
+        <div style="position: relative;">
+            <div class="zoom-controls">
+                <button class="zoom-btn" onclick="zoomIn()">+</button>
+                <button class="zoom-btn" onclick="zoomOut()">-</button>
+            </div>
+            <svg id="graph"></svg>
+        </div>
+
+        <script type="text/javascript">
+            // Debug: Log the raw data
+            const rawNodes = {{ nodes_json | safe }};
+            const rawLinks = {{ edges_json | safe }};
+            console.log("Raw Nodes JSON:", rawNodes);
+            console.log("Raw Links JSON:", rawLinks);
+
+            // Ensure nodes and links are arrays
+            const nodes = Array.isArray(rawNodes) ? rawNodes : [];
+            const links = Array.isArray(rawLinks) ? rawLinks : [];
+            console.log("Processed Nodes:", nodes);
+            console.log("Processed Links:", links);
+
+            // Check if there are nodes to display
+            if (nodes.length === 0) {
+                console.warn("No nodes to display");
+                d3.select("#graph").append("text")
+                    .attr("x", 50)
+                    .attr("y", 50)
+                    .attr("fill", "red")
+                    .text("No nodes to display. Check your query or database.");
+            } else {
+                console.log("Rendering graph with", nodes.length, "nodes and", links.length, "links");
+
+                const svg = d3.select("#graph");
+                const container = svg.node().parentNode;
+                const width = container.offsetWidth;
+                const height = 600;
+
+                svg.attr("width", width).attr("height", height);
+
+                // Define arrow marker
+                svg.append("defs").append("marker")
+                    .attr("id", "arrow")
+                    .attr("viewBox", "0 -5 10 10")
+                    .attr("refX", 15)
+                    .attr("refY", 0)
+                    .attr("markerWidth", 6)
+                    .attr("markerHeight", 6)
+                    .attr("orient", "auto")
+                    .append("path")
+                    .attr("d", "M0,-5L10,0L0,5")
+                    .attr("class", "arrow")
+                    .attr("fill", "#999");
+
+                // Create a color scale for node labels
+                const labelColors = d3.scaleOrdinal(d3.schemeCategory10);
+                const getNodeColor = (labels) => {
+                    if (!labels || labels.length === 0) return "#69b3a2";
+                    return labelColors(labels[0]);  // Use the first label for color
+                };
+
+                const g = svg.append("g");
+                const zoom = d3.zoom()
+                    .scaleExtent([0.1, 4])
+                    .on("zoom", (event) => g.attr("transform", event.transform));
+
+                svg.call(zoom);
+
+                function zoomIn() {
+                    svg.transition().call(zoom.scaleBy, 1.2);
+                }
+
+                function zoomOut() {
+                    svg.transition().call(zoom.scaleBy, 0.8);
+                }
+
+                const simulation = d3.forceSimulation(nodes)
+                    .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+                    .force("charge", d3.forceManyBody().strength(-200))
+                    .force("center", d3.forceCenter(width / 2, height / 2))
+                    .force("collide", d3.forceCollide().radius(20));  // Prevent overlap
+
+                const link = g.append("g")
+                    .attr("class", "links")
+                    .selectAll("g")
+                    .data(links)
+                    .enter().append("g")
+                    .attr("class", "link");
+
+                link.append("line")
+                    .attr("marker-end", "url(#arrow)");
+
+                link.append("text")
+                    .attr("dy", -5)
+                    .attr("text-anchor", "middle")
+                    .text(d => d.label || "");
+
+                const node = g.append("g")
+                    .attr("class", "nodes")
+                    .selectAll("g")
+                    .data(nodes)
+                    .enter().append("g")
+                    .attr("class", "node")
+                    .call(d3.drag()
+                        .on("start", dragstarted)
+                        .on("drag", dragged)
+                        .on("end", dragended));
+
+                node.append("circle")
+                    .attr("r", 10)
+                    .attr("fill", d => getNodeColor(d.labels));
+
+                node.append("text")
+                    .attr("dx", 12)
+                    .attr("dy", ".35em")
+                    .text(d => d.label || "");
+
+                // Tooltip for showing properties
+                const tooltip = d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .style("opacity", 0);
+
+                node.on("mouseover", function(event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", .9);
+                    let tooltipHtml = `<strong>${d.label}</strong><br>`;
+                    if (d.labels && d.labels.length > 0) {
+                        tooltipHtml += `Labels: ${d.labels.join(", ")}<br>`;
+                    }
+                    if (d.properties) {
+                        for (const [key, value] of Object.entries(d.properties)) {
+                            tooltipHtml += `${key}: ${value}<br>`;
+                        }
+                    }
+                    tooltip.html(tooltipHtml)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+
+                simulation.on("tick", ticked);
+
+                function ticked() {
+                    link.select("line")
+                        .attr("x1", d => d.source.x)
+                        .attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x)
+                        .attr("y2", d => d.target.y);
+
+                    link.select("text")
+                        .attr("x", d => (d.source.x + d.target.x) / 2)
+                        .attr("y", d => (d.source.y + d.target.y) / 2);
+
+                    node
+                        .attr("transform", d => `translate(${d.x},${d.y})`);
+                }
+
+                function dragstarted(event, d) {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x;
+                    d.fy = d.y;
+                }
+
+                function dragged(event, d) {
+                    d.fx = event.x;
+                    d.fy = event.y;
+                }
+
+                function dragended(event, d) {
+                    if (!event.active) simulation.alphaTarget(0);
+                    d.fx = null;
+                    d.fy = null;
+                }
+            }
+        </script>
+    </div>
+{% endblock %}

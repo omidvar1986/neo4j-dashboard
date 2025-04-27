@@ -1,92 +1,89 @@
 {% extends 'dashboard/base.html' %}
+{% block title %}Explore Layers - Neo4j Dashboard{% endblock %}
+{% block extra_head %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.19.0/cytoscape.min.js"></script>
+    <style>
+        .section { padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Vazir', sans-serif; }
+        .btn { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; }
+        .btn:hover { background-color: #0056b3; }
+        .error-message { color: #dc3545; margin-top: 10px; }
+        #graph-container { width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 4px; margin-top: 20px; }
+    </style>
+{% endblock %}
 {% block content %}
-    <h2>Explore Node Layers</h2>
+    <div class="section">
+        <h2>Explore Layers</h2>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="node_name">Node Name:</label>
+                <input type="text" id="node_name" name="node_name" placeholder="Enter node name" value="{{ node_name|default_if_none:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="depth">Exploration Depth:</label>
+                <select id="depth" name="depth">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                </select>
+            </div>
+            <button type="submit" class="btn">Explore</button>
+        </form>
 
-    <!-- Exploration Form -->
-    <form method="post" style="margin-bottom: 20px;">
-        {% csrf_token %}
-        <div style="margin-bottom: 10px;">
-            <label for="node_name" style="margin-right: 10px; color: #333;">Node Name:</label>
-            <input type="text" id="node_name" name="node_name" required style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
-        </div>
-        <div style="margin-bottom: 10px;">
-            <label for="depth" style="margin-right: 10px; color: #333;">Number of Layers:</label>
-            <input type="number" id="depth" name="depth" min="0" required style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
-        </div>
-        <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">Explore</button>
-    </form>
+        {% if error %}
+            <div class="error-message">{{ error }}</div>
+        {% endif %}
 
-    <!-- Error Display -->
-    {% if error %}
-        <p style="color: #dc3545; margin-bottom: 20px;">{{ error }}</p>
-    {% endif %}
-
-    <!-- Results Section -->
-    {% if result_json %}
-        <h3>Results</h3>
-        <div id="graph" style="margin-bottom: 20px;"></div>
-        <script>
-            const data = JSON.parse('{{ result_json | escapejs }}');
-            console.log(data);
-            const width = 800, height = 600;
-            const svg = d3.select("#graph").append("svg")
-                .attr("width", width)
-                .attr("height", height);
-
-            const simulation = d3.forceSimulation(data.nodes)
-                .force("link", d3.forceLink(data.edges).id(d => d.id).distance(100))
-                .force("charge", d3.forceManyBody().strength(-300))
-                .force("center", d3.forceCenter(width / 2, height / 2));
-
-            const link = svg.append("g")
-                .selectAll("line")
-                .data(data.edges)
-                .enter().append("line")
-                .attr("stroke", "#999")
-                .attr("stroke-opacity", 0.6);
-
-            const node = svg.append("g")
-                .selectAll("circle")
-                .data(data.nodes)
-                .enter().append("circle")
-                .attr("r", 5)
-                .attr("fill", "#69b3a2")
-                .call(d3.drag()
-                    .on("start", dragstarted)
-                    .on("drag", dragged)
-                    .on("end", dragended));
-
-            node.append("title")
-                .text(d => d.label);
-
-            simulation.on("tick", () => {
-                link
-                    .attr("x1", d => d.source.x)
-                    .attr("y1", d => d.source.y)
-                    .attr("x2", d => d.target.x)
-                    .attr("y2", d => d.target.y);
-
-                node
-                    .attr("cx", d => d.x)
-                    .attr("cy", d => d.y);
-            });
-
-            function dragstarted(event, d) {
-                if (!event.active) simulation.alphaTarget(0.3).restart();
-                d.fx = d.x;
-                d.fy = d.y;
-            }
-
-            function dragged(event, d) {
-                d.fx = event.x;
-                d.fy = event.y;
-            }
-
-            function dragended(event, d) {
-                if (!event.active) simulation.alphaTarget(0);
-                d.fx = null;
-                d.fy = null;
-            }
-        </script>
-    {% endif %}
+        {% if result_json %}
+            <div id="graph-container"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const elements = {{ result_json|safe }};
+                    const cy = cytoscape({
+                        container: document.getElementById('graph-container'),
+                        elements: elements,
+                        style: [
+                            {
+                                selector: 'node',
+                                style: {
+                                    'label': 'data(label)',
+                                    'background-color': '#28a745',
+                                    'color': '#fff',
+                                    'text-valign': 'center',
+                                    'text-halign': 'center',
+                                    'shape': 'ellipse',
+                                    'width': '60px',
+                                    'height': '60px',
+                                    'font-family': 'Vazir, sans-serif'
+                                }
+                            },
+                            {
+                                selector: 'edge',
+                                style: {
+                                    'width': 2,
+                                    'line-color': '#ccc',
+                                    'target-arrow-color': '#ccc',
+                                    'target-arrow-shape': 'triangle',
+                                    'curve-style': 'bezier',
+                                    'label': 'data(label)',
+                                    'font-family': 'Vazir, sans-serif'
+                                }
+                            }
+                        ],
+                        layout: {
+                            name: 'cose',
+                            idealEdgeLength: 100,
+                            nodeRepulsion: 400000,
+                            gravity: 0.25
+                        }
+                    });
+                });
+            </script>
+        {% endif %}
+    </div>
 {% endblock %}

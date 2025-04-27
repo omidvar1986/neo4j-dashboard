@@ -1,29 +1,102 @@
 {% extends 'dashboard/base.html' %}
+{% block title %}تعریف روابط بین نودهای جدید - داشبورد Neo4j{% endblock %}
+{% block extra_head %}
+    <link href="https://cdn.jsdelivr.net/npm/vazir-font@32.102.2/dist/font-face.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            font-family: 'Vazir', sans-serif;
+        }
+        .relations-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .relations-list {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .relation-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .relation-item label {
+            flex: 1;
+            font-size: 16px;
+        }
+        .error-message {
+            color: #dc3545;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .btn-submit {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Vazir', sans-serif;
+            font-size: 16px;
+        }
+        .btn-submit:hover {
+            background-color: #218838;
+        }
+        @media (max-width: 768px) {
+            .relations-form {
+                padding: 15px;
+            }
+            .relation-item label {
+                font-size: 14px;
+            }
+        }
+    </style>
+{% endblock %}
 {% block content %}
-    <h2>Define Relationships Among New Nodes</h2>
-
-    <!-- Error Messages -->
-    {% if error %}
-        <div style="padding: 10px; margin-bottom: 20px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 5px;">
-            {{ error }}
+    <div class="container">
+        <h2>تعریف روابط بین نودهای جدید</h2>
+        {% if error %}
+            <div class="error-message">{{ error }}</div>
+        {% endif %}
+        <div class="relations-form">
+            <form method="post" id="relations-form">
+                {% csrf_token %}
+                <label>روابط را انتخاب کنید:</label>
+                <div class="relations-list">
+                    {% for source in nodes %}
+                        {% for target in nodes %}
+                            {% if source.name != target.name %}
+                                <div class="relation-item">
+                                    <input type="checkbox" name="relationships" value="{{ source.name }},{{ target.name }}" id="rel-{{ source.name }}-{{ target.name }}">
+                                    <label for="rel-{{ source.name }}-{{ target.name }}">{{ source.name }} ➔ {{ target.name }}</label>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+                <button type="submit" class="btn-submit">بعدی</button>
+            </form>
         </div>
-    {% endif %}
-
-    <!-- Relationship Definition Form -->
-    <form method="post" style="max-width: 600px;">
-        {% csrf_token %}
-        <p style="margin-bottom: 10px; color: #333;">Select relationships:</p>
-        {% for node1 in nodes %}
-            {% for node2 in nodes %}
-                {% if node1 != node2 %}
-                    <label style="display: block; margin-bottom: 5px;">
-                        <input type="checkbox" name="relationships" value="{{ node1 }},{{ node2 }}" style="margin-right: 5px;">
-                        <span>{{ node1 }} ➔ {{ node2 }}</span>
-                    </label>
-                {% endif %}
-            {% endfor %}
-            <hr style="margin: 10px 0; border: 0; border-top: 1px solid #ccc;">
-        {% endfor %}
-        <button type="submit" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px;">Next</button>
-    </form>
+    </div>
+    <script>
+        document.getElementById('relations-form').addEventListener('submit', (event) => {
+            const checkboxes = document.querySelectorAll('input[name="relationships"]:checked');
+            if (checkboxes.length === 0) {
+                event.preventDefault();
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = 'لطفاً حداقل یک رابطه انتخاب کنید.';
+                const existingError = document.querySelector('.error-message');
+                if (existingError) existingError.remove();
+                document.querySelector('.relations-form').prepend(errorDiv);
+            }
+        });
+    </script>
 {% endblock %}

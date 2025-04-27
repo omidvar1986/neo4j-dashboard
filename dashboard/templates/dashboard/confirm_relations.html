@@ -1,35 +1,180 @@
 {% extends 'dashboard/base.html' %}
+{% block title %}Confirm Relationships - Neo4j Dashboard{% endblock %}
+{% block extra_head %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+    <style>
+        .container { max-width: 1200px; margin: 20px auto; font-family: 'Vazir', sans-serif; }
+        .confirm-section { padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .error-message, .success-message { margin-bottom: 20px; padding: 10px; border-radius: 4px; font-size: 14px; }
+        .error-message { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .success-message { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .cypher-query { background-color: #f8f9fa; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; font-family: 'Vazir', sans-serif; font-size: 14px; white-space: pre-wrap; }
+        .relations-list { list-style-type: none; padding: 0; margin-bottom: 20px; }
+        .relations-list li { margin-bottom: 5px; color: #333; font-size: 16px; }
+        #graph-container { width: 100%; height: 50vh; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px; background: #fff; }
+        .form-buttons { display: flex; gap: 10px; justify-content: center; }
+        .btn-submit, .btn-delete { padding: 10px 20px; font-size: 16px; border-radius: 4px; }
+        .btn-submit { background-color: #007bff; color: white; }
+        .btn-submit:hover { background-color: #0056b3; }
+        .btn-delete { background-color: #dc3545; color: white; }
+        .btn-delete:hover { background-color: #c82333; }
+        .save-question { margin-top: 20px; text-align: center; }
+        @media (max-width: 768px) {
+            .confirm-section { padding: 15px; }
+            #graph-container { height: 40vh; }
+            .form-buttons { flex-direction: column; align-items: center; }
+        }
+    </style>
+{% endblock %}
 {% block content %}
-    <h2>Confirm Relationships</h2>
+    <div class="container">
+        <div class="confirm-section">
+            <h2>Confirm Relationships</h2>
 
-    <!-- Error and Success Messages -->
-    {% if error %}
-        <div style="padding: 10px; margin-bottom: 20px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 5px;">
-            {{ error }}
+            <!-- Error and Success Messages -->
+            {% if error %}
+                <div class="error-message">{{ error }}</div>
+            {% endif %}
+            {% if success %}
+                <div class="success-message">{{ success }}</div>
+            {% endif %}
+
+            <!-- Cypher Query Display -->
+            {% if cypher_query and not data_saved %}
+                <p style="margin-bottom: 10px; color: #333;">Cypher Query to be executed:</p>
+                <pre class="cypher-query">{{ cypher_query }}</pre>
+            {% endif %}
+
+            <!-- Graph Display -->
+            {% if result_json and not data_saved %}
+                <div id="graph-container"></div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        try {
+                            // Directly use the result_json passed from the view
+                            const graphData = {{ result_json|safe }};
+                            console.log("Graph data:", graphData);
+                            console.log("Nodes:", graphData.nodes);
+                            console.log("Edges:", graphData.edges);
+
+                            // Validate graphData structure
+                            if (!graphData.nodes || !Array.isArray(graphData.nodes)) {
+                                throw new Error("Invalid graph data: 'nodes' is missing or not an array");
+                            }
+                            if (!graphData.edges || !Array.isArray(graphData.edges)) {
+                                throw new Error("Invalid graph data: 'edges' is missing or not an array");
+                            }
+
+                            // Additional validation for nodes and edges
+                            graphData.nodes.forEach((node, index) => {
+                                if (!node.data || !node.data.id || !node.data.label) {
+                                    throw new Error(`Invalid node at index ${index}: ${JSON.stringify(node)}`);
+                                }
+                            });
+                            graphData.edges.forEach((edge, index) => {
+                                if (!edge.data || !edge.data.source || !edge.data.target) {
+                                    throw new Error(`Invalid edge at index ${index}: ${JSON.stringify(edge)}`);
+                                }
+                            });
+
+                            var cy = cytoscape({
+                                container: document.getElementById('graph-container'),
+                                elements: {
+                                    nodes: graphData.nodes,
+                                    edges: graphData.edges
+                                },
+                                style: [
+                                    {
+                                        selector: 'node[type="new"]',
+                                        style: {
+                                            'background-color': '#007bff',
+                                            'label': 'data(label)',
+                                            'color': '#333',
+                                            'text-valign': 'top',
+                                            'text-halign': 'center',
+                                            'width': 60,
+                                            'height': 60,
+                                            'font-family': 'Vazir, sans-serif',
+                                            'font-size': '12px'
+                                        }
+                                    },
+                                    {
+                                        selector: 'node[type="existing"]',
+                                        style: {
+                                            'background-color': '#6c757d',
+                                            'label': 'data(label)',
+                                            'color': '#333',
+                                            'text-valign': 'top',
+                                            'text-halign': 'center',
+                                            'width': 60,
+                                            'height': 60,
+                                            'font-family': 'Vazir, sans-serif',
+                                            'font-size': '12px'
+                                        }
+                                    },
+                                    {
+                                        selector: 'edge',
+                                        style: {
+                                            'width': 3,
+                                            'line-color': '#ccc',
+                                            'target-arrow-color': '#ccc',
+                                            'target-arrow-shape': 'triangle',
+                                            'label': 'data(label)',
+                                            'color': '#333',
+                                            'text-rotation': 'autorotate',
+                                            'font-family': 'Vazir, sans-serif',
+                                            'font-size': '12px'
+                                        }
+                                    }
+                                ],
+                                layout: {
+                                    name: 'cose',
+                                    idealEdgeLength: 100,
+                                    nodeOverlap: 20,
+                                    fit: true,
+                                    padding: 30,
+                                }
+                            });
+                        } catch (e) {
+                            console.error("Error initializing Cytoscape:", e);
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'error-message';
+                            errorDiv.textContent = 'Error loading graph. Please try again.';
+                            document.getElementById('graph-container').before(errorDiv);
+                        }
+                    });
+                </script>
+            {% endif %}
+
+            <!-- Relationships Display -->
+            {% if relationships and not data_saved %}
+                <p style="margin-bottom: 10px; color: #333;">Please review the relationships:</p>
+                <ul class="relations-list">
+                    {% for relation in relationships %}
+                        <li>{{ relation.0 }} ➔ {{ relation.1 }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            <!-- Confirmation Form -->
+            {% if not data_saved %}
+                {% if not confirm_save %}
+                    <form method="post" class="form-buttons">
+                        {% csrf_token %}
+                        <button type="submit" name="action" value="confirm" class="btn btn-submit">Confirm and Check</button>
+                        <button type="submit" name="action" value="cancel" class="btn btn-delete">Cancel</button>
+                    </form>
+                {% else %}
+                    <div class="save-question">
+                        <p>Do you want to save this data to the database?</p>
+                        <form method="post" class="form-buttons">
+                            {% csrf_token %}
+                            <button type="submit" name="action" value="save" class="btn btn-submit">Yes</button>
+                            <button type="submit" name="action" value="cancel" class="btn btn-delete">No</button>
+                        </form>
+                    </div>
+                {% endif %}
+            {% endif %}
         </div>
-    {% endif %}
-    {% if success %}
-        <div style="padding: 10px; margin-bottom: 20px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 5px;">
-            {{ success }}
-        </div>
-    {% endif %}
-
-    <!-- Cypher Query Display -->
-    <p style="margin-bottom: 10px; color: #333;">Cypher Query to be executed:</p>
-    <pre style="background-color: #f8f9fa; padding: 10px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 20px;">{{ cypher_query }}</pre>
-
-    <!-- Relationship Confirmation -->
-    <p style="margin-bottom: 10px; color: #333;">Please review the relationships:</p>
-    <ul style="list-style-type: none; padding: 0; margin-bottom: 20px;">
-        {% for relation in relationships %}
-            <li style="margin-bottom: 5px; color: #333;">{{ relation.0 }} ➔ {{ relation.1 }}</li>
-        {% endfor %}
-    </ul>
-
-    <!-- Confirmation Form -->
-    <form method="post" style="max-width: 400px;">
-        {% csrf_token %}
-        <button type="submit" name="action" value="confirm" style="padding: 5px 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Confirm and Import</button>
-        <button type="submit" name="action" value="cancel" style="padding: 5px 10px; background-color: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
-    </form>
+    </div>
 {% endblock %}
