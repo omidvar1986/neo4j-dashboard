@@ -437,6 +437,7 @@ def manual_queries(request):
 
     graph_data = {'nodes': [], 'edges': []}
     cypher_query = ""
+    query_executed = True  # متغیر جدید برای مشخص کردن اینکه آیا کوئری اجرا شده یا نه
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -447,6 +448,7 @@ def manual_queries(request):
             return redirect('dashboard:manual_queries')
 
         if action == 'execute':
+            query_executed = True  # کوئری اجرا شده
             if not cypher_query:
                 logger.warning("No Cypher query provided")
                 return render(request, 'dashboard/manual_queries.html', {
@@ -455,6 +457,7 @@ def manual_queries(request):
                     'cypher_query': cypher_query,
                     'nodes_json': json.dumps([]),
                     'edges_json': json.dumps([]),
+                    'query_executed': query_executed,
                 })
 
             # Check if query is safe
@@ -466,58 +469,56 @@ def manual_queries(request):
                     'cypher_query': cypher_query,
                     'nodes_json': json.dumps([]),
                     'edges_json': json.dumps([]),
+                    'query_executed': query_executed,
                 })
 
             try:
                 driver = get_driver()
-                if driver is None:
-                    logger.error("Neo4j driver is not initialized")
-                    return render(request, 'dashboard/manual_queries.html', {
-                        'error_message': 'Neo4j driver is not initialized. Please check configuration.',
-                        'graph_data': graph_data,
-                        'cypher_query': cypher_query,
-                        'nodes_json': json.dumps([]),
-                        'edges_json': json.dumps([]),
-                    })
-
                 with driver.session() as session:
-                    # مرحله ۱: اجرای کوئری اصلی و جمع‌آوری نودها
+                    # Execute the query and collect nodes and relationships
                     result = session.run(cypher_query)
                     node_id_map = {}
                     node_counter = 0
-                    node_internal_ids = set()
 
-                    records = list(result)
-                    logger.debug("Number of records returned: %d", len(records))
-
-                    for record in records:
-                        logger.debug("Record values: %s", record.values())
+                    for record in result:
                         for value in record.values():
-                            # پردازش نودها
+                            # Process nodes
                             if isinstance(value, Node):
                                 node_id = value.get('name', f"Node_{node_counter}")
                                 node_counter += 1
-                                node_internal_ids.add(id(value))
                                 node_id_map[id(value)] = node_id
                                 if not any(node['id'] == node_id for node in graph_data['nodes']):
-                                    logger.debug("Adding node: %s (internal id: %s)", node_id, id(value))
-                                    labels = list(value.labels)  # Extract labels
-                                    properties = dict(value)  # Extract all properties
+                                    logger.debug("Adding node: %s", node_id)
+                                    labels = list(value.labels)
+                                    properties = dict(value)
                                     graph_data['nodes'].append({
                                         'id': node_id,
                                         'label': node_id,
-                                        'labels': labels,  # Add labels
-                                        'properties': properties,  # Add properties
+                                        'labels': labels,
+                                        'properties': properties,
                                     })
-                            # پردازش مسیرها
+                            # Process relationships
+                            elif isinstance(value, Relationship):
+                                source_id = node_id_map.get(id(value.start_node))
+                                target_id = node_id_map.get(id(value.end_node))
+                                if source_id and target_id:
+                                    edge_id = f"edge-{len(graph_data['edges'])}"
+                                    if not any(e['id'] == edge_id for e in graph_data['edges']):
+                                        logger.debug("Adding edge: %s -> %s", source_id, target_id)
+                                        graph_data['edges'].append({
+                                            'id': edge_id,
+                                            'source': source_id,
+                                            'target': target_id,
+                                            'label': value.type,
+                                        })
+                            # Process paths
                             elif isinstance(value, Path):
                                 for node in value.nodes:
                                     node_id = node.get('name', f"Node_{node_counter}")
                                     node_counter += 1
-                                    node_internal_ids.add(id(node))
                                     node_id_map[id(node)] = node_id
                                     if not any(node['id'] == node_id for node in graph_data['nodes']):
-                                        logger.debug("Adding node from path: %s (internal id: %s)", node_id, id(node))
+                                        logger.debug("Adding node from path: %s", node_id)
                                         labels = list(node.labels)
                                         properties = dict(node)
                                         graph_data['nodes'].append({
@@ -526,43 +527,22 @@ def manual_queries(request):
                                             'labels': labels,
                                             'properties': properties,
                                         })
-                            # پردازش لیست‌ها
-                            elif isinstance(value, (list, tuple)):
-                                for item in value:
-                                    if isinstance(item, Node):
-                                        node_id = item.get('name', f"Node_{node_counter}")
-                                        node_counter += 1
-                                        node_internal_ids.add(id(item))
-                                        node_id_map[id(item)] = node_id
-                                        if not any(node['id'] == node_id for node in graph_data['nodes']):
-                                            logger.debug("Adding node from list: %s (internal id: %s)", node_id, id(item))
-                                            labels = list(item.labels)
-                                            properties = dict(item)
-                                            graph_data['nodes'].append({
-                                                'id': node_id,
-                                                'label': node_id,
-                                                'labels': labels,
-                                                'properties': properties,
+                                for rel in value.relationships:
+                                    source_id = node_id_map.get(id(rel.start_node))
+                                    target_id = node_id_map.get(id(rel.end_node))
+                                    if source_id and target_id:
+                                        edge_id = f"edge-{len(graph_data['edges'])}"
+                                        if not any(e['id'] == edge_id for e in graph_data['edges']):
+                                            logger.debug("Adding edge from path: %s -> %s", source_id, target_id)
+                                            graph_data['edges'].append({
+                                                'id': edge_id,
+                                                'source': source_id,
+                                                'target': target_id,
+                                                'label': rel.type,
                                             })
-                                    elif isinstance(item, Path):
-                                        for node in item.nodes:
-                                            node_id = node.get('name', f"Node_{node_counter}")
-                                            node_counter += 1
-                                            node_internal_ids.add(id(node))
-                                            node_id_map[id(node)] = node_id
-                                            if not any(node['id'] == node_id for node in graph_data['nodes']):
-                                                logger.debug("Adding node from path in list: %s (internal id: %s)", node_id, id(node))
-                                                labels = list(node.labels)
-                                                properties = dict(node)
-                                                graph_data['nodes'].append({
-                                                    'id': node_id,
-                                                    'label': node_id,
-                                                    'labels': labels,
-                                                    'properties': properties,
-                                                })
 
-                    # اگه هیچ نودی پیدا نشد
-                    if not node_internal_ids:
+                    # If no nodes were found
+                    if not graph_data['nodes']:
                         logger.warning("No nodes found with query: %s", cypher_query)
                         return render(request, 'dashboard/manual_queries.html', {
                             'error_message': 'No nodes found. Try a different query or check the labels.',
@@ -570,153 +550,11 @@ def manual_queries(request):
                             'cypher_query': cypher_query,
                             'nodes_json': json.dumps([]),
                             'edges_json': json.dumps([]),
+                            'query_executed': query_executed,
                         })
-
-                    # محدود کردن تعداد نودها برای جلوگیری از شلوغی
-                    MAX_NODES = 50
-                    if len(graph_data['nodes']) > MAX_NODES:
-                        logger.warning("Too many nodes returned: %d. Limiting to %d.", len(graph_data['nodes']), MAX_NODES)
-                        graph_data['nodes'] = graph_data['nodes'][:MAX_NODES]
-                        node_id_map = {k: v for k, v in list(node_id_map.items())[:MAX_NODES]}
-                        node_internal_ids = set(list(node_internal_ids)[:MAX_NODES])
-
-                    # مرحله ۲: پیدا کردن همه نودها و رابطه‌های مرتبط
-                    logger.debug("Node internal IDs: %s", node_internal_ids)
-                    if node_internal_ids:
-                        relationship_query = """
-                        MATCH (n)-[r]-(m)
-                        WHERE id(n) IN $node_ids OR id(m) IN $node_ids
-                        RETURN n, r, m
-                        LIMIT 100
-                        """
-                        # Comment moved outside the query string
-                        # -- Limit relationships to avoid overload
-                        relationship_result = session.run(relationship_query, node_ids=list(node_internal_ids))
-                        relationships_found = 0
-                        for rel_record in relationship_result:
-                            n = rel_record['n']
-                            r = rel_record['r']
-                            m = rel_record['m']
-                            logger.debug("Relationship found: %s -[%s]-> %s", n.get('name'), r.type, m.get('name'))
-                            relationships_found += 1
-
-                            # اضافه کردن نود n
-                            node_id_n = node_id_map.get(id(n))
-                            if not node_id_n and len(graph_data['nodes']) < MAX_NODES:
-                                node_id_n = n.get('name', f"Node_{node_counter}")
-                                node_counter += 1
-                                node_id_map[id(n)] = node_id_n
-                                if not any(node['id'] == node_id_n for node in graph_data['nodes']):
-                                    logger.debug("Adding related node n: %s (internal id: %s)", node_id_n, id(n))
-                                    labels = list(n.labels)
-                                    properties = dict(n)
-                                    graph_data['nodes'].append({
-                                        'id': node_id_n,
-                                        'label': node_id_n,
-                                        'labels': labels,
-                                        'properties': properties,
-                                    })
-
-                            # اضافه کردن نود m
-                            node_id_m = node_id_map.get(id(m))
-                            if not node_id_m and len(graph_data['nodes']) < MAX_NODES:
-                                node_id_m = m.get('name', f"Node_{node_counter}")
-                                node_counter += 1
-                                node_id_map[id(m)] = node_id_m
-                                if not any(node['id'] == node_id_m for node in graph_data['nodes']):
-                                    logger.debug("Adding related node m: %s (internal id: %s)", node_id_m, id(m))
-                                    labels = list(m.labels)
-                                    properties = dict(m)
-                                    graph_data['nodes'].append({
-                                        'id': node_id_m,
-                                        'label': node_id_m,
-                                        'labels': labels,
-                                        'properties': properties,
-                                    })
-
-                            # اضافه کردن رابطه
-                            if isinstance(r, Relationship):
-                                source_id = node_id_map.get(id(r.start_node))
-                                target_id = node_id_map.get(id(r.end_node))
-                                if source_id and target_id:
-                                    edge_id = f"edge-{len(graph_data['edges'])}"
-                                    if not any(e['id'] == edge_id for e in graph_data['edges']):
-                                        logger.debug("Adding edge: %s -> %s with label %s", source_id, target_id, r.type)
-                                        graph_data['edges'].append({
-                                            'id': edge_id,
-                                            'source': source_id,
-                                            'target': target_id,
-                                            'label': r.type,
-                                        })
-                                else:
-                                    logger.warning("Could not find source or target for relationship: %s", r)
-                        logger.debug("Total relationships found: %d", relationships_found)
-
-                    # مرحله ۳: پردازش رابطه‌های مستقیم از کوئری
-                    for record in records:
-                        for value in record.values():
-                            if isinstance(value, Relationship):
-                                source_id = node_id_map.get(id(value.start_node))
-                                target_id = node_id_map.get(id(value.end_node))
-                                if source_id and target_id:
-                                    edge_id = f"edge-{len(graph_data['edges'])}"
-                                    if not any(e['id'] == edge_id for e in graph_data['edges']):
-                                        logger.debug("Adding edge from query: %s -> %s with label %s", source_id, target_id, value.type)
-                                        graph_data['edges'].append({
-                                            'id': edge_id,
-                                            'source': source_id,
-                                            'target': target_id,
-                                            'label': value.type,
-                                        })
-                            elif isinstance(value, Path):
-                                for rel in value.relationships:
-                                    source_id = node_id_map.get(id(rel.start_node))
-                                    target_id = node_id_map.get(id(rel.end_node))
-                                    if source_id and target_id:
-                                        edge_id = f"edge-{len(graph_data['edges'])}"
-                                        if not any(e['id'] == edge_id for e in graph_data['edges']):
-                                            logger.debug("Adding edge from path: %s -> %s with label %s", source_id, target_id, rel.type)
-                                            graph_data['edges'].append({
-                                                'id': edge_id,
-                                                'source': source_id,
-                                                'target': target_id,
-                                                'label': rel.type,
-                                            })
-                            elif isinstance(value, (list, tuple)):
-                                for item in value:
-                                    if isinstance(item, Relationship):
-                                        source_id = node_id_map.get(id(item.start_node))
-                                        target_id = node_id_map.get(id(item.end_node))
-                                        if source_id and target_id:
-                                            edge_id = f"edge-{len(graph_data['edges'])}"
-                                            if not any(e['id'] == edge_id for e in graph_data['edges']):
-                                                logger.debug("Adding edge from list: %s -> %s with label %s", source_id, target_id, item.type)
-                                                graph_data['edges'].append({
-                                                    'id': edge_id,
-                                                    'source': source_id,
-                                                    'target': target_id,
-                                                    'label': item.type,
-                                                })
-                                    elif isinstance(item, Path):
-                                        for rel in item.relationships:
-                                            source_id = node_id_map.get(id(rel.start_node))
-                                            target_id = node_id_map.get(id(rel.end_node))
-                                            if source_id and target_id:
-                                                edge_id = f"edge-{len(graph_data['edges'])}"
-                                                if not any(e['id'] == edge_id for e in graph_data['edges']):
-                                                    logger.debug("Adding edge from path in list: %s -> %s with label %s", source_id, target_id, rel.type)
-                                                    graph_data['edges'].append({
-                                                        'id': edge_id,
-                                                        'source': source_id,
-                                                        'target': target_id,
-                                                        'label': rel.type,
-                                                    })
 
                     logger.debug("Final graph data: %s", graph_data)
                     logger.info("Successfully executed Cypher query: %s", cypher_query)
-                    # Add more detailed logging for debugging
-                    logger.debug("Nodes being sent to template: %s", graph_data['nodes'])
-                    logger.debug("Edges being sent to template: %s", graph_data['edges'])
                     nodes_json = json.dumps(graph_data['nodes'])
                     edges_json = json.dumps(graph_data['edges'])
                     logger.debug("nodes_json: %s", nodes_json)
@@ -726,6 +564,7 @@ def manual_queries(request):
                         'nodes_json': nodes_json,
                         'edges_json': edges_json,
                         'cypher_query': cypher_query,
+                        'query_executed': query_executed,
                     })
 
             except Exception as e:
@@ -736,15 +575,17 @@ def manual_queries(request):
                     'cypher_query': cypher_query,
                     'nodes_json': json.dumps([]),
                     'edges_json': json.dumps([]),
+                    'query_executed': query_executed,
                 })
 
-    logger.debug("Initial graph data on GET request: %s", graph_data)
     return render(request, 'dashboard/manual_queries.html', {
         'graph_data': graph_data,
         'cypher_query': cypher_query,
         'nodes_json': json.dumps([]),
         'edges_json': json.dumps([]),
+        'query_executed': query_executed,
     })
+    
 
 
 
@@ -954,65 +795,81 @@ def check_node_duplicate(request):
     logger.debug("Node %s exists: %s", node_name, exists)
     return JsonResponse({'exists': exists})
 
+driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "Milad1986"))
+
 def explore_layers(request):
-    """Explore nodes up to a specified depth."""
-    logger.debug("Entering explore_layers view with method: %s", request.method)
+    available_nodes = []
+    node_name = request.POST.get("node_name", "")
+    depth = request.POST.get("depth", "2")
     error = None
-    result = None
+    nodes_json = None
+    edges_json = None
+    query_executed = False
 
-    if request.method == 'POST':
-        node_name = request.POST.get('node_name', '').strip()
-        depth = request.POST.get('depth', '').strip()
-        logger.debug("Received node_name: %s, depth: %s", node_name, depth)
+    # دریافت نودهای موجود
+    with driver.session() as session:
+        result = session.run("MATCH (n:Node) RETURN DISTINCT n.name AS name LIMIT 100")
+        available_nodes = [record["name"] for record in result]
 
-        if not node_name or not depth:
-            error = 'Please enter both node name and depth.'
-            logger.warning("Node name or depth missing")
-        else:
+    if request.method == "POST" and node_name:
+        query_executed = True
+        max_retries = 3
+        for attempt in range(max_retries):
             try:
-                depth = int(depth)
-                if depth < 1:
-                    raise ValueError("Depth must be positive")
-                query = (
-                    f"MATCH (n:Node {{name: $node_name}})-[r*1..{depth}]->(m) "
-                    "RETURN n, r, m"
-                )
-                with get_driver().session() as session:
-                    result_data = session.run(query, node_name=node_name)
+                with driver.session() as session:
+                    # کوئری برای کاوش لایه‌ها
+                    query = (
+                        f"MATCH (start:Node {{name: $node_name}})-[r*0..{depth}]-(neighbor:Node) "
+                        "RETURN start, r, neighbor"
+                    )
+                    result = session.run(query, node_name=node_name)
                     nodes = []
                     edges = []
-                    seen_nodes = set()
-                    for record in result_data:
-                        start_node = record['n']
-                        start_id = start_node['name'].replace(' ', '_')
-                        if start_id not in seen_nodes:
-                            nodes.append({'id': start_id, 'label': start_node['name'], 'x': None, 'y': None})
-                            seen_nodes.add(start_id)
-                        end_node = record['m']
-                        end_id = end_node['name'].replace(' ', '_')
-                        if end_id not in seen_nodes:
-                            nodes.append({'id': end_id, 'label': end_node['name'], 'x': None, 'y': None})
-                            seen_nodes.add(end_id)
-                        for rel in record['r']:
-                            source_id = rel.start_node['name'].replace(' ', '_')
-                            target_id = rel.end_node['name'].replace(' ', '_')
-                            edge_id = f"{source_id}_{target_id}"
-                            if edge_id not in {edge['id'] for edge in edges}:
-                                edges.append({'id': edge_id, 'source': source_id, 'target': target_id, 'label': 'R'})
-                    result = {'nodes': nodes, 'edges': edges}
-                    logger.debug("Explore layers result: %s", json.dumps(result, indent=2))
-            except ValueError as e:
-                error = f'Depth must be a positive number: {str(e)}'
-                logger.error("Invalid depth: %s", str(e))
+                    for record in result:
+                        start = record["start"]
+                        neighbors = record["neighbor"]
+                        relationships = record["r"]
+                        if start["name"] not in [node["id"] for node in nodes]:
+                            nodes.append({"id": start["name"], "label": start["name"], "labels": list(start.labels)})
+                        if neighbors["name"] not in [node["id"] for node in nodes]:
+                            nodes.append({"id": neighbors["name"], "label": neighbors["name"], "labels": list(neighbors.labels)})
+                        for rel in relationships:
+                            edges.append({
+                                "source": start["name"],
+                                "target": neighbors["name"],
+                                "label": rel.type
+                            })
+                    nodes_json = nodes
+                    edges_json = edges
+                    break
             except Exception as e:
-                error = f'Error exploring layers: {str(e)}'
-                logger.error("Explore layers failed: %s", str(e))
+                error = f"Error exploring layers: {str(e)}"
+                if attempt < max_retries - 1:
+                    time.sleep(1)  # انتظار 1 ثانیه قبل از تلاش بعدی
+                else:
+                    raise
+    else:
+        node_name = ""
 
-    return render(request, 'dashboard/explore_layers.html', {
-        'result_json': json.dumps(result) if result else None,
-        'error': error,
-        'node_name': request.POST.get('node_name', '') if request.method == 'POST' else ''
-    })
+    context = {
+        "available_nodes": available_nodes,
+        "node_name": node_name,
+        "depth": depth,
+        "error": error,
+        "nodes_json": nodes_json,
+        "edges_json": edges_json,
+        "query_executed": query_executed
+    }
+    return render(request, "dashboard/explore_layers.html", context)
+
+# بستن درایور وقتی برنامه تمام می‌شه
+def close_driver():
+    driver.close()
+
+# فرض می‌کنیم این تابع توی shutdown handler Django فراخوانی بشه
+import atexit
+atexit.register(close_driver)
+
 
 def predefined_queries(request):
     """Render the predefined queries page."""

@@ -21,8 +21,8 @@
         .zoom-btn { padding: 5px 10px; margin-left: 5px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
         .zoom-btn:hover { background-color: #0056b3; }
         #graph { width: 100%; height: 600px; border: 1px solid #ddd; }
-        .links line { stroke: #999; stroke-opacity: 0.6; }
-        .links text { font-size: 10px; fill: #333; }
+        .links line { stroke: #ff0000; stroke-opacity: 1; stroke-width: 2px; } /* قرمز و ضخیم‌تر */
+        .links text { font-size: 12px; fill: #333; font-weight: bold; }
         .nodes circle { stroke: #fff; stroke-width: 1.5px; }
         .nodes text { font-size: 12px; fill: #333; }
         .tooltip { position: absolute; background-color: white; border: 1px solid #ddd; padding: 5px; font-size: 12px; pointer-events: none; }
@@ -131,17 +131,22 @@
                     .force("center", d3.forceCenter(width / 2, height / 2))
                     .force("collide", d3.forceCollide().radius(20));  // Prevent overlap
 
+                // Define links directly as lines
                 const link = g.append("g")
                     .attr("class", "links")
-                    .selectAll("g")
+                    .selectAll("line")
                     .data(links)
-                    .enter().append("g")
-                    .attr("class", "link");
-
-                link.append("line")
+                    .enter().append("line")
+                    .attr("class", "link")
                     .attr("marker-end", "url(#arrow)");
 
-                link.append("text")
+                // Define link labels
+                const linkText = g.append("g")
+                    .attr("class", "link-labels")
+                    .selectAll("text")
+                    .data(links)
+                    .enter().append("text")
+                    .attr("class", "link-label")
                     .attr("dy", -5)
                     .attr("text-anchor", "middle")
                     .text(d => d.label || "");
@@ -197,13 +202,13 @@
                 simulation.on("tick", ticked);
 
                 function ticked() {
-                    link.select("line")
+                    link
                         .attr("x1", d => d.source.x)
                         .attr("y1", d => d.source.y)
                         .attr("x2", d => d.target.x)
                         .attr("y2", d => d.target.y);
 
-                    link.select("text")
+                    linkText
                         .attr("x", d => (d.source.x + d.target.x) / 2)
                         .attr("y", d => (d.source.y + d.target.y) / 2);
 

@@ -1,16 +1,42 @@
 {% extends 'dashboard/base.html' %}
+{% load static %}
 {% block title %}Explore Layers - Neo4j Dashboard{% endblock %}
 {% block extra_head %}
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.19.0/cytoscape.min.js"></script>
+    <script src="{% static 'dashboard/d3.v7.min.js' %}"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .section { padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Vazir', sans-serif; }
+        .form-group { margin-bottom: 15px; position: relative; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Vazir', sans-serif; transition: border-color 0.3s; }
+        input:focus, select:focus { border-color: #007bff; outline: none; box-shadow: 0 0 5px rgba(0,123,255,0.3); }
+        .form-group .icon { position: absolute; right: 10px; top: 38px; color: #666; }
         .btn { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; }
         .btn:hover { background-color: #0056b3; }
-        .error-message { color: #dc3545; margin-top: 10px; }
-        #graph-container { width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 4px; margin-top: 20px; }
+        .btn-clear { background-color: #6c757d; margin-left: 10px; }
+        .btn-clear:hover { background-color: #5a6268; }
+        .btn-download { background-color: #28a745; margin-left: 10px; }
+        .btn-download:hover { background-color: #218838; }
+        .error-message { color: #dc3545; margin-top: 10px; animation: fadeIn 0.5s; }
+        .message.success { background-color: #d4edda; color: #155724; padding: 10px; margin: 10px 0; border-radius: 4px; animation: fadeIn 0.5s; }
+        #graph-container { width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 4px; margin-top: 20px; }
+        .zoom-controls { position: absolute; top: 10px; right: 10px; }
+        .zoom-btn { padding: 5px 10px; margin-left: 5px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .zoom-btn:hover { background-color: #0056b3; }
+        .links line.outgoing { stroke: #ff0000; stroke-opacity: 1; stroke-width: 2px; }
+        .links line.incoming { stroke: #1e90ff; stroke-opacity: 1; stroke-width: 2px; }
+        .links text { font-size: 12px; fill: #333; font-weight: bold; font-family: 'Vazir', sans-serif; opacity: 0; transition: opacity 0.5s; }
+        .links:hover text { opacity: 1; }
+        .nodes circle { stroke: #fff; stroke-width: 1.5px; opacity: 0; transition: opacity 1s; }
+        .nodes text { font-size: 12px; fill: #333; font-family: 'Vazir', sans-serif; opacity: 0; transition: opacity 1s; }
+        .nodes circle.show, .nodes text.show { opacity: 1; }
+        .layer-background { fill-opacity: 0.1; stroke: #ccc; stroke-width: 1px; }
+        .layer-label { font-size: 14px; fill: #333; font-family: 'Vazir', sans-serif; font-weight: bold; }
+        .tooltip { position: absolute; background-color: #f9f9f9; border: 1px solid #ccc; padding: 8px; font-size: 12px; pointer-events: none; font-family: 'Vazir', sans-serif; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
     </style>
 {% endblock %}
 {% block content %}
@@ -20,69 +46,462 @@
             {% csrf_token %}
             <div class="form-group">
                 <label for="node_name">Node Name:</label>
-                <input type="text" id="node_name" name="node_name" placeholder="Enter node name" value="{{ node_name|default_if_none:'' }}">
+                <input type="text" id="node_name" name="node_name" list="node_options" placeholder="Enter or select node name" value="{{ node_name|default_if_none:'' }}" oninput="filterNodes()">
+                <i class="fas fa-search icon"></i>
+                <datalist id="node_options">
+                    {% for node in available_nodes %}
+                        <option value="{{ node }}">{{ node }}</option>
+                    {% endfor %}
+                </datalist>
             </div>
             <div class="form-group">
                 <label for="depth">Exploration Depth:</label>
                 <select id="depth" name="depth">
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
+                    <option value="1" {% if depth == "1" %}selected{% endif %}>1</option>
+                    <option value="2" {% if depth == "2" %}selected{% endif %}>2</option>
+                    <option value="3" {% if depth == "3" %}selected{% endif %}>3</option>
+                    <option value="4" {% if depth == "4" %}selected{% endif %}>4</option>
+                    <option value="5" {% if depth == "5" %}selected{% endif %}>5</option>
                 </select>
             </div>
             <button type="submit" class="btn">Explore</button>
+            <button type="button" class="btn btn-clear" onclick="clearForm()">Clear</button>
+            <button type="button" class="btn btn-download" onclick="downloadGraph()">Download</button>
         </form>
 
         {% if error %}
             <div class="error-message">{{ error }}</div>
+        {% elif not available_nodes %}
+            <div class="error-message">No nodes available in the database. Please check your database or add nodes.</div>
         {% endif %}
 
-        {% if result_json %}
-            <div id="graph-container"></div>
-            <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    const elements = {{ result_json|safe }};
-                    const cy = cytoscape({
-                        container: document.getElementById('graph-container'),
-                        elements: elements,
-                        style: [
-                            {
-                                selector: 'node',
-                                style: {
-                                    'label': 'data(label)',
-                                    'background-color': '#28a745',
-                                    'color': '#fff',
-                                    'text-valign': 'center',
-                                    'text-halign': 'center',
-                                    'shape': 'ellipse',
-                                    'width': '60px',
-                                    'height': '60px',
-                                    'font-family': 'Vazir, sans-serif'
-                                }
-                            },
-                            {
-                                selector: 'edge',
-                                style: {
-                                    'width': 2,
-                                    'line-color': '#ccc',
-                                    'target-arrow-color': '#ccc',
-                                    'target-arrow-shape': 'triangle',
-                                    'curve-style': 'bezier',
-                                    'label': 'data(label)',
-                                    'font-family': 'Vazir, sans-serif'
-                                }
-                            }
-                        ],
-                        layout: {
-                            name: 'cose',
-                            idealEdgeLength: 100,
-                            nodeRepulsion: 400000,
-                            gravity: 0.25
+        {% if query_executed %}
+            {% if nodes_json %}
+                <div class="message success">
+                    <i class="fas fa-check-circle"></i>
+                    Successfully explored layers for node "{{ node_name }}" up to depth {{ depth }}
+                </div>
+            {% endif %}
+            <div style="position: relative;">
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomIn()">+</button>
+                    <button class="zoom-btn" onclick="zoomOut()">-</button>
+                </div>
+                <svg id="graph-container"></svg>
+            </div>
+            <div class="controls">
+                <label for="layer-filter">Filter Layer:</label>
+                <select id="layer-filter" onchange="filterLayers()">
+                    <option value="all">All Layers</option>
+                    <option value="0">Layer 0</option>
+                    <option value="1">Layer 1</option>
+                    <option value="2">Layer 2</option>
+                    <option value="3">Layer 3</option>
+                    <option value="4">Layer 4</option>
+                    <option value="5">Layer 5</option>
+                </select>
+            </div>
+
+            <script type="text/javascript">
+                // Log available nodes for debugging
+                console.log("Available Nodes:", {{ available_nodes | safe }});
+
+                // Filter nodes in datalist
+                function filterNodes() {
+                    const input = document.getElementById('node_name').value.toLowerCase();
+                    const datalist = document.getElementById('node_options');
+                    const options = datalist.getElementsByTagName('option');
+                    for (let i = 0; i < options.length; i++) {
+                        const text = options[i].value.toLowerCase();
+                        options[i].style.display = text.includes(input) ? '' : 'none';
+                    }
+                }
+
+                // Clear form and graph
+                function clearForm() {
+                    document.getElementById('node_name').value = '';
+                    document.getElementById('depth').value = '2';
+                    document.getElementById('layer-filter').value = 'all';
+                    d3.select("#graph-container").selectAll("*").remove();
+                    d3.selectAll(".message, .error-message").remove();
+                }
+
+                // Debug: Log the raw data
+                const rawNodes = {{ nodes_json | safe }};
+                const rawLinks = {{ edges_json | safe }};
+                console.log("Raw Nodes JSON:", rawNodes);
+                console.log("Raw Links JSON:", rawLinks);
+
+                // Ensure nodes and links are arrays
+                const nodes = Array.isArray(rawNodes) ? rawNodes : [];
+                const links = Array.isArray(rawLinks) ? rawLinks : [];
+                console.log("Processed Nodes:", nodes);
+                console.log("Processed Links:", links);
+
+                // Calculate layer (distance from root node)
+                const rootNodeId = "{{ node_name }}";
+                const distances = {};
+                nodes.forEach(node => {
+                    if (node.id === rootNodeId) {
+                        distances[node.id] = 0; // Root node is layer 0
+                    }
+                });
+
+                // Breadth-first search to assign layers
+                const queue = [rootNodeId];
+                while (queue.length > 0) {
+                    const current = queue.shift();
+                    const currentDistance = distances[current];
+                    links.forEach(link => {
+                        if (link.source.id === current && distances[link.target.id] === undefined) {
+                            distances[link.target.id] = currentDistance + 1;
+                            queue.push(link.target.id);
+                        }
+                        if (link.target.id === current && distances[link.source.id] === undefined) {
+                            distances[link.source.id] = currentDistance + 1;
+                            queue.push(link.source.id);
                         }
                     });
-                });
+                }
+
+                // Check if there are nodes to display
+                if (nodes.length === 0) {
+                    console.warn("No nodes to display");
+                    d3.select("#graph-container").append("text")
+                        .attr("x", 50)
+                        .attr("y", 50)
+                        .attr("fill", "red")
+                        .text("No nodes to display. Check your node name or database.");
+                } else {
+                    console.log("Rendering graph with", nodes.length, "nodes and", links.length, "links");
+
+                    const svg = d3.select("#graph-container");
+                    const container = svg.node().parentNode;
+                    const width = container.offsetWidth;
+                    const height = 600;
+
+                    svg.attr("width", width).attr("height", height);
+
+                    // Define arrow marker
+                    svg.append("defs").append("marker")
+                        .attr("id", "arrow")
+                        .attr("viewBox", "0 -5 10 10")
+                        .attr("refX", 15)
+                        .attr("refY", 0)
+                        .attr("markerWidth", 6)
+                        .attr("markerHeight", 6)
+                        .attr("orient", "auto")
+                        .append("path")
+                        .attr("d", "M0,-5L10,0L0,5")
+                        .attr("class", "arrow")
+                        .attr("fill", "#999");
+
+                    // Color scale for layers
+                    const layerColors = d3.scaleOrdinal()
+                        .domain([0, 1, 2, 3, 4, 5])
+                        .range(["#2ecc71", "#3498db", "#e67e22", "#e74c3c", "#9b59b6", "#34495e"]);
+
+                    const getNodeColor = (nodeId) => {
+                        const distance = distances[nodeId] !== undefined ? distances[nodeId] : 0;
+                        return layerColors(distance);
+                    };
+
+                    // Size scale for nodes based on layer
+                    const nodeSizeScale = d3.scaleLinear()
+                        .domain([0, 5])
+                        .range([15, 8]);  // Larger nodes for layer 0, smaller for deeper layers
+
+                    const g = svg.append("g");
+                    const zoom = d3.zoom()
+                        .scaleExtent([0.1, 4])
+                        .on("zoom", (event) => g.attr("transform", event.transform));
+
+                    svg.call(zoom);
+
+                    function zoomIn() {
+                        svg.transition().call(zoom.scaleBy, 1.2);
+                    }
+
+                    function zoomOut() {
+                        svg.transition().call(zoom.scaleBy, 0.8);
+                    }
+
+                    function downloadGraph() {
+                        // Clone the SVG to modify it for download
+                        const svgClone = svg.node().cloneNode(true);
+                        const gClone = d3.select(svgClone).select("g");
+
+                        // Apply inline styles to links
+                        gClone.selectAll(".links line.outgoing")
+                            .attr("stroke", "#ff0000")
+                            .attr("stroke-opacity", 1)
+                            .attr("stroke-width", 2)
+                            .attr("marker-end", "url(#arrow)");
+
+                        gClone.selectAll(".links line.incoming")
+                            .attr("stroke", "#1e90ff")
+                            .attr("stroke-opacity", 1)
+                            .attr("stroke-width", 2)
+                            .attr("marker-end", "url(#arrow)");
+
+                        // Apply inline styles to nodes
+                        gClone.selectAll(".nodes circle")
+                            .attr("stroke", "#fff")
+                            .attr("stroke-width", 1.5)
+                            .attr("opacity", 1);
+
+                        gClone.selectAll(".nodes text")
+                            .attr("fill", "#333")
+                            .attr("font-size", "12px")
+                            .attr("font-family", "'Vazir', sans-serif")
+                            .attr("opacity", 1);
+
+                        // Apply inline styles to link labels
+                        gClone.selectAll(".links text")
+                            .attr("fill", "#333")
+                            .attr("font-size", "12px")
+                            .attr("font-weight", "bold")
+                            .attr("font-family", "'Vazir', sans-serif")
+                            .attr("opacity", 1);  // Make labels visible in the download
+
+                        const serializer = new XMLSerializer();
+                        const svgStr = serializer.serializeToString(svgClone);
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const img = new Image();
+                        img.onload = () => {
+                            context.fillStyle = '#fff';
+                            context.fillRect(0, 0, canvas.width, canvas.height);
+                            context.drawImage(img, 0, 0);
+                            const link = document.createElement('a');
+                            link.download = 'graph.png';
+                            link.href = canvas.toDataURL('image/png');
+                            link.click();
+                        };
+                        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
+                    }
+
+                    // Group nodes by layer
+                    const nodesByLayer = {};
+                    nodes.forEach(node => {
+                        const layer = distances[node.id] || 0;
+                        if (!nodesByLayer[layer]) {
+                            nodesByLayer[layer] = [];
+                        }
+                        nodesByLayer[layer].push(node);
+                    });
+
+                    // Add background rectangles and labels for each layer
+                    const layerGroup = g.append("g").attr("class", "layer-backgrounds");
+                    Object.keys(nodesByLayer).forEach(layer => {
+                        const layerNum = parseInt(layer);
+                        const nodesInLayer = nodesByLayer[layer].length;
+                        const layerWidth = 200;
+                        const layerHeight = Math.max(100, nodesInLayer * 50);
+                        const xPos = layerNum * layerWidth;
+
+                        // Background rectangle
+                        layerGroup.append("rect")
+                            .attr("x", xPos - 50)
+                            .attr("y", height / 2 - layerHeight / 2)
+                            .attr("width", layerWidth)
+                            .attr("height", layerHeight)
+                            .attr("class", "layer-background")
+                            .attr("fill", layerColors(layerNum));
+
+                        // Layer label
+                        layerGroup.append("text")
+                            .attr("x", xPos + layerWidth / 2 - 30)
+                            .attr("y", height / 2 - layerHeight / 2 - 10)
+                            .attr("class", "layer-label")
+                            .text(`Layer ${layerNum}`);
+                    });
+
+                    const simulation = d3.forceSimulation(nodes)
+                        .force("link", d3.forceLink(links).id(d => d.id).distance(150))
+                        .force("charge", d3.forceManyBody().strength(-300))
+                        .force("center", d3.forceCenter(width / 2, height / 2))
+                        .force("collide", d3.forceCollide().radius(30))
+                        .force("layer", d => {
+                            const layer = distances[d.id] || 0;
+                            const nodesInLayer = nodesByLayer[layer];
+                            const indexInLayer = nodesInLayer.indexOf(d);
+                            const layerHeight = Math.max(100, nodesInLayer.length * 50);
+                            d.x = layer * 200;  // Position nodes horizontally based on layer
+                            d.y = height / 2 - layerHeight / 2 + (indexInLayer + 1) * (layerHeight / (nodesInLayer.length + 1));  // Distribute vertically within layer
+                        });
+
+                    // Define links with direction
+                    const link = g.append("g")
+                        .attr("class", "links")
+                        .selectAll("line")
+                        .data(links)
+                        .enter().append("line")
+                        .attr("class", d => d.source.id === rootNodeId ? "outgoing" : "incoming")
+                        .attr("marker-end", "url(#arrow)");
+
+                    // Define link labels
+                    const linkText = g.append("g")
+                        .attr("class", "link-labels")
+                        .selectAll("text")
+                        .data(links)
+                        .enter().append("text")
+                        .attr("class", "link-label")
+                        .attr("dy", -5)
+                        .attr("text-anchor", "middle")
+                        .text(d => d.label || "");
+
+                    const node = g.append("g")
+                        .attr("class", "nodes")
+                        .selectAll("g")
+                        .data(nodes)
+                        .enter().append("g")
+                        .attr("class", "node")
+                        .attr("data-layer", d => distances[d.id] || 0)
+                        .call(d3.drag()
+                            .on("start", dragstarted)
+                            .on("drag", dragged)
+                            .on("end", dragended));
+
+                    node.append("circle")
+                        .attr("r", d => nodeSizeScale(distances[d.id] || 0))
+                        .attr("fill", d => getNodeColor(d.id))
+                        .attr("class", "show");
+
+                    node.append("text")
+                        .attr("dx", 15)
+                        .attr("dy", ".35em")
+                        .text(d => d.label || "")
+                        .attr("class", "show");
+
+                    // Tooltip for showing properties
+                    const tooltip = d3.select("body").append("div")
+                        .attr("class", "tooltip")
+                        .style("opacity", 0);
+
+                    node.on("mouseover", function(event, d) {
+                        tooltip.transition()
+                            .duration(200)
+                            .style("opacity", .9);
+                        let tooltipHtml = `<strong>${d.label}</strong><br>`;
+                        if (d.labels && d.labels.length > 0) {
+                            tooltipHtml += `Labels: ${d.labels.join(", ")}<br>`;
+                        }
+                        if (d.properties) {
+                            for (const [key, value] of Object.entries(d.properties)) {
+                                tooltipHtml += `${key}: ${value}<br>`;
+                            }
+                        }
+                        tooltip.html(tooltipHtml)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 10) + "px");
+                    })
+                    .on("mouseout", function() {
+                        tooltip.transition()
+                            .duration(500)
+                            .style("opacity", 0);
+                    });
+
+                    simulation.on("tick", ticked);
+
+                    function ticked() {
+                        link
+                            .attr("x1", d => d.source.x)
+                            .attr("y1", d => d.source.y)
+                            .attr("x2", d => d.target.x)
+                            .attr("y2", d => d.target.y);
+
+                        linkText
+                            .attr("x", d => (d.source.x + d.target.x) / 2)
+                            .attr("y", d => (d.source.y + d.target.y) / 2);
+
+                        node
+                            .attr("transform", d => `translate(${d.x},${d.y})`);
+                    }
+
+                    function dragstarted(event, d) {
+                        if (!event.active) simulation.alphaTarget(0.3).restart();
+                        d.fx = d.x;
+                        d.fy = d.y;
+                    }
+
+                    function dragged(event, d) {
+                        d.fx = event.x;
+                        d.fy = event.y;
+                    }
+
+                    function dragended(event, d) {
+                        if (!event.active) simulation.alphaTarget(0);
+                        d.fx = null;
+                        d.fy = null;
+                    }
+
+                    // Filter layers
+                    function filterLayers() {
+                        const selectedLayer = document.getElementById('layer-filter').value;
+                        const nodesSelection = g.selectAll(".node");
+                        const linksSelection = g.selectAll(".links line");
+                        const linkLabelsSelection = g.selectAll(".link-labels text");
+                        const layerBackgrounds = g.selectAll(".layer-backgrounds rect");
+                        const layerLabels = g.selectAll(".layer-backgrounds text");
+
+                        if (selectedLayer === 'all') {
+                            nodesSelection.style("display", "block");
+                            linksSelection.style("display", "block");
+                            linkLabelsSelection.style("display", "block");
+                            layerBackgrounds.style("display", "block");
+                            layerLabels.style("display", "block");
+                        } else {
+                            const layerNum = parseInt(selectedLayer);
+
+                            // Reset all nodes and links to hidden
+                            nodesSelection.style("display", "none");
+                            linksSelection.style("display", "none");
+                            linkLabelsSelection.style("display", "none");
+                            layerBackgrounds.style("display", d => d === layerNum ? "block" : "none");
+                            layerLabels.style("display", d => d === layerNum ? "block" : "none");
+
+                            // Show nodes in the selected layer
+                            nodesSelection.each(function(d) {
+                                const nodeLayer = distances[d.id] || 0;
+                                if (nodeLayer === layerNum) {
+                                    d3.select(this).style("display", "block");
+                                }
+                            });
+
+                            // Show links and labels where either source or target is in the selected layer
+                            const visibleNodes = new Set();
+                            linksSelection.each(function(d) {
+                                const sourceLayer = distances[d.source.id] || 0;
+                                const targetLayer = distances[d.target.id] || 0;
+                                const shouldDisplay = (sourceLayer === layerNum || targetLayer === layerNum);
+                                d3.select(this).style("display", shouldDisplay ? "block" : "none");
+                                if (shouldDisplay) {
+                                    visibleNodes.add(d.source.id);
+                                    visibleNodes.add(d.target.id);
+                                }
+                            });
+
+                            linkLabelsSelection.each(function(d) {
+                                const sourceLayer = distances[d.source.id] || 0;
+                                const targetLayer = distances[d.target.id] || 0;
+                                const shouldDisplay = (sourceLayer === layerNum || targetLayer === layerNum);
+                                d3.select(this).style("display", shouldDisplay ? "block" : "none");
+                            });
+
+                            // Show all nodes that are part of visible links
+                            nodesSelection.each(function(d) {
+                                if (visibleNodes.has(d.id)) {
+                                    d3.select(this).style("display", "block");
+                                }
+                            });
+                        }
+
+                        simulation.alpha(1).restart();
+                    }
+                }
             </script>
         {% endif %}
     </div>
