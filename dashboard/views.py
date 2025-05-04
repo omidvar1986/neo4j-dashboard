@@ -626,7 +626,7 @@ def admin_queries(request):
     created_by_filter = request.GET.get('created_by', None)
 
     # Build the query
-    queries = AdminQuery.objects.all()
+    queries = PredefinedQuery.objects.all()
     if is_active_filter == 'true':
         queries = queries.filter(is_active=True)
     elif is_active_filter == 'false':
@@ -637,76 +637,188 @@ def admin_queries(request):
 
     queries = queries.order_by('-created_at')
 
-    # Handle form submission for query execution
-    if request.method == 'POST':
-        query_id = request.POST.get('query_id')
-        try:
-            query = AdminQuery.objects.get(id=query_id)
-            # Check if query is safe
-            if not is_safe_query(query.query_text):
-                logger.warning("Unsafe Admin query detected: %s", query.query_text)
-                return render(request, 'dashboard/admin_queries.html', {
-                    'queries': queries,
-                    'error': 'Unsafe query detected. Only MATCH and RETURN queries are allowed.',
-                    'is_active_filter': is_active_filter,
-                    'created_by_filter': created_by_filter,
+    # Handle form submissions
+    if request.method == "POST":
+        if "create_query" in request.POST:
+            # Handle query creation
+            query_name = request.POST.get("query_name", "").strip()
+            cypher_query = request.POST.get("query_input", "").strip()
+
+            if not query_name or not cypher_query:
+                messages.error(request, "Query name and Cypher query cannot be empty.")
+            else:
+                try:
+                    # Test the query
+                    with driver.session() as session:
+                        session.run(cypher_query).consume()
+                    # Save the query
+                    PredefinedQuery.objects.update_or_create(
+                        name=query_name,
+                        defaults={
+                            "cypher_query": cypher_query,
+                            "is_active": True,
+                            "created_by": request.user.username if request.user.is_authenticated else "Anonymous"
+                        }
+                    )
+                    messages.success(request, f"Query '{query_name}' saved successfully.")
+                except Exception as e:
+                    logger.error("Error saving query: %s", str(e))
+                    messages.error(request, f"Invalid Cypher query: {str(e)}")
+
+        elif "query_id" in request.POST:
+            # Handle query execution
+            query_id = request.POST.get("query_id")
+            try:
+                query = PredefinedQuery.objects.get(id=query_id)
+                with driver.session() as session:
+                    result = session.run(query.cypher_query)
+                    nodes = []
+                    edges = []
+                    seen_nodes = set()
+                    for record in result:
+                        for item in record.values():
+                            if isinstance(item, dict) and "id" in item:
+                                node_id = item["id"]
+                                if node_id not in seen_nodes:
+                                    nodes.append({
+                                        "id": node_id,
+                                        "label": item.get("label", node_id),
+                                        "labels": item.get("labels", []),
+                                        "distance": item.get("distance", 0)
+                                    })
+                                    seen_nodes.add(node_id)
+                            elif "source" in record and "target" in record:
+                                source_id = record["source"]
+                                target_id = record["target"]
+                                if source_id not in seen_nodes:
+                                    nodes.append({
+                                        "id": source_id,
+                                        "label": source_id,
+                                        "labels": [],
+                                        "distance": 0
+                                    })
+                                    seen_nodes.add(source_id)
+                                if target_id not in seen_nodes:
+                                    nodes.append({
+                                        "id": target_id,
+                                        "label": target_id,
+                                        "labels": [],
+                                        "distance": 0
+                                    })
+                                    seen_nodes.add(target_id)
+                                edges.append({
+                                    "id": f"{source_id}_{target_id}",
+                                    "source": source_id,
+                                    "target": target_id,
+                                    "label": record.get("label", "R")
+                                })
+                    result_data = {"nodes": nodes, "edges": edges}
+                return render(request, "dashboard/admin_queries.html", {
+                    "queries": queries,
+                    "result_json": json.dumps(result_data),
+                    "selected_query": query,
+                    "is_active_filter": is_active_filter,
+                    "created_by_filter": created_by_filter,
                 })
-            with get_driver().session() as session:
-                result = session.run(query.query_text)
+            except PredefinedQuery.DoesNotExist:
+                messages.error(request, "Query not found.")
+            except Exception as e:
+                logger.error("Error executing admin query: %s", str(e))
+                messages.error(request, f"Error executing query: {str(e)}")
+
+        return redirect("admin_queries")
+
+    return render(request, "dashboard/admin_queries.html", {
+        "queries": queries,
+        "is_active_filter": is_active_filter,
+        "created_by_filter": created_by_filter,
+    })
+
+def predefined_queries(request):
+    nodes_json = None
+    edges_json = None
+    error = None
+    query_executed = False
+    selected_query = None
+
+    saved_queries = PredefinedQuery.objects.all()
+
+    if request.method == "POST":
+        query_name = request.POST.get("query_name")
+        try:
+            selected_query = PredefinedQuery.objects.get(name=query_name)
+            cypher_query = selected_query.cypher_query
+            query_executed = True
+
+            with driver.session() as session:
+                result = session.run(cypher_query)
                 nodes = []
                 edges = []
                 seen_nodes = set()
+
                 for record in result:
                     for item in record.values():
-                        if isinstance(item, Node):
-                            node_id = item.get('name', f"Node_{len(nodes)}")
+                        if isinstance(item, dict) and "id" in item:
+                            node_id = item["id"]
                             if node_id not in seen_nodes:
-                                nodes.append({'id': node_id, 'label': node_id, 'x': None, 'y': None})
+                                nodes.append({
+                                    "id": node_id,
+                                    "label": item.get("label", node_id),
+                                    "labels": item.get("labels", []),
+                                    "distance": item.get("distance", 0)
+                                })
                                 seen_nodes.add(node_id)
-                        elif isinstance(item, Relationship):
-                            source_id = item.start_node.get('name', f"Node_{len(nodes)}")
-                            target_id = item.end_node.get('name', f"Node_{len(nodes)+1}")
+                        elif "source" in record and "target" in record:
+                            source_id = record["source"]
+                            target_id = record["target"]
                             if source_id not in seen_nodes:
-                                nodes.append({'id': source_id, 'label': source_id, 'x': None, 'y': None})
+                                nodes.append({
+                                    "id": source_id,
+                                    "label": source_id,
+                                    "labels": [],
+                                    "distance": 0
+                                })
                                 seen_nodes.add(source_id)
                             if target_id not in seen_nodes:
-                                nodes.append({'id': target_id, 'label': target_id, 'x': None, 'y': None})
+                                nodes.append({
+                                    "id": target_id,
+                                    "label": target_id,
+                                    "labels": [],
+                                    "distance": 0
+                                })
                                 seen_nodes.add(target_id)
                             edges.append({
-                                'id': f"{source_id}_{target_id}",
-                                'source': source_id,
-                                'target': target_id,
-                                'label': item.type
+                                "id": f"{source_id}_{target_id}",
+                                "source": source_id,
+                                "target": target_id,
+                                "label": record.get("label", "R")
                             })
-                result_data = {'nodes': nodes, 'edges': edges}
-            return render(request, 'dashboard/admin_queries.html', {
-                'queries': queries,
-                'result_json': json.dumps(result_data),
-                'selected_query': query,
-                'is_active_filter': is_active_filter,
-                'created_by_filter': created_by_filter,
-            })
-        except AdminQuery.DoesNotExist:
-            return render(request, 'dashboard/admin_queries.html', {
-                'queries': queries,
-                'error': 'Query not found.',
-                'is_active_filter': is_active_filter,
-                'created_by_filter': created_by_filter,
-            })
-        except Exception as e:
-            logger.error("Error executing admin query: %s", str(e))
-            return render(request, 'dashboard/admin_queries.html', {
-                'queries': queries,
-                'error': f'Error executing query: {str(e)}',
-                'is_active_filter': is_active_filter,
-                'created_by_filter': created_by_filter,
-            })
 
-    return render(request, 'dashboard/admin_queries.html', {
-        'queries': queries,
-        'is_active_filter': is_active_filter,
-        'created_by_filter': created_by_filter,
-    })
+                nodes_json = nodes
+                edges_json = edges
+
+        except PredefinedQuery.DoesNotExist:
+            error = f"Query '{query_name}' not found."
+        except Exception as e:
+            error = f"Error executing query: {str(e)}"
+
+    context = {
+        "saved_queries": saved_queries,
+        "selected_query": selected_query,
+        "error": error,
+        "nodes_json": json.dumps(nodes_json) if nodes_json else None,
+        "edges_json": json.dumps(edges_json) if edges_json else None,
+        "query_executed": query_executed
+    }
+    return render(request, "dashboard/predefined_queries.html", context)
+
+def close_driver():
+    driver.close()
+
+import atexit
+atexit.register(close_driver)
+
+
 
 def delete_predefined_query(request, query_id):
     """Delete a predefined query."""
