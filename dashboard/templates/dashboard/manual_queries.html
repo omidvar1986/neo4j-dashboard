@@ -62,6 +62,7 @@
             // Debug: Log the raw data
             const rawNodes = {{ nodes_json | safe }};
             const rawLinks = {{ edges_json | safe }};
+            const queryExecuted = {{ query_executed|yesno:"true,false" }};
             console.log("Raw Nodes JSON:", rawNodes);
             console.log("Raw Links JSON:", rawLinks);
 
@@ -72,14 +73,13 @@
             console.log("Processed Links:", links);
 
             // Check if there are nodes to display
-            if (nodes.length === 0) {
-                console.warn("No nodes to display");
+            if (queryExecuted && nodes.length === 0) {
                 d3.select("#graph").append("text")
                     .attr("x", 50)
                     .attr("y", 50)
                     .attr("fill", "red")
                     .text("No nodes to display. Check your query or database.");
-            } else {
+            } else if (nodes.length > 0) {
                 console.log("Rendering graph with", nodes.length, "nodes and", links.length, "links");
 
                 const svg = d3.select("#graph");
