@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}Manual Queries - Neo4j Dashboard{% endblock %}
 {% block extra_head %}
-    <script src="{% static 'dashboard/d3.v7.min.js' %}"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         .section { margin: 20px 0; }
         .form-group { margin-bottom: 15px; }
@@ -20,12 +20,13 @@
         .zoom-controls { position: absolute; top: 10px; right: 10px; }
         .zoom-btn { padding: 5px 10px; margin-left: 5px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
         .zoom-btn:hover { background-color: #0056b3; }
-        #graph { width: 100%; height: 600px; border: 1px solid #ddd; }
+        #graph { width: 100%; height: 600px; border: 1px solid #5c5858; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .links line { stroke: #ff0000; stroke-opacity: 1; stroke-width: 2px; } /* قرمز و ضخیم‌تر */
         .links text { font-size: 12px; fill: #333; font-weight: bold; }
         .nodes circle { stroke: #fff; stroke-width: 1.5px; }
         .nodes text { font-size: 12px; fill: #333; }
         .tooltip { position: absolute; background-color: white; border: 1px solid #ddd; padding: 5px; font-size: 12px; pointer-events: none; }
+        #graph-tooltip { position: absolute; display: none; pointer-events: none; background: #fff; border: 1px solid #333; border-radius: 6px; padding: 8px 12px; font-size: 1em; color: #222; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
     </style>
 {% endblock %}
 {% block content %}
@@ -37,202 +38,153 @@
                 <label for="cypher_query">Enter Cypher Query:</label>
                 <textarea id="cypher_query" name="cypher_query" placeholder="e.g., MATCH (n)-[r]->(m) RETURN n, r, m">{{ cypher_query }}</textarea>
             </div>
-            <div class="buttons">
-                <button type="submit" name="action" value="execute" class="btn btn-primary">Execute Query</button>
-                <button type="submit" name="action" value="clear" class="btn btn-secondary">Clear</button>
+            <div style="margin-top: 16px;">
+                <button type="submit" name="action" value="execute" class="btn">Run Query</button>
+                <button type="submit" name="action" value="clear" class="btn btn-clear">Clear</button>
+                {% if cypher_query %}
+                    <form method="post" action="{% url 'dashboard:export_manual_query' %}" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="cypher_query" value="{{ cypher_query|escape }}">
+                        <input type="hidden" name="export_format" value="csv">
+                        <button type="submit" class="btn btn-download">Export as CSV</button>
+                    </form>
+                    <form method="post" action="{% url 'dashboard:export_manual_query' %}" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="cypher_query" value="{{ cypher_query|escape }}">
+                        <input type="hidden" name="export_format" value="json">
+                        <button type="submit" class="btn btn-download">Export as JSON</button>
+                    </form>
+                {% endif %}
             </div>
-        </form>
 
-        {% if success_message %}
-            <div class="message success">{{ success_message }}</div>
-        {% endif %}
-        {% if error_message %}
-            <div class="message error">{{ error_message }}</div>
-        {% endif %}
+            {% if success_message %}
+                <div class="message success">{{ success_message }}</div>
+            {% endif %}
+            {% if error_message %}
+                <div class="message error">{{ error_message }}</div>
+            {% endif %}
 
-        <div style="position: relative;">
-            <div class="zoom-controls">
-                <button class="zoom-btn" onclick="zoomIn()">+</button>
-                <button class="zoom-btn" onclick="zoomOut()">-</button>
+            <div id="graph" style="width: 100%; height: 600px; border: 1px solid #5c5858; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;">
+                <div style="position: absolute; top: 20px; right: 40px; z-index: 10;">
+                    <button id="zoom-in" style="padding: 10px 20px; margin-right: 10px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">+</button>
+                    <button id="zoom-out" style="padding: 10px 20px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">-</button>
+                </div>
             </div>
-            <svg id="graph"></svg>
-        </div>
+            <div id="graph-tooltip" style="position: absolute; display: none; pointer-events: none; background: #fff; border: 1px solid #333; border-radius: 6px; padding: 8px 12px; font-size: 1em; color: #222; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
 
-        <script type="text/javascript">
-            // Debug: Log the raw data
-            const rawNodes = {{ nodes_json | safe }};
-            const rawLinks = {{ edges_json | safe }};
-            const queryExecuted = {{ query_executed|yesno:"true,false" }};
-            console.log("Raw Nodes JSON:", rawNodes);
-            console.log("Raw Links JSON:", rawLinks);
+            <script type="text/javascript">
+                const nodes = {{ nodes_json|safe }};
+                const links = {{ edges_json|safe }};
 
-            // Ensure nodes and links are arrays
-            const nodes = Array.isArray(rawNodes) ? rawNodes : [];
-            const links = Array.isArray(rawLinks) ? rawLinks : [];
-            console.log("Processed Nodes:", nodes);
-            console.log("Processed Links:", links);
-
-            // Check if there are nodes to display
-            if (queryExecuted && nodes.length === 0) {
-                d3.select("#graph").append("text")
-                    .attr("x", 50)
-                    .attr("y", 50)
-                    .attr("fill", "red")
-                    .text("No nodes to display. Check your query or database.");
-            } else if (nodes.length > 0) {
-                console.log("Rendering graph with", nodes.length, "nodes and", links.length, "links");
-
-                const svg = d3.select("#graph");
-                const container = svg.node().parentNode;
-                const width = container.offsetWidth;
+                const width = document.getElementById("graph").clientWidth;
                 const height = 600;
 
-                svg.attr("width", width).attr("height", height);
+                const svg = d3.select("#graph")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
 
-                // Define arrow marker
-                svg.append("defs").append("marker")
-                    .attr("id", "arrow")
-                    .attr("viewBox", "0 -5 10 10")
-                    .attr("refX", 15)
-                    .attr("refY", 0)
-                    .attr("markerWidth", 6)
-                    .attr("markerHeight", 6)
-                    .attr("orient", "auto")
-                    .append("path")
-                    .attr("d", "M0,-5L10,0L0,5")
-                    .attr("class", "arrow")
-                    .attr("fill", "#999");
+                const zoomGroup = svg.append("g");
 
-                // Create a color scale for node labels
-                const labelColors = d3.scaleOrdinal(d3.schemeCategory10);
-                const getNodeColor = (labels) => {
-                    if (!labels || labels.length === 0) return "#69b3a2";
-                    return labelColors(labels[0]);  // Use the first label for color
-                };
-
-                const g = svg.append("g");
                 const zoom = d3.zoom()
-                    .scaleExtent([0.1, 4])
-                    .on("zoom", (event) => g.attr("transform", event.transform));
+                    .scaleExtent([0.1, 10])
+                    .on("zoom", (event) => {
+                        zoomGroup.attr("transform", event.transform);
+                    });
 
                 svg.call(zoom);
 
-                function zoomIn() {
-                    svg.transition().call(zoom.scaleBy, 1.2);
-                }
-
-                function zoomOut() {
-                    svg.transition().call(zoom.scaleBy, 0.8);
-                }
-
-                const simulation = d3.forceSimulation(nodes)
-                    .force("link", d3.forceLink(links).id(d => d.id).distance(100))
-                    .force("charge", d3.forceManyBody().strength(-200))
-                    .force("center", d3.forceCenter(width / 2, height / 2))
-                    .force("collide", d3.forceCollide().radius(20));  // Prevent overlap
-
-                // Define links directly as lines
-                const link = g.append("g")
-                    .attr("class", "links")
+                const link = zoomGroup.append("g")
+                    .attr("stroke", "#999")
+                    .attr("stroke-opacity", 0.6)
                     .selectAll("line")
                     .data(links)
                     .enter().append("line")
-                    .attr("class", "link")
-                    .attr("marker-end", "url(#arrow)");
+                    .attr("stroke-width", 2);
 
-                // Define link labels
-                const linkText = g.append("g")
-                    .attr("class", "link-labels")
-                    .selectAll("text")
-                    .data(links)
-                    .enter().append("text")
-                    .attr("class", "link-label")
-                    .attr("dy", -5)
-                    .attr("text-anchor", "middle")
-                    .text(d => d.label || "");
-
-                const node = g.append("g")
-                    .attr("class", "nodes")
-                    .selectAll("g")
+                const node = zoomGroup.append("g")
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 1.5)
+                    .selectAll("circle")
                     .data(nodes)
-                    .enter().append("g")
-                    .attr("class", "node")
+                    .enter().append("circle")
+                    .attr("r", 18)
+                    .attr("fill", "#69b3a2")
                     .call(d3.drag()
                         .on("start", dragstarted)
                         .on("drag", dragged)
-                        .on("end", dragended));
+                        .on("end", dragended)
+                    );
 
-                node.append("circle")
-                    .attr("r", 10)
-                    .attr("fill", d => getNodeColor(d.labels));
+                const label = zoomGroup.append("g")
+                    .selectAll("text")
+                    .data(nodes)
+                    .enter().append("text")
+                    .text(d => d.label)
+                    .attr("font-size", "1em")
+                    .attr("text-anchor", "middle")
+                    .attr("dy", ".35em");
 
-                node.append("text")
-                    .attr("dx", 12)
-                    .attr("dy", ".35em")
-                    .text(d => d.label || "");
-
-                // Tooltip for showing properties
-                const tooltip = d3.select("body").append("div")
-                    .attr("class", "tooltip")
-                    .style("opacity", 0);
-
+                const tooltip = d3.select("#graph-tooltip");
                 node.on("mouseover", function(event, d) {
-                    tooltip.transition()
-                        .duration(200)
-                        .style("opacity", .9);
-                    let tooltipHtml = `<strong>${d.label}</strong><br>`;
-                    if (d.labels && d.labels.length > 0) {
-                        tooltipHtml += `Labels: ${d.labels.join(", ")}<br>`;
-                    }
-                    if (d.properties) {
-                        for (const [key, value] of Object.entries(d.properties)) {
-                            tooltipHtml += `${key}: ${value}<br>`;
-                        }
-                    }
-                    tooltip.html(tooltipHtml)
-                        .style("left", (event.pageX + 10) + "px")
-                        .style("top", (event.pageY - 10) + "px");
+                    tooltip.style("display", "block")
+                        .html(
+                            `<strong>${d.label}</strong><br>` +
+                            Object.entries(d.properties || {}).map(([k,v]) => `<span style='color:#007bff;'>${k}</span>: ${v}`).join("<br>")
+                        );
+                })
+                .on("mousemove", function(event) {
+                    tooltip.style("left", (event.pageX + 15) + "px")
+                           .style("top", (event.pageY - 10) + "px");
                 })
                 .on("mouseout", function() {
-                    tooltip.transition()
-                        .duration(500)
-                        .style("opacity", 0);
+                    tooltip.style("display", "none");
                 });
 
-                simulation.on("tick", ticked);
+                const simulation = d3.forceSimulation(nodes)
+                    .force("link", d3.forceLink(links).id(d => d.id).distance(120))
+                    .force("charge", d3.forceManyBody().strength(-350))
+                    .force("center", d3.forceCenter(width / 2, height / 2));
 
-                function ticked() {
+                simulation.on("tick", () => {
                     link
                         .attr("x1", d => d.source.x)
                         .attr("y1", d => d.source.y)
                         .attr("x2", d => d.target.x)
                         .attr("y2", d => d.target.y);
 
-                    linkText
-                        .attr("x", d => (d.source.x + d.target.x) / 2)
-                        .attr("y", d => (d.source.y + d.target.y) / 2);
-
                     node
-                        .attr("transform", d => `translate(${d.x},${d.y})`);
-                }
+                        .attr("cx", d => d.x)
+                        .attr("cy", d => d.y);
+
+                    label
+                        .attr("x", d => d.x)
+                        .attr("y", d => d.y);
+                });
 
                 function dragstarted(event, d) {
                     if (!event.active) simulation.alphaTarget(0.3).restart();
                     d.fx = d.x;
                     d.fy = d.y;
                 }
-
                 function dragged(event, d) {
                     d.fx = event.x;
                     d.fy = event.y;
                 }
-
                 function dragended(event, d) {
                     if (!event.active) simulation.alphaTarget(0);
                     d.fx = null;
                     d.fy = null;
                 }
-            }
-        </script>
+
+                // Zoom button handlers
+                document.getElementById("zoom-in").onclick = function() {
+                    svg.transition().duration(300).call(zoom.scaleBy, 1.2);
+                };
+                document.getElementById("zoom-out").onclick = function() {
+                    svg.transition().duration(300).call(zoom.scaleBy, 0.8);
+                };
+            </script>
+        </form>
     </div>
 {% endblock %}

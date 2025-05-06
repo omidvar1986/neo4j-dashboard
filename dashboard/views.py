@@ -2,7 +2,7 @@ import logging
 import json
 import os
 from django.shortcuts import render, redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 from neo4j.graph import Node, Relationship, Path
@@ -10,6 +10,7 @@ from .neo4j_driver import get_neo4j_driver, close_neo4j_driver
 from django.contrib import messages
 # from .models import AdminQuery, PredefinedQuery
 import uuid
+import csv
 
 # Load environment variables from .env file
 load_dotenv()
@@ -860,6 +861,8 @@ def predefined_query_result(request, query_id):
         logger.error("Predefined query failed: %s", str(e))
 
     return render(request, 'dashboard/predefined_query_result.html', {
+        'nodes_json': json.dumps(nodes if nodes else []),
+        'edges_json': json.dumps(edges if edges else []),
         'query': query_obj,
         'result_json': json.dumps(result) if result else None,
         'table_data': table_data if table_data else None,
@@ -986,3 +989,33 @@ def custom_404(request, exception=None):
     """Render custom 404 page."""
     logger.debug("Entering custom_404 view")
     return render(request, 'dashboard/404.html', status=404)
+
+def export_manual_query(request):
+    if request.method == "POST":
+        cypher_query = request.POST.get("cypher_query", "").strip()
+        export_format = request.POST.get("export_format", "csv")
+        if not cypher_query:
+            return HttpResponse("No query provided.", status=400)
+
+        driver = get_driver()
+        with driver.session() as session:
+            result = session.run(cypher_query)
+            records = [record.data() for record in result]
+
+        if export_format == "json":
+            return JsonResponse(records, safe=False)
+
+        # Default: CSV
+        if records:
+            fieldnames = records[0].keys()
+        else:
+            fieldnames = []
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="query_results.csv"'
+        writer = csv.DictWriter(response, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in records:
+            writer.writerow(row)
+        return response
+    return HttpResponse("Invalid request.", status=400)

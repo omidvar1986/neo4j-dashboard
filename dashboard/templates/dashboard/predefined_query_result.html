@@ -23,7 +23,8 @@
                 <button id="zoom-out" style="padding: 10px 20px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">-</button>
             </div>
             <!-- Graph Box -->
-            <div id="graph" style="width: 100%; height: 100%; border: 1px solid #5c5858; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+            <div id="graph" style="width: 100%; height: 600px; border: 1px solid #5c5858; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;"></div>
+            <div id="graph-tooltip" style="position: absolute; display: none; pointer-events: none; background: #fff; border: 1px solid #333; border-radius: 6px; padding: 8px 12px; font-size: 1em; color: #222; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
         </div>
 
         <!-- Footer -->
@@ -36,169 +37,180 @@
     {% if result_json %}
         <script src="https://d3js.org/d3.v7.min.js"></script>
         <script>
-            const data = {{ result_json | safe }};
-            console.log("Graph Data:", data); // Debug: Log the data to the console
+            const nodes = {{ nodes_json|safe }};
+            const links = {{ edges_json|safe }};
 
-            const queryExecuted = {{ query_executed|yesno:"true,false" }};
+            const width = document.getElementById("graph").clientWidth;
+            const height = 600;
 
-            if (data && data.nodes && data.edges) {
-                if (data.nodes.length === 0 && data.edges.length === 0) {
-                    d3.select("#graph").append("p")
-                        .text("No nodes or relationships found in the result.")
-                        .style("color", "#dc3545")
-                        .style("text-align", "center")
-                        .style("margin-top", "20px");
-                } else {
-                    // Dynamically set width and height
-                    const container = document.getElementById("graph");
-                    const width = container.clientWidth;
-                    const height = container.clientHeight;
+            const svg = d3.select("#graph")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
 
-                    const svg = d3.select("#graph")
-                        .append("svg")
-                        .attr("width", width)
-                        .attr("height", height);
+            const zoomGroup = svg.append("g");
 
-                    // Create a group (g) for zoom application
-                    const g = svg.append("g");
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 10])
+                .on("zoom", (event) => {
+                    zoomGroup.attr("transform", event.transform);
+                });
 
-                    // Scale nodes and edges
-                    const scaleFactor = Math.min(width / 1000, height / 600);
-                    const scaledNodes = data.nodes.map(d => ({
-                        ...d,
-                        x: d.x ? d.x * scaleFactor : Math.random() * width,
-                        y: d.y ? d.y * scaleFactor : Math.random() * height
-                    }));
-                    const scaledEdges = data.edges.map(d => ({
-                        ...d,
-                        source: scaledNodes.find(n => n.id === d.source),
-                        target: scaledNodes.find(n => n.id === d.target)
-                    }));
+            svg.call(zoom);
 
-                    const simulation = d3.forceSimulation(scaledNodes)
-                        .force("link", d3.forceLink(scaledEdges).id(d => d.id).distance(100 * scaleFactor))
-                        .force("charge", d3.forceManyBody().strength(-100 * scaleFactor))
-                        .force("collide", d3.forceCollide(20 * scaleFactor))
-                        .force("center", d3.forceCenter(width / 2, height / 2))
-                        .alphaDecay(0.02);
+            // Define a color scale for node labels/types
+            const color = d3.scaleOrdinal()
+                .domain(["Person", "Company", "Product", "Other"]) // Adjust as needed
+                .range(["#7ed6df", "#b8e994", "#f6e58d", "#dff9fb"]); // Light blue, light green, light yellow, very light blue
 
-                    const link = g.append("g")
-                        .selectAll("line")
-                        .data(scaledEdges)
-                        .enter().append("line")
-                        .attr("stroke", "#999")
-                        .attr("stroke-opacity", 0.6)
-                        .attr("stroke-width", 2);
+            // Define a color scale for relationship types
+            const edgeColor = d3.scaleOrdinal()
+                .domain(["FRIEND", "WORKS_AT", "PURCHASED", "RELATED_TO"]) // Add your types
+                .range(["#ff9800", "#00bcd4", "#8e44ad", "#999"]);
 
-                    const node = g.append("g")
-                        .selectAll("circle")
-                        .data(scaledNodes)
-                        .enter().append("circle")
-                        .attr("r", 15 * scaleFactor)
-                        .attr("fill", "#69b3a2")
-                        .call(d3.drag()
-                            .on("start", dragstarted)
-                            .on("drag", dragged)
-                            .on("end", dragended));
+            // Draw links (edges)
+            const link = zoomGroup.append("g")
+                .attr("stroke", "#999")
+                .attr("stroke-opacity", 0.6)
+                .selectAll("line")
+                .data(links)
+                .enter().append("line")
+                .attr("stroke-width", 2)
+                .attr("stroke", d => edgeColor(d.label || "RELATED_TO"));
 
-                    node.append("title").text(d => d.label);
+            // Draw nodes as circles, colored by type/label
+            const node = zoomGroup.append("g")
+                .selectAll("circle")
+                .data(nodes)
+                .enter().append("circle")
+                .attr("r", 22)
+                .attr("fill", "#b8e994")
+                .attr("stroke", "#333")
+                .attr("stroke-width", 2)
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended)
+                );
 
-                    const linkText = g.append("g")
-                        .selectAll("text")
-                        .data(scaledEdges)
-                        .enter().append("text")
-                        .text(d => d.label || "RELATED_TO")
-                        .attr("font-size", 12 * scaleFactor)
-                        .attr("fill", "#333")
-                        .attr("text-anchor", "middle")
-                        .attr("dy", -5 * scaleFactor);
+            // Add labels to nodes
+            const label = zoomGroup.append("g")
+                .selectAll("text")
+                .data(nodes)
+                .enter().append("text")
+                .text(d => d.label)
+                .attr("font-size", "1.1em")
+                .attr("text-anchor", "middle")
+                .attr("dy", ".35em")
+                .attr("fill", "#222");
 
-                    const nodeText = g.append("g")
-                        .selectAll("text")
-                        .data(scaledNodes)
-                        .enter().append("text")
-                        .text(d => d.label)
-                        .attr("dx", 20 * scaleFactor)
-                        .attr("dy", ".35em")
-                        .attr("font-size", 14 * scaleFactor)
-                        .attr("fill", "#333");
+            // Add edge labels
+            const edgeLabel = zoomGroup.append("g")
+                .selectAll("text")
+                .data(links)
+                .enter().append("text")
+                .text(d => d.label)
+                .attr("font-size", "0.9em")
+                .attr("fill", "#333")
+                .attr("text-anchor", "middle");
 
-                    simulation.on("tick", () => {
-                        link.attr("x1", d => Math.max(10, Math.min(width - 10, d.source.x)))
-                            .attr("y1", d => Math.max(10, Math.min(height - 10, d.source.y)))
-                            .attr("x2", d => Math.max(10, Math.min(width - 10, d.target.x)))
-                            .attr("y2", d => Math.max(10, Math.min(height - 10, d.target.y)));
+            // Tooltips
+            const tooltip = d3.select("#graph-tooltip");
+            node.on("mouseover", function(event, d) {
+                tooltip.style("display", "block")
+                    .html(
+                        `<strong>${d.label}</strong><br>` +
+                        Object.entries(d.properties || {}).map(([k,v]) => `<span style='color:#007bff;'>${k}</span>: ${v}`).join("<br>")
+                    );
+            })
+            .on("mousemove", function(event) {
+                tooltip.style("left", (event.pageX + 15) + "px")
+                       .style("top", (event.pageY - 10) + "px");
+            })
+            .on("mouseout", function() {
+                tooltip.style("display", "none");
+            });
 
-                        node.attr("cx", d => Math.max(10, Math.min(width - 10, d.x)))
-                            .attr("cy", d => Math.max(10, Math.min(height - 10, d.y)));
+            // Simulation
+            const simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(120))
+                .force("charge", d3.forceManyBody().strength(-350))
+                .force("center", d3.forceCenter(width / 2, height / 2));
 
-                        linkText.attr("x", d => Math.max(10, Math.min(width - 10, (d.source.x + d.target.x) / 2)))
-                            .attr("y", d => Math.max(10, Math.min(height - 10, (d.source.y + d.target.y) / 2)));
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
 
-                        nodeText.attr("x", d => Math.max(20, Math.min(width - 20, d.x)))
-                            .attr("y", d => Math.max(20, Math.min(height - 20, d.y)));
-                    });
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
 
-                    function dragstarted(event, d) {
-                        if (!event.active) simulation.alphaTarget(0.3).restart();
-                        d.fx = Math.max(10, Math.min(width - 10, d.x));
-                        d.fy = Math.max(10, Math.min(height - 10, d.y));
-                    }
+                label
+                    .attr("x", d => d.x)
+                    .attr("y", d => d.y);
 
-                    function dragged(event, d) {
-                        d.fx = Math.max(10, Math.min(width - 10, event.x));
-                        d.fy = Math.max(10, Math.min(height - 10, event.y));
-                        simulation.alpha(0.3).restart();
-                    }
+                edgeLabel
+                    .attr("x", d => (d.source.x + d.target.x) / 2)
+                    .attr("y", d => (d.source.y + d.target.y) / 2);
+            });
 
-                    function dragended(event, d) {
-                        if (!event.active) simulation.alphaTarget(0);
-                        d.fx = null;
-                        d.fy = null;
-                    }
+            // Drag functions
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
 
-                    // Zoom setup
-                    const zoom = d3.zoom()
-                        .scaleExtent([0.1, 10]) // Zoom range: from 0.1x to 10x
-                        .on("zoom", (event) => {
-                            g.attr("transform", event.transform);
-                        });
+            // Zoom button handlers
+            document.getElementById("zoom-in").onclick = function() {
+                svg.transition().duration(300).call(zoom.scaleBy, 1.2);
+            };
+            document.getElementById("zoom-out").onclick = function() {
+                svg.transition().duration(300).call(zoom.scaleBy, 0.8);
+            };
 
-                    svg.call(zoom);
+            // Resize SVG on window resize
+            window.addEventListener('resize', () => {
+                const newWidth = document.getElementById("graph").clientWidth;
+                const newHeight = document.getElementById("graph").clientHeight;
+                svg.attr("width", newWidth).attr("height", newHeight);
+                simulation.force("center", d3.forceCenter(newWidth / 2, newHeight / 2));
+                simulation.alpha(0.3).restart();
+            });
 
-                    // Zoom buttons
-                    d3.select("#zoom-in").on("click", () => {
-                        zoom.scaleBy(svg.transition().duration(300), 1.2);
-                    });
-
-                    d3.select("#zoom-out").on("click", () => {
-                        zoom.scaleBy(svg.transition().duration(300), 0.8);
-                    });
-
-                    // Resize SVG on window resize
-                    window.addEventListener('resize', () => {
-                        const newWidth = container.clientWidth;
-                        const newHeight = container.clientHeight;
-                        svg.attr("width", newWidth).attr("height", newHeight);
-                        simulation.force("center", d3.forceCenter(newWidth / 2, newHeight / 2));
-                        simulation.alpha(0.3).restart();
-                    });
-
-                    if (queryExecuted && data.nodes.length === 0) {
-                        d3.select("#graph").append("text")
-                            .attr("x", 50)
-                            .attr("y", 50)
-                            .attr("fill", "red")
-                            .text("No nodes to display. Check your query or database.");
-                    }
-                }
-            } else {
-                d3.select("#graph").append("p")
-                    .text("Invalid query result format.")
-                    .style("color", "#dc3545")
-                    .style("text-align", "center")
-                    .style("margin-top", "20px");
+            if ({{ query_executed|yesno:"true,false" }} && nodes.length === 0) {
+                d3.select("#graph").append("text")
+                    .attr("x", 50)
+                    .attr("y", 50)
+                    .attr("fill", "red")
+                    .text("No nodes to display. Check your query or database.");
             }
         </script>
     {% endif %}
+
+    <!-- Legend -->
+    <div id="graph-legend" style="margin-top: 12px;">
+        <span style="display:inline-block; width:18px; height:18px; background:#007bff; border-radius:50%; margin-right:6px;"></span> Person
+        <span style="display:inline-block; width:18px; height:18px; background:#28a745; border-radius:50%; margin:0 12px 0 18px;"></span> Company
+        <span style="display:inline-block; width:18px; height:18px; background:#e67e22; border-radius:50%; margin:0 12px 0 18px;"></span> Product
+        <span style="display:inline-block; width:18px; height:18px; background:#9b59b6; border-radius:50%; margin:0 12px 0 18px;"></span> Other
+    </div>
+
+    <div id="edge-legend" style="margin-top: 8px;">
+        <span style="display:inline-block; width:18px; height:3px; background:#ff9800; margin-right:6px; vertical-align:middle;"></span> FRIEND
+        <span style="display:inline-block; width:18px; height:3px; background:#00bcd4; margin:0 12px 0 18px; vertical-align:middle;"></span> WORKS_AT
+        <span style="display:inline-block; width:18px; height:3px; background:#8e44ad; margin:0 12px 0 18px; vertical-align:middle;"></span> PURCHASED
+    </div>
 {% endblock %}

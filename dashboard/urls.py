@@ -17,4 +17,5 @@ urlpatterns = [
     path('check-node-duplicate/', views.check_node_duplicate, name='check_node_duplicate'),
     path('explore-layers/', views.explore_layers, name='explore_layers'),
     path('predefined-queries/', views.predefined_queries, name='predefined_queries'),
+    path('export-manual-query/', views.export_manual_query, name='export_manual_query'),
 ]
