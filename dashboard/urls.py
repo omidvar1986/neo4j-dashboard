@@ -18,4 +18,5 @@ urlpatterns = [
     path('explore-layers/', views.explore_layers, name='explore_layers'),
     path('predefined-queries/', views.predefined_queries, name='predefined_queries'),
     path('export-manual-query/', views.export_manual_query, name='export_manual_query'),
+    path('test-impact-analysis/', views.test_impact_analysis, name='test_impact_analysis'),
 ]

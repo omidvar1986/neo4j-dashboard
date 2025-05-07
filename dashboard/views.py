@@ -1019,3 +1019,64 @@ def export_manual_query(request):
             writer.writerow(row)
         return response
     return HttpResponse("Invalid request.", status=400)
+
+def test_impact_analysis(request):
+    """
+    View for displaying test case impact analysis.
+    Shows relationships between test cases, requirements, and code changes.
+    """
+    # Get test cases from Neo4j
+    driver = get_neo4j_driver()
+    with driver.session() as session:
+        # Query to get test cases and their relationships
+        query = """
+        MATCH (t:TestCase)
+        OPTIONAL MATCH (t)-[r]->(n)
+        RETURN t, r, n
+        """
+        result = session.run(query)
+        
+        # Process the results
+        nodes = []
+        links = []
+        node_ids = set()
+        
+        for record in result:
+            test_case = record['t']
+            relationship = record['r']
+            related_node = record['n']
+            
+            # Add test case node if not already added
+            if test_case.id not in node_ids:
+                nodes.append({
+                    'id': test_case.id,
+                    'label': test_case.get('name', 'Unnamed Test Case'),
+                    'type': 'test',
+                    'impact': test_case.get('impact_level', 'medium')
+                })
+                node_ids.add(test_case.id)
+            
+            # Add related node if it exists and not already added
+            if related_node and related_node.id not in node_ids:
+                nodes.append({
+                    'id': related_node.id,
+                    'label': related_node.get('name', 'Unnamed Node'),
+                    'type': related_node.labels[0].lower(),
+                    'impact': related_node.get('impact_level', 'low')
+                })
+                node_ids.add(related_node.id)
+            
+            # Add relationship if it exists
+            if relationship:
+                links.append({
+                    'source': test_case.id,
+                    'target': related_node.id,
+                    'type': type(relationship).__name__
+                })
+    
+    context = {
+        'nodes_json': json.dumps(nodes),
+        'edges_json': json.dumps(links)
+    }
+    
+    return render(request, 'dashboard/test_impact_analysis.html', context)

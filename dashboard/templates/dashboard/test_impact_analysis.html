@@ -1,0 +1,274 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+{% block title %}Test Case Impact Analysis - Neo4j Dashboard{% endblock %}
+{% block extra_head %}
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .section { margin: 20px 0; }
+        .filters { 
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .filter-group {
+            display: inline-block;
+            margin-right: 20px;
+        }
+        .filter-group label {
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        .filter-group select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        #graph {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #5c5858;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .node {
+            cursor: pointer;
+        }
+        .node circle {
+            stroke: #fff;
+            stroke-width: 2px;
+        }
+        .node text {
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .link {
+            stroke: #999;
+            stroke-opacity: 0.6;
+        }
+        .tooltip {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            pointer-events: none;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .impact-high {
+            fill: #ff4444;
+        }
+        .impact-medium {
+            fill: #ffbb33;
+        }
+        .impact-low {
+            fill: #00C851;
+        }
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .legend-item {
+            margin: 5px 0;
+        }
+        .legend-color {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            margin-right: 5px;
+            border-radius: 50%;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="section">
+        <h2>Test Case Impact Analysis</h2>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label for="impact-type">Impact Type:</label>
+                <select id="impact-type">
+                    <option value="all">All Impacts</option>
+                    <option value="requirement">Requirement Changes</option>
+                    <option value="code">Code Changes</option>
+                    <option value="test">Test Case Dependencies</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="impact-level">Impact Level:</label>
+                <select id="impact-level">
+                    <option value="all">All Levels</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="graph">
+            <div class="legend">
+                <div class="legend-item">
+                    <span class="legend-color impact-high"></span>
+                    High Impact
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color impact-medium"></span>
+                    Medium Impact
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color impact-low"></span>
+                    Low Impact
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Graph visualization code
+        const width = document.getElementById("graph").clientWidth;
+        const height = 600;
+
+        const svg = d3.select("#graph")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const zoomGroup = svg.append("g");
+
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 10])
+            .on("zoom", (event) => {
+                zoomGroup.attr("transform", event.transform);
+            });
+
+        svg.call(zoom);
+
+        // Tooltip
+        const tooltip = d3.select("body")
+            .append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // Load and process data
+        function loadData() {
+            // This would be replaced with actual data from your backend
+            const data = {
+                nodes: [
+                    { id: "TC1", label: "Test Case 1", type: "test", impact: "high" },
+                    { id: "TC2", label: "Test Case 2", type: "test", impact: "medium" },
+                    { id: "REQ1", label: "Requirement 1", type: "requirement" },
+                    { id: "CODE1", label: "Code Module 1", type: "code" }
+                ],
+                links: [
+                    { source: "TC1", target: "REQ1", type: "tests" },
+                    { source: "TC2", target: "REQ1", type: "tests" },
+                    { source: "TC1", target: "CODE1", type: "covers" }
+                ]
+            };
+
+            // Create the force simulation
+            const simulation = d3.forceSimulation(data.nodes)
+                .force("link", d3.forceLink(data.links).id(d => d.id).distance(100))
+                .force("charge", d3.forceManyBody().strength(-300))
+                .force("center", d3.forceCenter(width / 2, height / 2));
+
+            // Draw links
+            const link = zoomGroup.append("g")
+                .selectAll("line")
+                .data(data.links)
+                .enter().append("line")
+                .attr("class", "link")
+                .attr("stroke-width", 2);
+
+            // Draw nodes
+            const node = zoomGroup.append("g")
+                .selectAll("g")
+                .data(data.nodes)
+                .enter().append("g")
+                .attr("class", "node")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            node.append("circle")
+                .attr("r", 10)
+                .attr("class", d => `impact-${d.impact}`)
+                .on("mouseover", function(event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", .9);
+                    tooltip.html(`
+                        <strong>${d.label}</strong><br/>
+                        Type: ${d.type}<br/>
+                        Impact: ${d.impact}
+                    `)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function(d) {
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+
+            node.append("text")
+                .attr("dx", 12)
+                .attr("dy", ".35em")
+                .text(d => d.label);
+
+            // Update positions on each tick
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+        }
+
+        // Drag functions
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // Initialize the visualization
+        loadData();
+
+        // Add filter event listeners
+        document.getElementById("impact-type").addEventListener("change", function() {
+            // Implement filtering logic
+            console.log("Filter by impact type:", this.value);
+        });
+
+        document.getElementById("impact-level").addEventListener("change", function() {
+            // Implement filtering logic
+            console.log("Filter by impact level:", this.value);
+        });
+    </script>
+{% endblock %} 
