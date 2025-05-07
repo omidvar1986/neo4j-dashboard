@@ -3,11 +3,22 @@
 {% block title %}Manual Queries - Neo4j Dashboard{% endblock %}
 {% block extra_head %}
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- Add CodeMirror CSS and JS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/cypher/cypher.min.js"></script>
     <style>
         .section { margin: 20px 0; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
-        .form-group textarea { width: 100%; height: 100px; padding: 10px; font-family: monospace; }
+        .CodeMirror { 
+            height: 200px; 
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+        }
         .buttons { margin-top: 10px; }
         .btn { padding: 8px 16px; margin-right: 10px; border: none; border-radius: 4px; cursor: pointer; }
         .btn-primary { background-color: #007bff; color: white; }
@@ -36,7 +47,7 @@
             {% csrf_token %}
             <div class="form-group">
                 <label for="cypher_query">Enter Cypher Query:</label>
-                <textarea id="cypher_query" name="cypher_query" placeholder="e.g., MATCH (n)-[r]->(m) RETURN n, r, m">{{ cypher_query }}</textarea>
+                <textarea id="cypher_query" name="cypher_query" style="display: none;">{{ cypher_query }}</textarea>
             </div>
             <div style="margin-top: 16px;">
                 <button type="submit" name="action" value="execute" class="btn">Run Query</button>
@@ -73,6 +84,27 @@
             <div id="graph-tooltip" style="position: absolute; display: none; pointer-events: none; background: #fff; border: 1px solid #333; border-radius: 6px; padding: 8px 12px; font-size: 1em; color: #222; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
 
             <script type="text/javascript">
+                // Initialize CodeMirror
+                var editor = CodeMirror.fromTextArea(document.getElementById("cypher_query"), {
+                    mode: "cypher",
+                    theme: "monokai",
+                    lineNumbers: true,
+                    autoCloseBrackets: true,
+                    matchBrackets: true,
+                    indentUnit: 4,
+                    tabSize: 4,
+                    lineWrapping: true,
+                    extraKeys: {"Ctrl-Space": "autocomplete"},
+                    hintOptions: {
+                        completeSingle: false
+                    }
+                });
+
+                // Update textarea value before form submission
+                document.querySelector('form').addEventListener('submit', function() {
+                    document.getElementById('cypher_query').value = editor.getValue();
+                });
+
                 const nodes = {{ nodes_json|safe }};
                 const links = {{ edges_json|safe }};
 
@@ -103,18 +135,34 @@
                     .attr("stroke-width", 2);
 
                 const node = zoomGroup.append("g")
-                    .attr("stroke", "#fff")
-                    .attr("stroke-width", 1.5)
+                    .attr("stroke", "#000")
+                    .attr("stroke-width", 1)
                     .selectAll("circle")
                     .data(nodes)
                     .enter().append("circle")
                     .attr("r", 18)
-                    .attr("fill", "#69b3a2")
+                    .attr("fill", "#90EE90")
+                    .attr("filter", "drop-shadow(0px 2px 2px rgba(0,0,0,0.3))")
                     .call(d3.drag()
                         .on("start", dragstarted)
                         .on("drag", dragged)
                         .on("end", dragended)
                     );
+
+                // Add gradient definition for 3D effect
+                svg.append("defs").append("radialGradient")
+                    .attr("id", "nodeGradient")
+                    .selectAll("stop")
+                    .data([
+                        {offset: "0%", color: "#a8ffa8"},
+                        {offset: "100%", color: "#90EE90"}
+                    ])
+                    .enter().append("stop")
+                    .attr("offset", d => d.offset)
+                    .attr("stop-color", d => d.color);
+
+                // Update node fill to use gradient
+                node.attr("fill", "url(#nodeGradient)");
 
                 const label = zoomGroup.append("g")
                     .selectAll("text")
