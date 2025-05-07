@@ -1,34 +1,142 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Neo4j Dashboard{% endblock %}</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; }
-        .navbar { background-color: #007bff; padding: 10px; }
-        .navbar a { color: white; margin: 0 15px; text-decoration: none; }
-        .navbar a:hover { text-decoration: underline; }
-        .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
-        .back-to-home { margin: 10px 0; }
-        .back-to-home a { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; }
-        .back-to-home a:hover { background-color: #0056b3; }
-        /* Styles for messages */
-        .messages { margin: 20px 0; }
-        .alert { padding: 10px; border-radius: 4px; margin-bottom: 10px; }
-        .alert-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .alert-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        :root[data-theme="light"] {
+            --bg-color: #f4f4f9;
+            --text-color: #333;
+            --navbar-bg: #007bff;
+            --navbar-text: white;
+            --container-bg: white;
+            --border-color: #ddd;
+        }
+
+        :root[data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #f4f4f4;
+            --navbar-bg: #0056b3;
+            --navbar-text: #f4f4f4;
+            --container-bg: #2d2d2d;
+            --border-color: #404040;
+        }
+
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .navbar { 
+            background-color: var(--navbar-bg); 
+            padding: 10px;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar-left {
+            display: flex;
+            gap: 15px;
+        }
+
+        .navbar a { 
+            color: var(--navbar-text); 
+            text-decoration: none; 
+        }
+
+        .navbar a:hover { 
+            text-decoration: underline; 
+        }
+
+        .theme-toggle {
+            background: transparent;
+            border: 2px solid var(--navbar-text);
+            color: var(--navbar-text);
+            padding: 5px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            margin-right: 20px;
+        }
+
+        .theme-toggle:hover {
+            background: var(--navbar-text);
+            color: var(--navbar-bg);
+        }
+
+        .container { 
+            max-width: 1200px; 
+            margin: 20px auto; 
+            padding: 0 20px;
+            background-color: var(--container-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background-color 0.3s;
+        }
+
+        .back-to-home { 
+            margin: 10px 0; 
+        }
+
+        .back-to-home a { 
+            display: inline-block; 
+            padding: 10px 20px; 
+            background-color: var(--navbar-bg); 
+            color: var(--navbar-text); 
+            text-decoration: none; 
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .back-to-home a:hover { 
+            background-color: var(--navbar-bg);
+            opacity: 0.9;
+        }
+
+        .messages { 
+            margin: 20px 0; 
+        }
+
+        .alert { 
+            padding: 10px; 
+            border-radius: 4px; 
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .alert-success { 
+            background-color: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb; 
+        }
+
+        .alert-error { 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb; 
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     <div class="navbar">
-        <a href="{% url 'dashboard:predefined_queries' %}">Predefined Queries</a>
-        <a href="{% url 'dashboard:add_nodes' %}">Add Nodes</a>
-        <a href="{% url 'dashboard:explore_layers' %}">Explore Layers</a>
-        <a href="{% url 'dashboard:manual_queries' %}">Manual Query</a>
-        <a href="{% url 'dashboard:admin_queries' %}">Admin Queries</a>
+        <div class="navbar-left">
+            <a href="{% url 'dashboard:predefined_queries' %}">Predefined Queries</a>
+            <a href="{% url 'dashboard:add_nodes' %}">Add Nodes</a>
+            <a href="{% url 'dashboard:explore_layers' %}">Explore Layers</a>
+            <a href="{% url 'dashboard:manual_queries' %}">Manual Query</a>
+            <a href="{% url 'dashboard:admin_queries' %}">Admin Queries</a>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
     </div>
     <div class="container">
         <!-- Display messages -->
@@ -48,5 +156,30 @@
         {% block content %}
         {% endblock %}
     </div>
+
+    <script>
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeButton(savedTheme);
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeButton(newTheme);
+        }
+
+        function updateThemeButton(theme) {
+            const button = document.querySelector('.theme-toggle');
+            if (theme === 'dark') {
+                button.textContent = '☀️ Light Mode';
+            } else {
+                button.textContent = '🌙 Dark Mode';
+            }
+        }
+    </script>
 </body>
 </html>
