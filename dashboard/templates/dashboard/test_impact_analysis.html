@@ -160,20 +160,13 @@
 
         // Load and process data
         function loadData() {
-            // This would be replaced with actual data from your backend
             const data = {
-                nodes: [
-                    { id: "TC1", label: "Test Case 1", type: "test", impact: "high" },
-                    { id: "TC2", label: "Test Case 2", type: "test", impact: "medium" },
-                    { id: "REQ1", label: "Requirement 1", type: "requirement" },
-                    { id: "CODE1", label: "Code Module 1", type: "code" }
-                ],
-                links: [
-                    { source: "TC1", target: "REQ1", type: "tests" },
-                    { source: "TC2", target: "REQ1", type: "tests" },
-                    { source: "TC1", target: "CODE1", type: "covers" }
-                ]
+                nodes: JSON.parse('{{ nodes_json|safe }}'),
+                links: JSON.parse('{{ edges_json|safe }}')
             };
+
+            print("NODES:", data.nodes)
+            print("LINKS:", data.links)
 
             // Create the force simulation
             const simulation = d3.forceSimulation(data.nodes)
@@ -200,26 +193,34 @@
                     .on("drag", dragged)
                     .on("end", dragended));
 
+            // Build a set of node IDs for each layer
+            const nodesByLayer = {};
+            data.nodes.forEach(node => {
+                const layer = distances[node.id] || 0;
+                if (!nodesByLayer[layer]) nodesByLayer[layer] = [];
+                nodesByLayer[layer].push(node.id);
+            });
+
+            // Build a set of all nodes up to previous depth
+            const previousNodes = new Set();
+            for (let l = 0; l < currentDepth; l++) {
+                (nodesByLayer[l] || []).forEach(id => previousNodes.add(id));
+            }
+
+            // When rendering nodes:
             node.append("circle")
-                .attr("r", 10)
-                .attr("class", d => `impact-${d.impact}`)
-                .on("mouseover", function(event, d) {
-                    tooltip.transition()
-                        .duration(200)
-                        .style("opacity", .9);
-                    tooltip.html(`
-                        <strong>${d.label}</strong><br/>
-                        Type: ${d.type}<br/>
-                        Impact: ${d.impact}
-                    `)
-                        .style("left", (event.pageX + 10) + "px")
-                        .style("top", (event.pageY - 28) + "px");
+                .attr("r", d => nodeSizeScale(distances[d.id] || 0))
+                .attr("fill", d => {
+                    const layer = distances[d.id] || 0;
+                    if (layer === currentDepth) {
+                        return "#ffbb33"; // orange for new nodes in this layer
+                    } else if (layer < currentDepth) {
+                        return "#2ecc71"; // green for existing nodes
+                    } else {
+                        return "#cccccc"; // gray for nodes not yet reached (optional)
+                    }
                 })
-                .on("mouseout", function(d) {
-                    tooltip.transition()
-                        .duration(500)
-                        .style("opacity", 0);
-                });
+                .attr("class", "show");
 
             node.append("text")
                 .attr("dx", 12)
@@ -270,5 +271,19 @@
             // Implement filtering logic
             console.log("Filter by impact level:", this.value);
         });
+
+        const getNodeColor = (nodeId, selectedLayer) => {
+            // If no filter, use the node's main layer color
+            if (selectedLayer === 'all') {
+                const distance = distances[nodeId] !== undefined ? distances[nodeId] : 0;
+                return layerColors(distance);
+            }
+            // If filtering, highlight nodes in the selected layer, gray out others
+            const nodeLayers = nodeLayerMap[nodeId] || [];
+            if (nodeLayers.includes(selectedLayer)) {
+                return layerColors(selectedLayer);
+            }
+            return '#cccccc'; // gray for nodes not in the selected layer
+        };
     </script>
 {% endblock %} 

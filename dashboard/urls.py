@@ -19,4 +19,8 @@ urlpatterns = [
     path('predefined-queries/', views.predefined_queries, name='predefined_queries'),
     path('export-manual-query/', views.export_manual_query, name='export_manual_query'),
     path('test-impact-analysis/', views.test_impact_analysis, name='test_impact_analysis'),
+    path('test-analysis/', views.test_analysis_dashboard, name='test_analysis'),
+    path('api/test-coverage/', views.get_test_coverage, name='test_coverage'),
+    path('api/test-results/', views.get_test_results, name='test_results'),
+    path('api/impact-analysis/', views.get_impact_analysis, name='impact_analysis'),
 ]

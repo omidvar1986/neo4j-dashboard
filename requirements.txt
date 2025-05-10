@@ -7,6 +7,6 @@ psycopg2==2.9.10
 psycopg2-binary==2.9.10
 python-dotenv==1.0.1
 pytz==2024.2
+requests==2.32.3
 sqlparse==0.5.3
 typing_extensions==4.12.2
-django==4.2.16 neo4j==5.24.0 python-dotenv==1.0.1 psycopg2-binary==2.9.9

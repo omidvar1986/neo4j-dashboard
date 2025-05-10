@@ -11,6 +11,10 @@ from django.contrib import messages
 # from .models import AdminQuery, PredefinedQuery
 import uuid
 import csv
+from .models import TestResult, ComponentDependency, TestCoverage
+from django.db.models import Avg, Count
+import requests
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -1020,21 +1024,163 @@ def export_manual_query(request):
         return response
     return HttpResponse("Invalid request.", status=400)
 
+def sync_testrail_data():
+    """
+    Sync test cases from TestRail using proper authentication
+    """
+    TESTRAIL_URL = "https://qanobit.testrail.io"
+    TESTRAIL_USER = "behdadnobi@gmail.com"
+    TESTRAIL_PASSWORD = "Nobitest!1"
+    
+    # First, get the CSRF token and session
+    try:
+        # Initial request to get CSRF token
+        session = requests.Session()
+        response = session.get(f"{TESTRAIL_URL}/index.php?/auth/login")
+        
+        # Extract CSRF token from the response
+        csrf_token = None
+        if '_token' in response.text:
+            import re
+            match = re.search(r'name="_token" value="([^"]+)"', response.text)
+            if match:
+                csrf_token = match.group(1)
+        
+        if not csrf_token:
+            logger.error("Could not get CSRF token")
+            return False
+
+        # Login to get session
+        login_data = {
+            'name': TESTRAIL_USER,
+            'password': TESTRAIL_PASSWORD,
+            '_token': csrf_token
+        }
+        
+        login_response = session.post(
+            f"{TESTRAIL_URL}/index.php?/auth/login",
+            data=login_data
+        )
+        
+        if not login_response.ok:
+            logger.error("Failed to login to TestRail")
+            return False
+
+        # Now get the test cases
+        headers = {
+            'accept': 'text/plain, */*; q=0.01',
+            'accept-language': 'en-US,en;q=0.9,fa;q=0.8',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'origin': TESTRAIL_URL,
+            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+            'x-requested-with': 'XMLHttpRequest'
+        }
+        
+        data = {
+            'columns': '{"cases:id":65,"cases:title":0}',
+            'group_by': 'cases:section_id',
+            'group_order': 'asc',
+            'display_deleted_cases': '0',
+            'suite_id': '1',
+            'display': 'subtree',
+            'group_id': '1',
+            'include_sidebar': '0',
+            'save_columns': '0',
+            'page_type': 'view',
+            'page_reset': '0',
+            '_token': csrf_token,
+            '_version': '9.1.0.1025'
+        }
+
+        # Get test cases from TestRail
+        response = session.post(
+            f"{TESTRAIL_URL}/index.php?/suites/ajax_render_cases",
+            headers=headers,
+            data=data
+        )
+        response.raise_for_status()
+        test_cases_data = response.json()
+
+        # Get Neo4j driver
+        driver = get_neo4j_driver()
+        if driver is None:
+            logger.error("Could not connect to Neo4j")
+            return False
+
+        # Process and store test cases in Neo4j
+        for section in test_cases_data.get('sections', []):
+            section_id = section.get('id')
+            section_name = section.get('name')
+            
+            # Create section node
+            section_query = """
+            MERGE (s:TestSection {id: $section_id})
+            SET s.name = $section_name
+            """
+            driver.run_query(section_query, {
+                'section_id': section_id,
+                'section_name': section_name
+            })
+
+            # Process test cases in this section
+            for case in section.get('cases', []):
+                case_id = case.get('id')
+                case_title = case.get('title')
+                case_status = case.get('status', 'unknown')
+                
+                # Create test case node
+                case_query = """
+                MATCH (s:TestSection {id: $section_id})
+                MERGE (t:TestCase {id: $case_id})
+                SET t.title = $case_title,
+                    t.status = $case_status,
+                    t.last_sync = datetime()
+                MERGE (s)-[:CONTAINS]->(t)
+                """
+                driver.run_query(case_query, {
+                    'section_id': section_id,
+                    'case_id': case_id,
+                    'case_title': case_title,
+                    'case_status': case_status
+                })
+
+        logger.info("Successfully synced TestRail data to Neo4j")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error syncing TestRail data: {str(e)}")
+        return False
+
 def test_impact_analysis(request):
     """
     View for displaying test case impact analysis.
     Shows relationships between test cases, requirements, and code changes.
     """
+    # Sync TestRail data first
+    sync_success = sync_testrail_data()
+    if not sync_success:
+        return render(request, 'dashboard/test_impact_analysis.html', {
+            'error': 'Failed to sync with TestRail',
+            'nodes_json': '[]',
+            'edges_json': '[]'
+        })
+
     # Get test cases from Neo4j
     driver = get_neo4j_driver()
-    with driver.session() as session:
+    if driver is None:
+        return render(request, 'dashboard/test_impact_analysis.html', {
+            'error': 'Could not connect to Neo4j database',
+            'nodes_json': '[]',
+            'edges_json': '[]'
+        })
+
+    try:
         # Query to get test cases and their relationships
         query = """
-        MATCH (t:TestCase)
-        OPTIONAL MATCH (t)-[r]->(n)
-        RETURN t, r, n
+        MATCH (s:TestSection)-[:CONTAINS]->(t:TestCase)
+        RETURN s, t
         """
-        result = session.run(query)
+        result = driver.run_query(query)
         
         # Process the results
         nodes = []
@@ -1042,41 +1188,102 @@ def test_impact_analysis(request):
         node_ids = set()
         
         for record in result:
+            section = record['s']
             test_case = record['t']
-            relationship = record['r']
-            related_node = record['n']
+            
+            # Add section node if not already added
+            if section.id not in node_ids:
+                nodes.append({
+                    'id': f"section_{section.id}",
+                    'label': section.get('name', 'Unnamed Section'),
+                    'type': 'section',
+                    'group': 1
+                })
+                node_ids.add(section.id)
             
             # Add test case node if not already added
             if test_case.id not in node_ids:
                 nodes.append({
-                    'id': test_case.id,
-                    'label': test_case.get('name', 'Unnamed Test Case'),
+                    'id': f"case_{test_case.id}",
+                    'label': test_case.get('title', 'Unnamed Test Case'),
                     'type': 'test',
-                    'impact': test_case.get('impact_level', 'medium')
+                    'status': test_case.get('status', 'unknown'),
+                    'group': 2
                 })
                 node_ids.add(test_case.id)
             
-            # Add related node if it exists and not already added
-            if related_node and related_node.id not in node_ids:
-                nodes.append({
-                    'id': related_node.id,
-                    'label': related_node.get('name', 'Unnamed Node'),
-                    'type': related_node.labels[0].lower(),
-                    'impact': related_node.get('impact_level', 'low')
-                })
-                node_ids.add(related_node.id)
-            
-            # Add relationship if it exists
-            if relationship:
-                links.append({
-                    'source': test_case.id,
-                    'target': related_node.id,
-                    'type': type(relationship).__name__
-                })
+            # Add relationship between section and test case
+            links.append({
+                'source': f"section_{section.id}",
+                'target': f"case_{test_case.id}",
+                'type': 'CONTAINS'
+            })
     
-    context = {
-        'nodes_json': json.dumps(nodes),
-        'edges_json': json.dumps(links)
-    }
+        context = {
+            'nodes_json': json.dumps(nodes),
+            'edges_json': json.dumps(links)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in test_impact_analysis: {str(e)}")
+        context = {
+            'error': f'Error analyzing test impact: {str(e)}',
+            'nodes_json': '[]',
+            'edges_json': '[]'
+        }
     
     return render(request, 'dashboard/test_impact_analysis.html', context)
+
+def test_analysis_dashboard(request):
+    return render(request, 'dashboard/test_analysis.html')
+
+def get_test_coverage(request):
+    coverage = TestCoverage.objects.aggregate(
+        avg_coverage=Avg('coverage_percentage')
+    )
+    
+    test_stats = TestResult.objects.aggregate(
+        passing=Count('id', filter=models.Q(status='PASS')),
+        failed=Count('id', filter=models.Q(status='FAIL'))
+    )
+    
+    return JsonResponse({
+        'coverage': round(coverage['avg_coverage'] or 0, 2),
+        'passing': test_stats['passing'],
+        'failed': test_stats['failed']
+    })
+
+def get_test_results(request):
+    results = TestResult.objects.all()[:50]  # Get last 50 test results
+    return JsonResponse({
+        'results': [{
+            'name': result.name,
+            'status': result.status,
+            'duration': result.duration,
+            'last_run': result.last_run.isoformat(),
+            'error_message': result.error_message
+        } for result in results]
+    })
+
+def get_impact_analysis(request):
+    # Get recent changes and their impact
+    dependencies = ComponentDependency.objects.all()
+    impact_data = []
+    
+    for dep in dependencies:
+        # Check if the target component has any failing tests
+        failing_tests = TestResult.objects.filter(
+            test_file__contains=dep.target,
+            status='FAIL'
+        ).count()
+        
+        impact_data.append({
+            'source': dep.source,
+            'target': dep.target,
+            'type': dep.dependency_type,
+            'failing_tests': failing_tests
+        })
+    
+    return JsonResponse({
+        'dependencies': impact_data
+    })

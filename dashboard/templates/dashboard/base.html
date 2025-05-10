@@ -150,9 +150,11 @@
             </div>
         {% endif %}
 
-        <div class="back-to-home">
-            <a href="{% url 'dashboard:home' %}">Back to Home</a>
-        </div>
+        {% if request.resolver_match.url_name != 'home' %}
+            <div class="back-to-home">
+                <a href="{% url 'dashboard:home' %}">Back to Home</a>
+            </div>
+        {% endif %}
         {% block content %}
         {% endblock %}
     </div>

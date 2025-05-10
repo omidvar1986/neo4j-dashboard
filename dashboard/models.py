@@ -48,3 +48,38 @@ def predefined_queries(request):
     return render(request, 'dashboard/predefined_queries.html', {
         'categories': dict(categories)
     })
+
+class TestResult(models.Model):
+    name = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=[
+        ('PASS', 'Pass'),
+        ('FAIL', 'Fail'),
+        ('SKIP', 'Skip'),
+    ])
+    duration = models.FloatField()
+    last_run = models.DateTimeField(auto_now=True)
+    error_message = models.TextField(null=True, blank=True)
+    test_file = models.CharField(max_length=255)
+    line_number = models.IntegerField()
+
+    class Meta:
+        ordering = ['-last_run']
+
+class ComponentDependency(models.Model):
+    source = models.CharField(max_length=255)  # Component that depends on target
+    target = models.CharField(max_length=255)  # Component that is depended upon
+    dependency_type = models.CharField(max_length=50)  # e.g., 'import', 'call', 'reference'
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['source', 'target', 'dependency_type']
+
+class TestCoverage(models.Model):
+    file_path = models.CharField(max_length=255)
+    coverage_percentage = models.FloatField()
+    lines_covered = models.IntegerField()
+    total_lines = models.IntegerField()
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-last_updated']
