@@ -106,8 +106,7 @@ DATABASES = {
 }
 
 # Session Configuration
-SESSION_ENGINE = 'django.contrib.sessions.backends.file'
-SESSION_FILE_PATH = BASE_DIR / 'sessions'
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
