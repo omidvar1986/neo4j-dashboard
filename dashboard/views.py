@@ -15,6 +15,7 @@ from .models import TestResult, ComponentDependency, TestCoverage
 from django.db.models import Avg, Count
 import requests
 from datetime import datetime
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -912,8 +913,6 @@ def check_node_duplicate(request):
     logger.debug("Node %s exists: %s", node_name, exists)
     return JsonResponse({'exists': exists})
 
-driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "Milad1986"))
-
 def explore_layers(request):
     available_nodes = []
     node_name = request.POST.get("node_name", "")
@@ -923,50 +922,68 @@ def explore_layers(request):
     edges_json = None
     query_executed = False
 
-    # دریافت نودهای موجود
-    with driver.session() as session:
-        result = session.run("MATCH (n:Node) RETURN DISTINCT n.name AS name LIMIT 100")
-        available_nodes = [record["name"] for record in result]
+    # Get Neo4j driver using environment variables
+    driver = get_driver()
+    if driver is None:
+        return render(request, "dashboard/explore_layers.html", {
+            "error": "Could not connect to Neo4j database",
+            "available_nodes": [],
+            "node_name": node_name,
+            "depth": depth,
+            "nodes_json": None,
+            "edges_json": None,
+            "query_executed": False
+        })
 
-    if request.method == "POST" and node_name:
-        query_executed = True
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                with driver.session() as session:
-                    # کوئری برای کاوش لایه‌ها
-                    query = (
-                        f"MATCH (start:Node {{name: $node_name}})-[r*0..{depth}]-(neighbor:Node) "
-                        "RETURN start, r, neighbor"
-                    )
-                    result = session.run(query, node_name=node_name)
-                    nodes = []
-                    edges = []
-                    for record in result:
-                        start = record["start"]
-                        neighbors = record["neighbor"]
-                        relationships = record["r"]
-                        if start["name"] not in [node["id"] for node in nodes]:
-                            nodes.append({"id": start["name"], "label": start["name"], "labels": list(start.labels)})
-                        if neighbors["name"] not in [node["id"] for node in nodes]:
-                            nodes.append({"id": neighbors["name"], "label": neighbors["name"], "labels": list(neighbors.labels)})
-                        for rel in relationships:
-                            edges.append({
-                                "source": start["name"],
-                                "target": neighbors["name"],
-                                "label": rel.type
-                            })
-                    nodes_json = nodes
-                    edges_json = edges
-                    break
-            except Exception as e:
-                error = f"Error exploring layers: {str(e)}"
-                if attempt < max_retries - 1:
-                    time.sleep(1)  # انتظار 1 ثانیه قبل از تلاش بعدی
-                else:
-                    raise
-    else:
-        node_name = ""
+    # دریافت نودهای موجود
+    try:
+        with driver.session() as session:
+            result = session.run("MATCH (n:Node) RETURN DISTINCT n.name AS name LIMIT 100")
+            available_nodes = [record["name"] for record in result]
+
+        if request.method == "POST" and node_name:
+            query_executed = True
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    with driver.session() as session:
+                        # کوئری برای کاوش لایه‌ها
+                        query = (
+                            f"MATCH (start:Node {{name: $node_name}})-[r*0..{depth}]-(neighbor:Node) "
+                            "RETURN start, r, neighbor"
+                        )
+                        result = session.run(query, node_name=node_name)
+                        nodes = []
+                        edges = []
+                        for record in result:
+                            start = record["start"]
+                            neighbors = record["neighbor"]
+                            relationships = record["r"]
+                            if start["name"] not in [node["id"] for node in nodes]:
+                                nodes.append({"id": start["name"], "label": start["name"], "labels": list(start.labels)})
+                            if neighbors["name"] not in [node["id"] for node in nodes]:
+                                nodes.append({"id": neighbors["name"], "label": neighbors["name"], "labels": list(neighbors.labels)})
+                            for rel in relationships:
+                                edges.append({
+                                    "source": start["name"],
+                                    "target": neighbors["name"],
+                                    "label": rel.type
+                                })
+                        nodes_json = nodes
+                        edges_json = edges
+                        break
+                except Exception as e:
+                    error = f"Error exploring layers: {str(e)}"
+                    if attempt < max_retries - 1:
+                        time.sleep(1)  # انتظار 1 ثانیه قبل از تلاش بعدی
+                    else:
+                        raise
+        else:
+            node_name = ""
+
+    except Exception as e:
+        error = f"Error connecting to Neo4j: {str(e)}"
+        logger.error(error)
 
     context = {
         "available_nodes": available_nodes,
