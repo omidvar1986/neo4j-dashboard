@@ -124,6 +124,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# CSRF Configuration
+CSRF_TRUSTED_ORIGINS = [
+    'https://qa-dash-neo.nxbo.ir',
+    'http://qa-dash-neo.nxbo.ir',
+]
+
 # Neo4j Configuration
 NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
 NEO4J_USER = os.getenv('NEO4J_USER', 'neo4j')

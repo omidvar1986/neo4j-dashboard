@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Neo4j Dashboard{% endblock %}</title>
+    <!-- Add CSRF token meta tag -->
+    {% csrf_token %}
     <style>
         :root[data-theme="light"] {
             --bg-color: #f4f4f9;
@@ -128,6 +130,8 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    <!-- Add CSRF token to body for forms -->
+    {% csrf_token %}
     <div class="navbar">
         <div class="navbar-left">
             <a href="{% url 'dashboard:predefined_queries' %}">Predefined Queries</a>
@@ -159,6 +163,8 @@
         {% endblock %}
     </div>
 
+    <!-- Add CSRF handling JavaScript -->
+    <script src="{% static 'js/csrf.js' %}"></script>
     <script>
         // Check for saved theme preference
         const savedTheme = localStorage.getItem('theme') || 'light';
