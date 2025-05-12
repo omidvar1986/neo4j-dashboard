@@ -37,6 +37,13 @@
             from { opacity: 0; }
             to { opacity: 1; }
         }
+        #layer-legend {
+            margin-top: 20px;
+            font-size: 15px;
+        }
+        #layer-legend svg {
+            margin-right: 4px;
+        }
     </style>
 {% endblock %}
 {% block content %}
@@ -89,18 +96,7 @@
                 </div>
                 <svg id="graph-container"></svg>
             </div>
-            <div class="controls">
-                <label for="layer-filter">Filter Layer:</label>
-                <select id="layer-filter" onchange="filterLayers()">
-                    <option value="all">All Layers</option>
-                    <option value="0">Layer 0</option>
-                    <option value="1">Layer 1</option>
-                    <option value="2">Layer 2</option>
-                    <option value="3">Layer 3</option>
-                    <option value="4">Layer 4</option>
-                    <option value="5">Layer 5</option>
-                </select>
-            </div>
+            <div id="layer-legend" style="margin-top: 20px;"></div>
 
             <script type="text/javascript">
                 // Log available nodes for debugging
@@ -293,32 +289,6 @@
                         nodesByLayer[layer].push(node);
                     });
 
-                    // Add background rectangles and labels for each layer
-                    const layerGroup = g.append("g").attr("class", "layer-backgrounds");
-                    Object.keys(nodesByLayer).forEach(layer => {
-                        const layerNum = parseInt(layer);
-                        const nodesInLayer = nodesByLayer[layer].length;
-                        const layerWidth = 200;
-                        const layerHeight = Math.max(100, nodesInLayer * 50);
-                        const xPos = layerNum * layerWidth;
-
-                        // Background rectangle
-                        layerGroup.append("rect")
-                            .attr("x", xPos - 50)
-                            .attr("y", height / 2 - layerHeight / 2)
-                            .attr("width", layerWidth)
-                            .attr("height", layerHeight)
-                            .attr("class", "layer-background")
-                            .attr("fill", layerColors(layerNum));
-
-                        // Layer label
-                        layerGroup.append("text")
-                            .attr("x", xPos + layerWidth / 2 - 30)
-                            .attr("y", height / 2 - layerHeight / 2 - 10)
-                            .attr("class", "layer-label")
-                            .text(`Layer ${layerNum}`);
-                    });
-
                     const simulation = d3.forceSimulation(nodes)
                         .force("link", d3.forceLink(links).id(d => d.id).distance(150))
                         .force("charge", d3.forceManyBody().strength(-300))
@@ -367,7 +337,7 @@
 
                     node.append("circle")
                         .attr("r", d => nodeSizeScale(distances[d.id] || 0))
-                        .attr("fill", d => getNodeColor(d.id))
+                        .attr("fill", d => d.color || getNodeColor(d.id))
                         .attr("class", "show");
 
                     node.append("text")
@@ -438,69 +408,28 @@
                         d.fy = null;
                     }
 
-                    // Filter layers
-                    function filterLayers() {
-                        const selectedLayer = document.getElementById('layer-filter').value;
-                        const nodesSelection = g.selectAll(".node");
-                        const linksSelection = g.selectAll(".links line");
-                        const linkLabelsSelection = g.selectAll(".link-labels text");
-                        const layerBackgrounds = g.selectAll(".layer-backgrounds rect");
-                        const layerLabels = g.selectAll(".layer-backgrounds text");
+                    // Get the selected depth from the dropdown
+                    const selectedDepth = parseInt(document.getElementById('depth').value);
 
-                        if (selectedLayer === 'all') {
-                            nodesSelection.style("display", "block");
-                            linksSelection.style("display", "block");
-                            linkLabelsSelection.style("display", "block");
-                            layerBackgrounds.style("display", "block");
-                            layerLabels.style("display", "block");
-                        } else {
-                            const layerNum = parseInt(selectedLayer);
+                    // Always show 5 layers in the legend
+                    const legendColors = [
+                        { color: "#dc3545", label: "Layer 1" },
+                        { color: "#007bff", label: "Layer 2" },
+                        { color: "#28a745", label: "Layer 3" },
+                        { color: "#ffc107", label: "Layer 4" },
+                        { color: "#6f42c1", label: "Layer 5" }
+                    ];
 
-                            // Reset all nodes and links to hidden
-                            nodesSelection.style("display", "none");
-                            linksSelection.style("display", "none");
-                            linkLabelsSelection.style("display", "none");
-                            layerBackgrounds.style("display", d => d === layerNum ? "block" : "none");
-                            layerLabels.style("display", d => d === layerNum ? "block" : "none");
+                    const legendHtml = legendColors.map(item => `
+                        <span style="display:inline-block;margin-right:20px;">
+                            <svg width="18" height="18" style="vertical-align:middle;">
+                                <circle cx="9" cy="9" r="8" fill="${item.color}" stroke="#333" stroke-width="1"/>
+                            </svg>
+                            <span style="vertical-align:middle;">${item.label}</span>
+                        </span>
+                    `).join('');
 
-                            // Show nodes in the selected layer
-                            nodesSelection.each(function(d) {
-                                const nodeLayer = distances[d.id] || 0;
-                                if (nodeLayer === layerNum) {
-                                    d3.select(this).style("display", "block");
-                                }
-                            });
-
-                            // Show links and labels where either source or target is in the selected layer
-                            const visibleNodes = new Set();
-                            linksSelection.each(function(d) {
-                                const sourceLayer = distances[d.source.id] || 0;
-                                const targetLayer = distances[d.target.id] || 0;
-                                const shouldDisplay = (sourceLayer === layerNum || targetLayer === layerNum);
-                                d3.select(this).style("display", shouldDisplay ? "block" : "none");
-                                if (shouldDisplay) {
-                                    visibleNodes.add(d.source.id);
-                                    visibleNodes.add(d.target.id);
-                                }
-                            });
-
-                            linkLabelsSelection.each(function(d) {
-                                const sourceLayer = distances[d.source.id] || 0;
-                                const targetLayer = distances[d.target.id] || 0;
-                                const shouldDisplay = (sourceLayer === layerNum || targetLayer === layerNum);
-                                d3.select(this).style("display", shouldDisplay ? "block" : "none");
-                            });
-
-                            // Show all nodes that are part of visible links
-                            nodesSelection.each(function(d) {
-                                if (visibleNodes.has(d.id)) {
-                                    d3.select(this).style("display", "block");
-                                }
-                            });
-                        }
-
-                        simulation.alpha(1).restart();
-                    }
+                    document.getElementById('layer-legend').innerHTML = `<b>Layer Colors:</b> ${legendHtml}`;
                 }
             </script>
         {% endif %}

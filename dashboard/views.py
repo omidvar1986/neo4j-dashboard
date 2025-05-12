@@ -16,6 +16,7 @@ from django.db.models import Avg, Count
 import requests
 from datetime import datetime
 import time
+from collections import deque, defaultdict
 
 # Load environment variables from .env file
 load_dotenv()
@@ -576,6 +577,49 @@ def manual_queries(request):
                     edges_json = json.dumps(graph_data['edges'])
                     logger.debug("nodes_json: %s", nodes_json)
                     logger.debug("edges_json: %s", edges_json)
+
+                    # Calculate node depths using BFS from the start node
+                    adj = defaultdict(list)
+                    for edge in graph_data['edges']:
+                        adj[edge['source']].append(edge['target'])
+                        adj[edge['target']].append(edge['source'])  # If undirected
+
+                    node_depths = {}
+                    start = graph_data['nodes'][0]['id']
+                    queue = deque([(start, 0)])
+                    visited = set([start])
+                    while queue:
+                        current, depth = queue.popleft()
+                        node_depths[current] = depth
+                        for neighbor in adj[current]:
+                            if neighbor not in visited:
+                                visited.add(neighbor)
+                                queue.append((neighbor, depth + 1))
+
+                    max_depth = int(depth)
+                    # Filter nodes
+                    filtered_nodes = {k: v for k, v in graph_data['nodes'] if node_depths.get(k, 0) < max_depth}
+                    # Filter edges
+                    filtered_edges = [
+                        e for e in graph_data['edges']
+                        if node_depths.get(e['source'], 0) < max_depth and node_depths.get(e['target'], 0) < max_depth
+                    ]
+                    nodes_json = list(filtered_nodes.values())
+                    edges_json = filtered_edges
+
+                    # Assign colors for only the displayed layers (1 to max_depth)
+                    color_palette = [
+                        '#dc3545',  # Layer 1
+                        '#007bff',  # Layer 2
+                        '#28a745',  # Layer 3
+                        '#ffc107',  # Layer 4
+                        '#6f42c1',  # Layer 5
+                    ]
+                    for node in filtered_nodes.values():
+                        d = node_depths.get(node["id"], 1)
+                        if 1 <= d <= max_depth:
+                            node["color"] = color_palette[(d-1) % len(color_palette)]
+
                     return render(request, 'dashboard/manual_queries.html', {
                         'success_message': 'Query executed successfully.',
                         'nodes_json': nodes_json,
@@ -935,10 +979,10 @@ def explore_layers(request):
             "query_executed": False
         })
 
-    # دریافت نودهای موجود
     try:
+        # Get available nodes for the dropdown
         with driver.session() as session:
-            result = session.run("MATCH (n:Node) RETURN DISTINCT n.name AS name LIMIT 100")
+            result = session.run("MATCH (n:Node) RETURN DISTINCT n.name AS name ORDER BY name LIMIT 200")
             available_nodes = [record["name"] for record in result]
 
         if request.method == "POST" and node_name:
@@ -947,51 +991,126 @@ def explore_layers(request):
             for attempt in range(max_retries):
                 try:
                     with driver.session() as session:
-                        # کوئری برای کاوش لایه‌ها
+                        # Modified Cypher query to fetch paths
                         query = (
-                            f"MATCH (start:Node {{name: $node_name}})-[r*0..{depth}]-(neighbor:Node) "
-                            "RETURN start, r, neighbor"
+                            f"MATCH p=(start_node:Node {{name: $node_name}})-[*0..{depth}]-(end_node:Node) "
+                            "RETURN p"
                         )
                         result = session.run(query, node_name=node_name)
-                        nodes = []
-                        edges = []
-                        for record in result:
-                            start = record["start"]
-                            neighbors = record["neighbor"]
-                            relationships = record["r"]
-                            if start["name"] not in [node["id"] for node in nodes]:
-                                nodes.append({"id": start["name"], "label": start["name"], "labels": list(start.labels)})
-                            if neighbors["name"] not in [node["id"] for node in nodes]:
-                                nodes.append({"id": neighbors["name"], "label": neighbors["name"], "labels": list(neighbors.labels)})
-                            for rel in relationships:
-                                edges.append({
-                                    "source": start["name"],
-                                    "target": neighbors["name"],
-                                    "label": rel.type
-                                })
-                        nodes_json = nodes
-                        edges_json = edges
-                        break
-                except Exception as e:
-                    error = f"Error exploring layers: {str(e)}"
-                    if attempt < max_retries - 1:
-                        time.sleep(1)  # انتظار 1 ثانیه قبل از تلاش بعدی
-                    else:
-                        raise
-        else:
-            node_name = ""
 
-    except Exception as e:
-        error = f"Error connecting to Neo4j: {str(e)}"
-        logger.error(error)
+                        nodes_data = {}  # Using dict to store unique nodes by name
+                        edge_signatures = set() # Using set to store unique edge signatures
+                        
+                        processed_edges = [] # List to hold final edge objects
+
+                        for record in result:
+                            path = record["p"]
+                            for node_obj in path.nodes:
+                                current_node_name = node_obj.get("name")
+                                if current_node_name and current_node_name not in nodes_data:
+                                    nodes_data[current_node_name] = {
+                                        "id": current_node_name,
+                                        "label": current_node_name,
+                                        "labels": list(node_obj.labels)
+                                    }
+                            
+                            for rel_obj in path.relationships:
+                                source_name = rel_obj.start_node.get("name")
+                                target_name = rel_obj.end_node.get("name")
+                                rel_type = rel_obj.type
+
+                                if source_name and target_name:
+                                    # Ensure source and target nodes are in nodes_data (they should be)
+                                    if source_name not in nodes_data:
+                                        nodes_data[source_name] = {
+                                            "id": source_name, "label": source_name, 
+                                            "labels": list(rel_obj.start_node.labels)
+                                        }
+                                    if target_name not in nodes_data:
+                                        nodes_data[target_name] = {
+                                            "id": target_name, "label": target_name, 
+                                            "labels": list(rel_obj.end_node.labels)
+                                        }
+                                    
+                                    edge_sig = (source_name, target_name, rel_type)
+                                    if edge_sig not in edge_signatures:
+                                        processed_edges.append({
+                                            "source": source_name,
+                                            "target": target_name,
+                                            "label": rel_type
+                                        })
+                                        edge_signatures.add(edge_sig)
+                        
+                        nodes_json = list(nodes_data.values())
+                        edges_json = processed_edges
+
+                        # Calculate node depths using BFS from the start node
+                        adj = defaultdict(list)
+                        for edge in processed_edges:
+                            adj[edge["source"]].append(edge["target"])
+                            adj[edge["target"]].append(edge["source"])  # If undirected
+
+                        node_depths = {}
+                        start = node_name
+                        queue = deque([(start, 0)])
+                        visited = set([start])
+                        while queue:
+                            current, d = queue.popleft()
+                            node_depths[current] = d
+                            for neighbor in adj[current]:
+                                if neighbor not in visited:
+                                    visited.add(neighbor)
+                                    queue.append((neighbor, d + 1))
+
+                    max_depth = int(depth)
+                    # Filter nodes and edges up to and including max_depth
+                    filtered_nodes = {k: v for k, v in nodes_data.items() if node_depths.get(k, 0) <= max_depth}
+                    filtered_edges = [
+                        e for e in processed_edges
+                        if node_depths.get(e["source"], 0) <= max_depth and node_depths.get(e["target"], 0) <= max_depth
+                    ]
+
+                    # Assign colors: Layer 0 = color_palette[0], Layer 1 = color_palette[1], etc.
+                    color_palette = [
+                        '#dc3545',  # Layer 0 (root)
+                        '#007bff',  # Layer 1
+                        '#28a745',  # Layer 2
+                        '#ffc107',  # Layer 3
+                        '#6f42c1',  # Layer 4
+                    ]
+                    for node in filtered_nodes.values():
+                        d = node_depths.get(node["id"], 0)
+                        node["color"] = color_palette[d % len(color_palette)]
+
+                    nodes_json = list(filtered_nodes.values())
+                    edges_json = filtered_edges
+
+                    break  # Break from retry loop on success
+                except Exception as e:
+                    error = f"Error exploring layers (attempt {attempt + 1}/{max_retries}): {str(e)}"
+                    logger.error(error) # Log error for each attempt
+                    if attempt < max_retries - 1:
+                        time.sleep(1)
+                    else:
+                        # If all retries fail, keep the error message from the last attempt
+                        # The 'raise' was removed to allow rendering the page with an error
+                        pass # Let the error be set and proceed to render
+        else:
+            if request.method == "POST" and not node_name:
+                error = "Please select a starting node."
+            # If not POST or node_name is empty, nodes_json and edges_json remain None
+
+    except Exception as e: # Catch errors from getting available_nodes or other general errors
+        error = f"An error occurred: {str(e)}"
+        logger.error(error) # Log the general error
 
     context = {
         "available_nodes": available_nodes,
         "node_name": node_name,
         "depth": depth,
         "error": error,
-        "nodes_json": nodes_json,
-        "edges_json": edges_json,
+        "nodes_json": nodes_json if nodes_json is not None else [], # Ensure lists for template
+        "edges_json": edges_json if edges_json is not None else [], # Ensure lists for template
         "query_executed": query_executed
     }
     return render(request, "dashboard/explore_layers.html", context)
