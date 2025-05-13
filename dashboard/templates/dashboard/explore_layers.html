@@ -68,7 +68,7 @@
                     <option value="2" {% if depth == "2" %}selected{% endif %}>2</option>
                     <option value="3" {% if depth == "3" %}selected{% endif %}>3</option>
                     <option value="4" {% if depth == "4" %}selected{% endif %}>4</option>
-                    <option value="5" {% if depth == "5" %}selected{% endif %}>5</option>
+                    
                 </select>
             </div>
             <button type="submit" class="btn">Explore</button>
@@ -194,8 +194,8 @@
 
                     // Color scale for layers
                     const layerColors = d3.scaleOrdinal()
-                        .domain([0, 1, 2, 3, 4, 5])
-                        .range(["#2ecc71", "#3498db", "#e67e22", "#e74c3c", "#9b59b6", "#34495e"]);
+                        .domain([0, 1, 2, 3, 4])
+                        .range(["#dc3545", "#007bff", "#28a745", "#ffc107", "#6f42c1"]);
 
                     const getNodeColor = (nodeId) => {
                         const distance = distances[nodeId] !== undefined ? distances[nodeId] : 0;
@@ -204,8 +204,8 @@
 
                     // Size scale for nodes based on layer
                     const nodeSizeScale = d3.scaleLinear()
-                        .domain([0, 5])
-                        .range([15, 8]);  // Larger nodes for layer 0, smaller for deeper layers
+                        .domain([0, 4])
+                        .range([15, 8]);  // Larger nodes for base node, smaller for deeper layers
 
                     const g = svg.append("g");
                     const zoom = d3.zoom()
@@ -411,13 +411,13 @@
                     // Get the selected depth from the dropdown
                     const selectedDepth = parseInt(document.getElementById('depth').value);
 
-                    // Always show 5 layers in the legend
+                    // Update legend to show base node and layers 1-4
                     const legendColors = [
-                        { color: "#dc3545", label: "Layer 1" },
-                        { color: "#007bff", label: "Layer 2" },
-                        { color: "#28a745", label: "Layer 3" },
-                        { color: "#ffc107", label: "Layer 4" },
-                        { color: "#6f42c1", label: "Layer 5" }
+                        { color: "#dc3545", label: "Base Node" },
+                        { color: "#007bff", label: "Layer 1" },
+                        { color: "#28a745", label: "Layer 2" },
+                        { color: "#ffc107", label: "Layer 3" },
+                        { color: "#6f42c1", label: "Layer 4" }
                     ];
 
                     const legendHtml = legendColors.map(item => `
