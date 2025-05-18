@@ -44,18 +44,34 @@ def get_driver():
 # Helper function for safe Cypher queries
 def is_safe_query(cypher_query):
     """
-    Check if the Cypher query is safe (only MATCH and RETURN allowed).
+    Check if the Cypher query is safe based on the context.
+    For manual queries, only allow read operations.
+    For node management, allow specific write operations.
     """
     query_upper = cypher_query.upper()
-    allowed_keywords = ['MATCH', 'RETURN', 'WHERE', 'WITH', 'UNWIND', 'LIMIT', 'SKIP', 'ORDER BY']
-    disallowed_keywords = ['CREATE', 'DELETE', 'REMOVE', 'SET', 'MERGE', 'DROP', 'CALL']
     
+    # Define allowed and disallowed keywords for different contexts
+    read_keywords = ['MATCH', 'RETURN', 'WHERE', 'WITH', 'UNWIND', 'LIMIT', 'SKIP', 'ORDER BY']
+    management_keywords = ['DELETE', 'SET', 'REMOVE', 'MERGE']
+    disallowed_keywords = ['CREATE', 'DROP', 'CALL', 'LOAD', 'UNLOAD', 'START', 'STOP']
+    
+    # Check for disallowed keywords first
     for keyword in disallowed_keywords:
         if keyword in query_upper:
             return False
     
-    has_match_or_return = 'MATCH' in query_upper or 'RETURN' in query_upper
-    return has_match_or_return
+    # For node management operations, check if the query follows specific patterns
+    if any(keyword in query_upper for keyword in management_keywords):
+        # Only allow operations on Node labels
+        if 'MATCH (N:Node)' not in query_upper and 'MATCH (N:Node)' not in query_upper:
+            return False
+        # Only allow specific operations
+        if not ('DELETE N' in query_upper or 'SET N.' in query_upper or 'REMOVE N.' in query_upper):
+            return False
+        return True
+    
+    # For read operations, check if query contains at least one read keyword
+    return any(keyword in query_upper for keyword in read_keywords)
 
 # # Helper functions for PredefinedQuery
 # def create_predefined_query(query_name, query_text):
@@ -435,27 +451,12 @@ def confirm_relationships(request):
 
 
 
-def is_safe_query(cypher_query):
-    """
-    Check if the Cypher query is safe (only MATCH and RETURN allowed).
-    """
-    query_upper = cypher_query.upper()
-    allowed_keywords = ['MATCH', 'RETURN', 'WHERE', 'WITH', 'UNWIND', 'LIMIT', 'SKIP', 'ORDER BY']
-    disallowed_keywords = ['CREATE', 'DELETE', 'REMOVE', 'SET', 'MERGE', 'DROP', 'CALL']
-    
-    for keyword in disallowed_keywords:
-        if keyword in query_upper:
-            return False
-    
-    has_match_or_return = 'MATCH' in query_upper or 'RETURN' in query_upper
-    return has_match_or_return
-
 def manual_queries(request):
     logger.debug("Entering manual_queries view with method: %s", request.method)
 
     graph_data = {'nodes': [], 'edges': []}
     cypher_query = ""
-    query_executed = True  # متغیر جدید برای مشخص کردن اینکه آیا کوئری اجرا شده یا نه
+    query_executed = True
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -466,7 +467,7 @@ def manual_queries(request):
             return redirect('dashboard:manual_queries')
 
         if action == 'execute':
-            query_executed = True  # کوئری اجرا شده
+            query_executed = True
             if not cypher_query:
                 logger.warning("No Cypher query provided")
                 return render(request, 'dashboard/manual_queries.html', {
@@ -497,11 +498,13 @@ def manual_queries(request):
                     result = session.run(cypher_query)
                     node_id_map = {}
                     node_counter = 0
+                    found_nodes = False
 
                     for record in result:
                         for value in record.values():
                             # Process nodes
                             if isinstance(value, Node):
+                                found_nodes = True
                                 node_id = value.get('name', f"Node_{node_counter}")
                                 node_counter += 1
                                 node_id_map[id(value)] = node_id
@@ -531,6 +534,7 @@ def manual_queries(request):
                                         })
                             # Process paths
                             elif isinstance(value, Path):
+                                found_nodes = True
                                 for node in value.nodes:
                                     node_id = node.get('name', f"Node_{node_counter}")
                                     node_counter += 1
@@ -560,10 +564,10 @@ def manual_queries(request):
                                             })
 
                     # If no nodes were found
-                    if not graph_data['nodes']:
+                    if not found_nodes:
                         logger.warning("No nodes found with query: %s", cypher_query)
                         return render(request, 'dashboard/manual_queries.html', {
-                            'error_message': 'No nodes found. Try a different query or check the labels.',
+                            'error_message': 'No nodes found. Check your query or database.',
                             'graph_data': graph_data,
                             'cypher_query': cypher_query,
                             'nodes_json': json.dumps([]),
@@ -573,52 +577,17 @@ def manual_queries(request):
 
                     logger.debug("Final graph data: %s", graph_data)
                     logger.info("Successfully executed Cypher query: %s", cypher_query)
-                    nodes_json = json.dumps(graph_data['nodes'])
-                    edges_json = json.dumps(graph_data['edges'])
+
+                    # If we have nodes but no edges, we still want to show the nodes
+                    if graph_data['nodes'] and not graph_data['edges']:
+                        nodes_json = json.dumps(graph_data['nodes'])
+                        edges_json = json.dumps([])
+                    else:
+                        nodes_json = json.dumps(graph_data['nodes'])
+                        edges_json = json.dumps(graph_data['edges'])
+
                     logger.debug("nodes_json: %s", nodes_json)
                     logger.debug("edges_json: %s", edges_json)
-
-                    # Calculate node depths using BFS from the start node
-                    adj = defaultdict(list)
-                    for edge in graph_data['edges']:
-                        adj[edge['source']].append(edge['target'])
-                        adj[edge['target']].append(edge['source'])  # If undirected
-
-                    node_depths = {}
-                    start = graph_data['nodes'][0]['id']
-                    queue = deque([(start, 0)])
-                    visited = set([start])
-                    while queue:
-                        current, depth = queue.popleft()
-                        node_depths[current] = depth
-                        for neighbor in adj[current]:
-                            if neighbor not in visited:
-                                visited.add(neighbor)
-                                queue.append((neighbor, depth + 1))
-
-                    max_depth = int(depth)
-                    # Filter nodes
-                    filtered_nodes = {node['id']: node for node in graph_data['nodes'] if node_depths.get(node['id'], 0) < max_depth}
-                    # Filter edges
-                    filtered_edges = [
-                        e for e in graph_data['edges']
-                        if node_depths.get(e['source'], 0) < max_depth and node_depths.get(e['target'], 0) < max_depth
-                    ]
-                    nodes_json = list(filtered_nodes.values())
-                    edges_json = filtered_edges
-
-                    # Assign colors for only the displayed layers (1 to max_depth)
-                    color_palette = [
-                        '#dc3545',  # Layer 1
-                        '#007bff',  # Layer 2
-                        '#28a745',  # Layer 3
-                        '#ffc107',  # Layer 4
-                        '#6f42c1',  # Layer 5
-                    ]
-                    for node in filtered_nodes.values():
-                        d = node_depths.get(node["id"], 1)
-                        if 1 <= d <= max_depth:
-                            node["color"] = color_palette[(d-1) % len(color_palette)]
 
                     return render(request, 'dashboard/manual_queries.html', {
                         'success_message': 'Query executed successfully.',
@@ -1422,4 +1391,79 @@ def get_impact_analysis(request):
     
     return JsonResponse({
         'dependencies': impact_data
+    })
+
+def manage_nodes(request):
+    """View for managing nodes in the database."""
+    logger.debug("Entering manage_nodes view with method: %s", request.method)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        node_name = request.POST.get('node_name')
+        
+        if not node_name:
+            messages.error(request, "Node name is required.")
+            return redirect('dashboard:manage_nodes')
+        
+        try:
+            driver = get_driver()
+            with driver.session() as session:
+                if action == 'delete':
+                    # Delete node and its relationships
+                    query = """
+                    MATCH (n:Node {name: $name})
+                    DETACH DELETE n
+                    """
+                    session.run(query, name=node_name)
+                    messages.success(request, f"Node '{node_name}' deleted successfully.")
+                
+                elif action == 'edit':
+                    new_name = request.POST.get('new_name')
+                    new_description = request.POST.get('new_description', '')
+                    
+                    if not new_name:
+                        messages.error(request, "New name is required.")
+                        return redirect('dashboard:manage_nodes')
+                    
+                    # Update node properties
+                    query = """
+                    MATCH (n:Node {name: $old_name})
+                    SET n.name = $new_name, n.description = $description
+                    """
+                    session.run(query, {
+                        'old_name': node_name,
+                        'new_name': new_name,
+                        'description': new_description
+                    })
+                    messages.success(request, f"Node '{node_name}' updated successfully.")
+        
+        except Exception as e:
+            logger.error("Error managing node: %s", str(e))
+            messages.error(request, f"Error: {str(e)}")
+    
+    # Get all nodes for display
+    try:
+        driver = get_driver()
+        with driver.session() as session:
+            query = """
+            MATCH (n:Node)
+            RETURN n.name AS name, n.description AS description,
+                   size((n)-[]->()) AS outgoing_relationships,
+                   size([]->(n)) AS incoming_relationships
+            ORDER BY n.name
+            """
+            result = session.run(query)
+            nodes = [{
+                'name': record['name'],
+                'description': record['description'] or '',
+                'outgoing_relationships': record['outgoing_relationships'],
+                'incoming_relationships': record['incoming_relationships']
+            } for record in result]
+    except Exception as e:
+        logger.error("Error fetching nodes: %s", str(e))
+        nodes = []
+        messages.error(request, f"Error fetching nodes: {str(e)}")
+    
+    return render(request, 'dashboard/manage_nodes.html', {
+        'nodes': nodes
     })

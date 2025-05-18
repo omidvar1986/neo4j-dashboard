@@ -23,4 +23,5 @@ urlpatterns = [
     path('api/test-coverage/', views.get_test_coverage, name='test_coverage'),
     path('api/test-results/', views.get_test_results, name='test_results'),
     path('api/impact-analysis/', views.get_impact_analysis, name='impact_analysis'),
+    path('manage_nodes/', views.manage_nodes, name='manage_nodes'),  # New URL pattern
 ]
