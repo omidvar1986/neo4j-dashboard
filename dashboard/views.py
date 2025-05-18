@@ -44,34 +44,19 @@ def get_driver():
 # Helper function for safe Cypher queries
 def is_safe_query(cypher_query):
     """
-    Check if the Cypher query is safe based on the context.
-    For manual queries, only allow read operations.
-    For node management, allow specific write operations.
+    Check if the Cypher query is safe (only MATCH, RETURN, and DELETE allowed).
     """
     query_upper = cypher_query.upper()
+    allowed_keywords = ['MATCH', 'RETURN', 'WHERE', 'WITH', 'UNWIND', 'LIMIT', 'SKIP', 'ORDER BY']
+    # Remove 'DELETE' from disallowed_keywords
+    disallowed_keywords = ['CREATE', 'REMOVE', 'SET', 'MERGE', 'DROP', 'CALL']
     
-    # Define allowed and disallowed keywords for different contexts
-    read_keywords = ['MATCH', 'RETURN', 'WHERE', 'WITH', 'UNWIND', 'LIMIT', 'SKIP', 'ORDER BY']
-    management_keywords = ['DELETE', 'SET', 'REMOVE', 'MERGE']
-    disallowed_keywords = ['CREATE', 'DROP', 'CALL', 'LOAD', 'UNLOAD', 'START', 'STOP']
-    
-    # Check for disallowed keywords first
     for keyword in disallowed_keywords:
         if keyword in query_upper:
             return False
     
-    # For node management operations, check if the query follows specific patterns
-    if any(keyword in query_upper for keyword in management_keywords):
-        # Only allow operations on Node labels
-        if 'MATCH (N:Node)' not in query_upper and 'MATCH (N:Node)' not in query_upper:
-            return False
-        # Only allow specific operations
-        if not ('DELETE N' in query_upper or 'SET N.' in query_upper or 'REMOVE N.' in query_upper):
-            return False
-        return True
-    
-    # For read operations, check if query contains at least one read keyword
-    return any(keyword in query_upper for keyword in read_keywords)
+    has_match_or_return = 'MATCH' in query_upper or 'RETURN' in query_upper or 'DELETE' in query_upper
+    return has_match_or_return
 
 # # Helper functions for PredefinedQuery
 # def create_predefined_query(query_name, query_text):
