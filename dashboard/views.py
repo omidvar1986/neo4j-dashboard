@@ -598,7 +598,7 @@ def manual_queries(request):
 
                     max_depth = int(depth)
                     # Filter nodes
-                    filtered_nodes = {k: v for k, v in graph_data['nodes'] if node_depths.get(k, 0) < max_depth}
+                    filtered_nodes = {node['id']: node for node in graph_data['nodes'] if node_depths.get(node['id'], 0) < max_depth}
                     # Filter edges
                     filtered_edges = [
                         e for e in graph_data['edges']
@@ -1064,7 +1064,7 @@ def explore_layers(request):
 
                     max_depth = int(depth)
                     # Filter nodes and edges up to and including max_depth
-                    filtered_nodes = {k: v for k, v in nodes_data.items() if node_depths.get(k, 0) <= max_depth}
+                    filtered_nodes = {node['id']: node for node in nodes_data.values() if node_depths.get(node['id'], 0) <= max_depth}
                     filtered_edges = [
                         e for e in processed_edges
                         if node_depths.get(e["source"], 0) <= max_depth and node_depths.get(e["target"], 0) <= max_depth
