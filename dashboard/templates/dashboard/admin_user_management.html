@@ -1,0 +1,170 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Admin User Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-container {
+        padding: 2rem 0;
+        background: #f8f9fa;
+    }
+    .table {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+    }
+    .table thead th {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+    }
+    .btn-action {
+        border-radius: 6px;
+        padding: 0.4rem 0.8rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    .btn-action:hover {
+        transform: translateY(-2px);
+    }
+    .role-select {
+        border-radius: 6px;
+        padding: 0.4rem;
+        border: 1px solid #e0e0e0;
+        transition: all 0.3s ease;
+        min-width: 120px; /* Give role select a minimum width */
+    }
+    .role-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    .alert {
+        border-radius: 8px;
+        animation: fadeIn 0.5s ease;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .status-badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .status-approved {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .status-pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    .role-explanation {
+        margin-top: 30px;
+        padding: 15px;
+        background-color: #e9ecef;
+        border-radius: 8px;
+    }
+    .role-explanation h5 {
+        margin-bottom: 10px;
+        color: #495057;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="container">
+        <h2 class="mb-4">Admin User Management</h2>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} mt-3">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                        <tr>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                <form method="post" action="{% url 'dashboard:admin_user_management' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                                    <input type="hidden" name="action" value="set_role">
+                                    <select name="new_role" class="role-select" onchange="this.form.submit()">
+                                        {% for role_value, role_label in ROLE_CHOICES %}
+                                            <option value="{{ role_value }}" {% if user.role == role_value %}selected{% endif %}>
+                                                {{ role_label }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </form>
+                            </td>
+                            <td>
+                                {% if user.is_approved %}
+                                    <span class="status-badge status-approved">Approved</span>
+                                {% else %}
+                                    <span class="status-badge status-pending">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not user.is_approved %}
+                                    <form method="post" action="{% url 'dashboard:admin_user_management' %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                                        <input type="hidden" name="action" value="approve">
+                                        <button type="submit" class="btn btn-success btn-action">Approve</button>
+                                    </form>
+                                {% else %}
+                                    <form method="post" action="{% url 'dashboard:admin_user_management' %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                                        <input type="hidden" name="action" value="disapprove">
+                                        <button type="submit" class="btn btn-warning btn-action">Disapprove</button>
+                                    </form>
+                                {% endif %}
+
+                                {% if not user.is_superuser %}
+                                    <form method="post" action="{% url 'dashboard:admin_user_management' %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                                        <input type="hidden" name="action" value="delete">
+                                        <button type="submit" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to delete user {{ user.username }}?');">Delete</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="role-explanation">
+            <h5>Role Explanations:</h5>
+            <ul>
+                <li><strong>Role 1 (Query User):</strong> Can access Predefined Queries and Explore Layers.</li>
+                <li><strong>Role 2 (Node User):</strong> Can access Add Nodes and Manual Query.</li>
+                <li><strong>Role 3 (Admin User):</strong> Can access all features, including Admin Queries and User Management.</li>
+            </ul>
+        </div>
+
+    </div>
+</div>
+{% endblock %} 

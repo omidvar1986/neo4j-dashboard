@@ -8,7 +8,11 @@ from dotenv import load_dotenv
 from neo4j.graph import Node, Relationship, Path
 from .neo4j_driver import get_neo4j_driver, close_neo4j_driver
 from django.contrib import messages
-# from .models import AdminQuery, PredefinedQuery
+from django.contrib.auth import login, authenticate
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.forms import UserCreationForm
+from .forms import CustomUserCreationForm
+from .models import user
 import uuid
 import csv
 from .models import TestResult, ComponentDependency, TestCoverage
@@ -26,20 +30,39 @@ logger = logging.getLogger('dashboard')
 
 # Neo4j connection setup
 uri = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
-user = os.getenv('NEO4J_USER', 'neo4j')
+neo4j_db_user = os.getenv('NEO4J_USER', 'neo4j')
 password = os.getenv('NEO4J_PASSWORD', 'Milad1986')
+
+# Global driver instance
+_neo4j_driver = None
 
 def get_driver():
     """Create a Neo4j driver instance."""
-    try:
-        driver = GraphDatabase.driver(uri, auth=(user, password))
-        driver.verify_connectivity()
-        logger.info("Established Neo4j connection at %s", uri)
-        return driver
-    except Exception as e:
-        logger.error("Failed to establish Neo4j connection at %s: %s", uri, str(e))
-        raise
+    global _neo4j_driver
+    if _neo4j_driver is None:
+        try:
+            _neo4j_driver = GraphDatabase.driver(uri, auth=(neo4j_db_user, password))
+            _neo4j_driver.verify_connectivity()
+            logger.info("Established Neo4j connection at %s", uri)
+        except Exception as e:
+            logger.error("Failed to establish Neo4j connection at %s: %s", uri, str(e))
+            raise
+    return _neo4j_driver
 
+def close_driver():
+    """Close the Neo4j driver connection."""
+    global _neo4j_driver
+    if _neo4j_driver is not None:
+        try:
+            _neo4j_driver.close()
+            _neo4j_driver = None
+            logger.info("Neo4j driver closed")
+        except Exception as e:
+            logger.error("Error closing Neo4j driver: %s", str(e))
+
+# Register the close_driver function to be called when the application exits
+import atexit
+atexit.register(close_driver)
 
 # Helper function for safe Cypher queries
 def is_safe_query(cypher_query):
@@ -104,10 +127,69 @@ def get_existing_nodes():
         logger.error("Error retrieving existing nodes: %s", str(e))
         return []
 
+def login_view(request):
+    """Handle user login."""
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            if user.is_approved:
+                login(request, user)
+                messages.success(request, f"Welcome, {user.username}!")
+                # Redirect admin users to the user management page
+                if user.can_access_admin_queries(): # Check if user has admin role (Role 3)
+                    return redirect('dashboard:admin_user_management')
+                else:
+                    return redirect('dashboard:home')
+            else:
+                messages.error(request, 'Your account is not yet approved. Please wait for admin approval.')
+        else:
+            messages.error(request, 'Invalid username or password.')
+
+    return render(request, 'dashboard/login.html')
+
+def register_view(request):
+    """Handle user registration."""
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.role = 1  # Set default role to Query User
+            user.is_approved = False  # Set initial approval status to False
+            user.save()
+            messages.success(request, 'Registration successful! Please wait for admin approval.')
+            return redirect('dashboard:login')
+    else:
+        form = CustomUserCreationForm()
+    
+    return render(request, 'dashboard/register.html', {'form': form})
+
+def role_required(role):
+    """Decorator to check user role."""
+    def decorator(view_func):
+        def wrapper(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect('dashboard:login')
+            if not request.user.has_role(role):
+                messages.error(request, 'You do not have permission to access this page.')
+                return redirect('dashboard:home')
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+@login_required
 def home(request):
-    """Render the home page with options."""
+    """Render the home page with options based on user role."""
     logger.debug("Entering home view")
-    return render(request, 'dashboard/home.html', {})
+    context = {
+        'can_access_predefined_queries': request.user.can_access_predefined_queries(),
+        'can_access_explore_layers': request.user.can_access_explore_layers(),
+        'can_access_add_nodes': request.user.can_access_add_nodes(),
+        'can_access_admin_queries': request.user.can_access_admin_queries(),
+    }
+    return render(request, 'dashboard/home.html', context)
 
 def get_existing_nodes_view(request):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -115,6 +197,8 @@ def get_existing_nodes_view(request):
         return JsonResponse(list(existing_nodes), safe=False)
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
+@login_required
+@user_passes_test(lambda u: u.can_access_add_nodes())
 def add_nodes(request):
     logger.debug("Entering add_nodes view with method: %s", request.method)
 
@@ -377,7 +461,7 @@ def confirm_relationships(request):
             except Exception as e:
                 logger.error("Error during Neo4j operation: %s", str(e))
                 # Close the driver and try to reconnect
-                close_neo4j_driver()
+                close_driver()
                 driver = get_neo4j_driver()
                 if driver is None:
                     messages.error(request, "Failed to reconnect to Neo4j.")
@@ -665,8 +749,10 @@ def get_query_by_id_from_session(request, query_id):
 
 
 
+@login_required
+@user_passes_test(lambda u: u.can_access_admin_queries())
 def admin_queries(request):
-    """Handle admin queries creation to generate buttons in predefined queries."""
+    """Admin queries view with role-based access control."""
     logger.debug("Entering admin_queries view with method: %s", request.method)
 
     # Handle form submissions
@@ -708,6 +794,8 @@ def admin_queries(request):
 
 
 
+@login_required
+@user_passes_test(lambda u: u.can_access_predefined_queries())
 def predefined_queries(request):
     """Display a list of predefined queries as buttons for the user to select and view results."""
     logger.debug("Entering predefined_queries view with method: %s", request.method)
@@ -911,6 +999,8 @@ def check_node_duplicate(request):
     logger.debug("Node %s exists: %s", node_name, exists)
     return JsonResponse({'exists': exists})
 
+@login_required
+@user_passes_test(lambda u: u.can_access_explore_layers())
 def explore_layers(request):
     available_nodes = []
     node_name = request.POST.get("node_name", "")
@@ -1068,16 +1158,6 @@ def explore_layers(request):
         "query_executed": query_executed
     }
     return render(request, "dashboard/explore_layers.html", context)
-
-# بستن درایور وقتی برنامه تمام می‌شه
-def close_driver():
-    driver.close()
-
-# فرض می‌کنیم این تابع توی shutdown handler Django فراخوانی بشه
-import atexit
-atexit.register(close_driver)
-
-
 
 def custom_404(request, exception=None):
     """Render custom 404 page."""
@@ -1452,3 +1532,63 @@ def manage_nodes(request):
     return render(request, 'dashboard/manage_nodes.html', {
         'nodes': nodes
     })
+
+@login_required
+@user_passes_test(lambda u: u.can_access_admin_queries())
+def admin_user_management(request):
+    """Admin view to manage users and their approval status."""
+    users = user.objects.all().order_by('username') # Fetch all users, ordered by username
+    
+    # Handle POST requests for approving/disapproving users
+    if request.method == 'POST':
+        user_id = request.POST.get('user_id')
+        action = request.POST.get('action')
+        
+        try:
+            target_user = user.objects.get(pk=user_id)
+
+            # Prevent deleting the currently logged-in superuser
+            if action == 'delete' and target_user == request.user:
+                 messages.error(request, 'You cannot delete your own account.')
+                 return redirect('dashboard:admin_user_management')
+
+            if action == 'approve':
+                target_user.is_approved = True
+                target_user.save()
+                messages.success(request, f'User {target_user.username} approved.')
+            elif action == 'disapprove':
+                target_user.is_approved = False
+                target_user.save()
+                messages.success(request, f'User {target_user.username} disapproved.')
+            elif action == 'set_role':
+                 new_role = request.POST.get('new_role')
+                 if new_role is not None:
+                     try:
+                         new_role = int(new_role)
+                         if new_role in [choice[0] for choice in user.ROLE_CHOICES]:
+                            target_user.role = new_role
+                            target_user.save()
+                            messages.success(request, f'Role for user {target_user.username} set to {new_role}.')
+                         else:
+                            messages.error(request, f'Invalid role {new_role}.')
+                     except ValueError:
+                         messages.error(request, f'Invalid role value.')
+            elif action == 'delete': # Handle delete action
+                 if not target_user.is_superuser: # Only allow deleting non-superusers from this view
+                     target_user.delete()
+                     messages.success(request, f'User {target_user.username} deleted.')
+                 else:
+                     messages.error(request, f'Cannot delete superuser {target_user.username} from this page.')
+
+        except user.DoesNotExist:
+            messages.error(request, 'User not found.')
+        except Exception as e:
+            messages.error(request, f'Error performing action: {e}')
+
+        return redirect('dashboard:admin_user_management') # Redirect back to the same page after action
+
+    context = {
+        'users': users,
+        'ROLE_CHOICES': user.ROLE_CHOICES, # Pass role choices to the template
+    }
+    return render(request, 'dashboard/admin_user_management.html', context)

@@ -37,7 +37,7 @@
 
         .navbar { 
             background-color: var(--navbar-bg); 
-            padding: 10px;
+            padding: 10px 20px; /* Added horizontal padding */
             position: relative;
             display: flex;
             justify-content: space-between;
@@ -47,6 +47,7 @@
         .navbar-left {
             display: flex;
             gap: 15px;
+            align-items: center; /* Align items vertically */
         }
 
         .navbar a { 
@@ -67,7 +68,7 @@
             cursor: pointer;
             font-size: 14px;
             transition: all 0.3s;
-            margin-right: 20px;
+            margin-left: 15px; /* Increased margin from logout button */
         }
 
         .theme-toggle:hover {
@@ -78,7 +79,7 @@
         .container { 
             max-width: 1200px; 
             margin: 20px auto; 
-            padding: 0 20px;
+            padding: 20px; /* Added padding */
             background-color: var(--container-bg);
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -126,6 +127,55 @@
             color: #721c24; 
             border: 1px solid #f5c6cb; 
         }
+
+        /* Added styles for user info and logout */
+        .user-info {
+            color: var(--navbar-text);
+            margin-right: 10px;
+            font-size: 0.9em; /* Small size */
+        }
+
+        .logout-button {
+            background-color: transparent; /* Start with transparent background */
+            border: 1px solid var(--navbar-text); /* Border using navbar text color */
+            color: var(--navbar-text); /* Text color using navbar text color */
+            padding: 5px 15px; /* Adjusted padding */
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease; /* Smooth transition */
+        }
+
+        .logout-button:hover {
+            background-color: var(--navbar-text); /* Solid background on hover */
+            color: var(--navbar-bg); /* Text color changes on hover */
+            border-color: var(--navbar-text); /* Border color stays the same */
+        }
+
+        /* Styles for the welcome message when not logged in */
+        .welcome-message {
+            text-align: center;
+            margin-top: 50px;
+            margin-bottom: 30px;
+            color: #333; /* Set to a fixed black color */
+        }
+
+        .welcome-message h2 {
+            font-size: 2em; /* Larger size */
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: inherit; /* Inherit color from parent */
+        }
+
+        .welcome-message p {
+             font-size: 1.2em;
+             color: inherit; /* Inherit color from parent */
+        }
+
+         .welcome-message a {
+             color: inherit; /* Inherit color from parent */
+             text-decoration: underline;
+         }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -134,14 +184,43 @@
     {% csrf_token %}
     <div class="navbar">
         <div class="navbar-left">
-            <a href="{% url 'dashboard:predefined_queries' %}">Predefined Queries</a>
-            <a href="{% url 'dashboard:add_nodes' %}">Add Nodes</a>
-            <a href="{% url 'dashboard:explore_layers' %}">Explore Layers</a>
-            <a href="{% url 'dashboard:manual_queries' %}">Manual Query</a>
-            <a href="{% url 'dashboard:admin_queries' %}">Admin Queries</a>
+            {% if user.is_authenticated %}
+                {% if user.can_access_predefined_queries %}
+                    <a href="{% url 'dashboard:predefined_queries' %}">Predefined Queries</a>
+                {% endif %}
+                {% if user.can_access_add_nodes %}
+                    <a href="{% url 'dashboard:add_nodes' %}">Add Nodes</a>
+                {% endif %}
+                {% if user.can_access_explore_layers %}
+                     <a href="{% url 'dashboard:explore_layers' %}">Explore Layers</a>
+                {% endif %}
+                {% if user.can_access_manual_queries %}
+                    <a href="{% url 'dashboard:manual_queries' %}">Manual Query</a>
+                {% endif %}
+                {% if user.can_access_admin_queries %}
+                    <a href="{% url 'dashboard:admin_queries' %}">Admin Queries</a>
+                {% endif %}
+            {% endif %}
         </div>
-        <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+        <div class="navbar-right" style="display: flex; align-items: center;">
+            {% if user.is_authenticated %}
+                <span class="user-info">Role: {{ user.role }}</span>
+                <form id="logout-form" action="{% url 'dashboard:logout' %}" method="post" style="display: inline-block; margin-right: 10px;"> {# Added margin-right here #}
+                    {% csrf_token %}
+                    <button type="submit" class="logout-button">Logout</button>
+                </form>
+            {% endif %}
+             <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+        </div>
     </div>
+
+    {% if not user.is_authenticated %}
+    <div class="welcome-message">
+        <h2>Welcome to the dashboard!</h2>
+        <p>Please <a href="{% url 'dashboard:login' %}">Login</a> to continue.</p>
+    </div>
+    {% endif %}
+
     <div class="container">
         <!-- Display messages -->
         {% if messages %}
@@ -154,7 +233,7 @@
             </div>
         {% endif %}
 
-        {% if request.resolver_match.url_name != 'home' %}
+        {% if request.resolver_match.url_name != 'home' and user.is_authenticated %}
             <div class="back-to-home">
                 <a href="{% url 'dashboard:home' %}">Back to Home</a>
             </div>
@@ -164,7 +243,7 @@
     </div>
 
     <!-- Add CSRF handling JavaScript -->
-    <script src="{% static 'js/csrf.js' %}"></script>
+    <script src="{% static 'js/csrf.js' %"></script>
     <script>
         // Check for saved theme preference
         const savedTheme = localStorage.getItem('theme') || 'light';
@@ -188,6 +267,21 @@
                 button.textContent = '🌙 Dark Mode';
             }
         }
+
+         // Automatically hide messages after a few seconds
+         document.addEventListener('DOMContentLoaded', function() {
+            const messages = document.querySelectorAll('.messages .alert');
+            messages.forEach(function(message) {
+                setTimeout(function() {
+                    message.style.opacity = '0';
+                    message.style.transition = 'opacity 0.5s ease-in-out';
+                    setTimeout(function() {
+                        message.remove();
+                    }, 500); // Remove after fade out
+                }, 5000); // Hide after 5 seconds
+            });
+        });
+
     </script>
 </body>
 </html>
