@@ -3,101 +3,169 @@
 
 {% block title %}Home - Neo4j Dashboard{% endblock %}
 
+{% block extra_css %}
+<style>
+    .home-container {
+        padding: 2rem 0;
+        background: #f8f9fa;
+        min-height: 100vh;
+    }
+    .welcome-card {
+        border-radius: 10px;
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+    }
+    .option-card {
+        border: 1px solid #e0e0e0; /* Add a subtle border */
+        border-radius: 10px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%; /* Make cards equal height */
+        background-color: white; /* Ensure background is white */
+    }
+    .option-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+    .option-card .card-body {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between; /* Push button to bottom */
+        padding: 1.5rem; /* Adjust padding */
+    }
+    .option-card .card-title {
+        color: #343a40; /* Darker title color */
+        margin-bottom: 0.75rem;
+        font-size: 1.25rem; /* Larger title font */
+    }
+    .option-card .card-text {
+        flex-grow: 1;
+        margin-bottom: 1.5rem; /* More space before button */
+        color: #5a6268; /* Slightly darker muted text */
+    }
+    .option-card .btn {
+        width: 100%;
+        border-radius: 6px;
+        font-weight: 600;
+    }
+    /* Specific button colors for better visual distinction */
+    .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+     .btn-primary:hover {
+        background-color: #0056b3;
+        border-color: #004085;
+     }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-body text-center">
-                    <h2 class="mb-4">Welcome to Neo4j Dashboard</h2>
-                    <p class="lead">Choose an option below to get started with managing your graph database.</p>
-                    
-                    {% if messages %}
-                        {% for message in messages %}
-                            <div class="alert alert-{{ message.tags }} mt-3">
-                                {{ message }}
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                    
-                    <div class="row mt-4">
-                        {% if user.can_access_predefined_queries %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title">Predefined Queries</h5>
-                                    <p class="card-text">Access and execute predefined queries.</p>
-                                    <a href="{% url 'dashboard:predefined_queries' %}" class="btn btn-primary">Go to Predefined Queries</a>
+<div class="home-container">
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card welcome-card">
+                    <div class="card-body text-center">
+                        <h2 class="mb-4">Welcome to Neo4j Dashboard</h2>
+                        <p class="lead">Choose an option below to get started with managing your graph database.</p>
+                        
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} mt-3">
+                                    {{ message }}
                                 </div>
-                            </div>
-                        </div>
+                            {% endfor %}
                         {% endif %}
                         
-                        {% if user.can_access_explore_layers %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title">Explore Layers</h5>
-                                    <p class="card-text">Explore the graph database layers.</p>
-                                    <a href="{% url 'dashboard:explore_layers' %}" class="btn btn-primary">Explore Layers</a>
+                        <div class="row mt-4">
+                            {% if can_access_predefined_queries %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card option-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Predefined Queries</h5>
+                                        <p class="card-text">View and execute predefined queries.</p>
+                                        <a href="{% url 'dashboard:predefined_queries' %}" class="btn btn-primary">View Queries</a>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        {% endif %}
-                        
-                        {% if user.can_access_add_nodes %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title">Add Nodes</h5>
-                                    <p class="card-text">Add new nodes and define relationships.</p>
-                                    <a href="{% url 'dashboard:add_nodes' %}" class="btn btn-primary">Add Nodes</a>
+                            {% endif %}
+                            
+                            {% if can_access_explore_layers %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card option-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Explore Layers</h5>
+                                        <p class="card-text">Visualize nodes and their connections up to a specified depth.</p>
+                                        <a href="{% url 'dashboard:explore_layers' %}" class="btn btn-primary">Explore Layers</a>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        {% endif %}
-                        
-                        {% if user.can_access_manual_queries %}
-                        <div class="col-md-6 mb-3">
-                             <div class="card h-100">
-                                 <div class="card-body">
-                                     <h5 class="card-title">Manual Query</h5>
-                                     <p class="card-text">Run custom Cypher queries and view results.</p>
-                                     <a href="{% url 'dashboard:manual_queries' %}" class="btn btn-primary">Manual Query</a>
+                            {% endif %}
+                            
+                            {% if can_access_add_nodes %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card option-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Add Nodes</h5>
+                                        <p class="card-text">Add new nodes and define relationships.</p>
+                                        <a href="{% url 'dashboard:add_nodes' %}" class="btn btn-primary">Add Nodes</a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if can_access_manual_queries %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card option-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Manual Query</h5>
+                                        <p class="card-text">Run custom Cypher queries and view results.</p>
+                                        <a href="{% url 'dashboard:manual_queries' %}" class="btn btn-primary">Manual Query</a>
+                                    </div>
+                                </div>
+                            </div>
+                             {% endif %}
+
+                            {% if can_access_admin_queries %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card option-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Admin Queries</h5>
+                                        <p class="card-text">Manage predefined Cypher queries.</p>
+                                        <a href="{% url 'dashboard:admin_queries' %}" class="btn btn-primary">Admin Queries</a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if can_access_admin_queries %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card option-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">User Management</h5>
+                                        <p class="card-text">Manage registered users and their permissions.</p>
+                                        <a href="{% url 'dashboard:admin_user_management' %}" class="btn btn-primary">User Management</a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                             {% comment %}
+                             Assuming Test Case Impact Analysis should also be accessible to Admin (Role 3) for now.
+                             Adjust the access check if a different role is intended.
+                             {% endcomment %}
+                             {% if can_access_admin_queries %}
+                             <div class="col-md-6 col-lg-4 mb-4">
+                                 <div class="card option-card">
+                                     <div class="card-body">
+                                         <h5 class="card-title">Test Case Impact Analysis</h5>
+                                         <p class="card-text">Visualize how requirement or code changes impact your test cases.</p>
+                                         <a href="{% url 'dashboard:test_impact_analysis' %}" class="btn btn-primary">Impact Analysis</a>
+                                     </div>
                                  </div>
                              </div>
-                         </div>
-                         {% endif %}
+                             {% endif %}
 
-                        {% if user.can_access_admin_queries %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title">Admin Queries</h5>
-                                    <p class="card-text">Manage predefined Cypher queries.</p>
-                                    <a href="{% url 'dashboard:admin_queries' %}" class="btn btn-primary">Admin Queries</a>
-                                </div>
-                            </div>
                         </div>
-                        {% endif %}
-
-                        {% if user.can_access_admin_queries %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title">User Management</h5>
-                                    <p class="card-text">Manage registered users and their permissions.</p>
-                                    <a href="{% url 'dashboard:admin_user_management' %}" class="btn btn-primary">Go to User Management</a>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        {% comment %}
-                        Leaving out Test Case Impact Analysis for now as it wasn't explicitly assigned to a role.
-                        We can add a role for this later if needed.
-                        {% endcomment %}
-
                     </div>
                 </div>
             </div>

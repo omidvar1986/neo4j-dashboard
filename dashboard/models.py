@@ -95,10 +95,10 @@ class user(AbstractBaseUser, PermissionsMixin):
         return self.role == required_role
     
     def can_access_predefined_queries(self):
-        return self.role in [1, 3]
+        return self.role in [1, 2, 3]
     
     def can_access_explore_layers(self):
-        return self.role in [1, 3]
+        return self.role in [1, 2, 3]
     
     def can_access_add_nodes(self):
         return self.role in [2, 3]
