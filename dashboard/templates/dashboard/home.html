@@ -15,11 +15,11 @@
         box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
     }
     .option-card {
-        border: 1px solid #e0e0e0; /* Add a subtle border */
+        border: 1px solid #e0e0e0;
         border-radius: 10px;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
-        height: 100%; /* Make cards equal height */
-        background-color: white; /* Ensure background is white */
+        height: 100%;
+        background-color: white;
     }
     .option-card:hover {
         transform: translateY(-5px);
@@ -28,25 +28,24 @@
     .option-card .card-body {
         display: flex;
         flex-direction: column;
-        justify-content: space-between; /* Push button to bottom */
-        padding: 1.5rem; /* Adjust padding */
+        justify-content: space-between;
+        padding: 1.5rem;
     }
     .option-card .card-title {
-        color: #343a40; /* Darker title color */
+        color: #343a40;
         margin-bottom: 0.75rem;
-        font-size: 1.25rem; /* Larger title font */
+        font-size: 1.25rem;
     }
     .option-card .card-text {
         flex-grow: 1;
-        margin-bottom: 1.5rem; /* More space before button */
-        color: #5a6268; /* Slightly darker muted text */
+        margin-bottom: 1.5rem;
+        color: #5a6268;
     }
     .option-card .btn {
         width: 100%;
         border-radius: 6px;
         font-weight: 600;
     }
-    /* Specific button colors for better visual distinction */
     .btn-primary {
         background-color: #007bff;
         border-color: #007bff;
@@ -67,7 +66,7 @@
                     <div class="card-body text-center">
                         <h2 class="mb-4">Welcome to Neo4j Dashboard</h2>
                         <p class="lead">Choose an option below to get started with managing your graph database.</p>
-                        
+
                         {% if messages %}
                             {% for message in messages %}
                                 <div class="alert alert-{{ message.tags }} mt-3">
@@ -75,7 +74,7 @@
                                 </div>
                             {% endfor %}
                         {% endif %}
-                        
+
                         <div class="row mt-4">
                             {% if can_access_predefined_queries %}
                             <div class="col-md-6 col-lg-4 mb-4">
@@ -88,7 +87,7 @@
                                 </div>
                             </div>
                             {% endif %}
-                            
+
                             {% if can_access_explore_layers %}
                             <div class="col-md-6 col-lg-4 mb-4">
                                 <div class="card option-card">
@@ -100,7 +99,7 @@
                                 </div>
                             </div>
                             {% endif %}
-                            
+
                             {% if can_access_add_nodes %}
                             <div class="col-md-6 col-lg-4 mb-4">
                                 <div class="card option-card">
@@ -112,8 +111,8 @@
                                 </div>
                             </div>
                             {% endif %}
-                            
-                            {% if can_access_manual_queries %}
+
+                            {% if user.role == 2 or user.role == 3 %}
                             <div class="col-md-6 col-lg-4 mb-4">
                                 <div class="card option-card">
                                     <div class="card-body">
@@ -123,7 +122,7 @@
                                     </div>
                                 </div>
                             </div>
-                             {% endif %}
+                            {% endif %}
 
                             {% if can_access_admin_queries %}
                             <div class="col-md-6 col-lg-4 mb-4">

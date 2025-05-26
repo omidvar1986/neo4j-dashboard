@@ -111,6 +111,8 @@ DATABASES = {
 
 # Session Configuration
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_COOKIE_AGE = 1209600
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
