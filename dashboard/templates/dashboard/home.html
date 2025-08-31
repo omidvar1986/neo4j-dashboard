@@ -1,71 +1,107 @@
 {% extends 'dashboard/base.html' %}
 {% load static %}
 
-{% block title %}Home - Neo4j Dashboard{% endblock %}
+{% block title %}Projects Dashboard{% endblock %}
 
 {% block extra_css %}
 <style>
     .home-container {
         padding: 2rem 0;
-        background: #f8f9fa;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
     }
     .welcome-card {
-        border-radius: 10px;
-        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
     }
-    .option-card {
-        border: 1px solid #e0e0e0;
-        border-radius: 10px;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    .project-card {
+        border: none;
+        border-radius: 20px;
+        transition: all 0.3s ease;
         height: 100%;
-        background-color: white;
+        background: white;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
     }
-    .option-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    .project-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
     }
-    .option-card .card-body {
+    .project-card .card-body {
+        padding: 2rem;
+        text-align: center;
+    }
+    .project-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 1.5rem;
+        border-radius: 50%;
         display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        padding: 1.5rem;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        color: white;
     }
-    .option-card .card-title {
-        color: #343a40;
-        margin-bottom: 0.75rem;
-        font-size: 1.25rem;
+    .project-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: #2c3e50;
     }
-    .option-card .card-text {
-        flex-grow: 1;
+    .project-description {
+        color: #7f8c8d;
         margin-bottom: 1.5rem;
-        color: #5a6268;
+        line-height: 1.6;
     }
-    .option-card .btn {
-        width: 100%;
-        border-radius: 6px;
+    .project-btn {
+        border-radius: 25px;
+        padding: 12px 30px;
         font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
     }
-    .btn-primary {
-        background-color: #007bff;
-        border-color: #007bff;
+    .project-btn:hover {
+        transform: scale(1.05);
     }
-     .btn-primary:hover {
-        background-color: #0056b3;
-        border-color: #004085;
-     }
+    .welcome-title {
+        color: #2c3e50;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+    .welcome-subtitle {
+        color: #7f8c8d;
+        font-size: 1.1rem;
+    }
+    .stats-card {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        color: white;
+        text-align: center;
+        padding: 1rem;
+        margin-bottom: 2rem;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="home-container">
     <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-10">
+        <!-- Welcome Section -->
+        <div class="row justify-content-center mb-5">
+            <div class="col-lg-8">
                 <div class="card welcome-card">
                     <div class="card-body text-center">
-                        <h2 class="mb-4">Welcome to Neo4j Dashboard</h2>
-                        <p class="lead">Choose an option below to get started with managing your graph database.</p>
+                        <h1 class="welcome-title display-4">
+                            <i class="fas fa-rocket text-primary"></i>
+                            Projects Dashboard
+                        </h1>
+                        <p class="welcome-subtitle">
+                            Welcome back! Choose a project to get started with your development tasks.
+                        </p>
 
                         {% if messages %}
                             {% for message in messages %}
@@ -74,96 +110,98 @@
                                 </div>
                             {% endfor %}
                         {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                        <div class="row mt-4">
-                            {% if can_access_predefined_queries %}
-                            <div class="col-md-6 col-lg-4 mb-4">
-                                <div class="card option-card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Predefined Queries</h5>
-                                        <p class="card-text">View and execute predefined queries.</p>
-                                        <a href="{% url 'dashboard:predefined_queries' %}" class="btn btn-primary">View Queries</a>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
+        <!-- Project Cards -->
+        <div class="row">
+            <!-- Neo4j Project Card -->
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card project-card">
+                    <div class="card-body">
+                        <div class="project-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <i class="fas fa-project-diagram"></i>
+                        </div>
+                        <h3 class="project-title">Neo4j Dashboard</h3>
+                        <p class="project-description">
+                            Manage your Neo4j graph database with powerful tools for queries, 
+                            node management, visualization, and test analysis. Complete graph 
+                            database administration suite.
+                        </p>
+                        <a href="{% url 'dashboard:neo4j_dashboard' %}" class="btn btn-primary project-btn">
+                            <i class="fas fa-arrow-right"></i> Open Project
+                        </a>
+                    </div>
+                </div>
+            </div>
 
-                            {% if can_access_explore_layers %}
-                            <div class="col-md-6 col-lg-4 mb-4">
-                                <div class="card option-card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Explore Layers</h5>
-                                        <p class="card-text">Visualize nodes and their connections up to a specified depth.</p>
-                                        <a href="{% url 'dashboard:explore_layers' %}" class="btn btn-primary">Explore Layers</a>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
+            <!-- Future Project Card (Placeholder) -->
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card project-card" style="opacity: 0.6;">
+                    <div class="card-body">
+                        <div class="project-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <h3 class="project-title">New Project</h3>
+                        <p class="project-description">
+                            Ready to add your next project? This space is reserved for future 
+                            development projects and tools.
+                        </p>
+                        <button class="btn btn-secondary project-btn" disabled>
+                            <i class="fas fa-lock"></i> Coming Soon
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-                            {% if can_access_add_nodes %}
-                            <div class="col-md-6 col-lg-4 mb-4">
-                                <div class="card option-card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Add Nodes</h5>
-                                        <p class="card-text">Add new nodes and define relationships.</p>
-                                        <a href="{% url 'dashboard:add_nodes' %}" class="btn btn-primary">Add Nodes</a>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
+            <!-- Another Future Project Card -->
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card project-card" style="opacity: 0.6;">
+                    <div class="card-body">
+                        <div class="project-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            <i class="fas fa-cube"></i>
+                        </div>
+                        <h3 class="project-title">Microservices</h3>
+                        <p class="project-description">
+                            Monitor and manage your microservices architecture. Track performance, 
+                            health checks, and service dependencies.
+                        </p>
+                        <button class="btn btn-secondary project-btn" disabled>
+                            <i class="fas fa-lock"></i> Coming Soon
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                            {% if user.role == 2 or user.role == 3 %}
-                            <div class="col-md-6 col-lg-4 mb-4">
-                                <div class="card option-card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Manual Query</h5>
-                                        <p class="card-text">Run custom Cypher queries and view results.</p>
-                                        <a href="{% url 'dashboard:manual_queries' %}" class="btn btn-primary">Manual Query</a>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
-
-                            {% if can_access_admin_queries %}
-                            <div class="col-md-6 col-lg-4 mb-4">
-                                <div class="card option-card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Admin Queries</h5>
-                                        <p class="card-text">Manage predefined Cypher queries.</p>
-                                        <a href="{% url 'dashboard:admin_queries' %}" class="btn btn-primary">Admin Queries</a>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
-
-                            {% if can_access_admin_queries %}
-                            <div class="col-md-6 col-lg-4 mb-4">
-                                <div class="card option-card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">User Management</h5>
-                                        <p class="card-text">Manage registered users and their permissions.</p>
-                                        <a href="{% url 'dashboard:admin_user_management' %}" class="btn btn-primary">User Management</a>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
-
-                             {% comment %}
-                             Assuming Test Case Impact Analysis should also be accessible to Admin (Role 3) for now.
-                             Adjust the access check if a different role is intended.
-                             {% endcomment %}
-                             {% if can_access_admin_queries %}
-                             <div class="col-md-6 col-lg-4 mb-4">
-                                 <div class="card option-card">
-                                     <div class="card-body">
-                                         <h5 class="card-title">Test Case Impact Analysis</h5>
-                                         <p class="card-text">Visualize how requirement or code changes impact your test cases.</p>
-                                         <a href="{% url 'dashboard:test_impact_analysis' %}" class="btn btn-primary">Impact Analysis</a>
-                                     </div>
-                                 </div>
-                             </div>
-                             {% endif %}
-
+        <!-- Quick Stats Section -->
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <h4 class="mb-0">{{ user.username }}</h4>
+                            <small>Current User</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <h4 class="mb-0">{{ user.role|yesno:"Admin,Node User,Query User" }}</h4>
+                            <small>User Role</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <h4 class="mb-0">1</h4>
+                            <small>Active Projects</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <h4 class="mb-0">2</h4>
+                            <small>Coming Soon</small>
                         </div>
                     </div>
                 </div>

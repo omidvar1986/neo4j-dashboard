@@ -8,17 +8,18 @@ logger = logging.getLogger('dashboard')
 from neo4j import GraphDatabase
 
 def check_neo4j_connection():
-    uri = os.getenv('NEO4J_URI', 'bolt://neo4j:7687')
+    uri = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
     user = os.getenv('NEO4J_USER', 'neo4j')
-    password = os.getenv('NEO4J_PASSWORD', 'password')
+    password = os.getenv('NEO4J_PASSWORD', 'Milad1986')
     try:
         driver = GraphDatabase.driver(uri, auth=(user, password))
         driver.verify_connectivity()
         logger.info("Successfully connected to Neo4j at %s", uri)
         driver.close()
     except Exception as e:
-        logger.error("Failed to connect to Neo4j at %s: %s", uri, str(e))
-        raise
+        logger.warning("Failed to connect to Neo4j at %s: %s", uri, str(e))
+        logger.warning("Neo4j connection failed, but continuing startup...")
+        # Don't raise the exception, just log it as a warning
 
 # Check connection on startup
 check_neo4j_connection()

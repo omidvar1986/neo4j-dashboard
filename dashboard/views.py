@@ -1592,3 +1592,15 @@ def admin_user_management(request):
         'ROLE_CHOICES': user.ROLE_CHOICES, # Pass role choices to the template
     }
     return render(request, 'dashboard/admin_user_management.html', context)
+
+@login_required
+def neo4j_dashboard(request):
+    """Render the Neo4j dashboard page with all Neo4j-related features."""
+    logger.debug("Entering Neo4j dashboard view")
+    context = {
+        'can_access_predefined_queries': request.user.can_access_predefined_queries(),
+        'can_access_explore_layers': request.user.can_access_explore_layers(),
+        'can_access_add_nodes': request.user.can_access_add_nodes(),
+        'can_access_admin_queries': request.user.can_access_admin_queries(),
+    }
+    return render(request, 'dashboard/neo4j.html', context)

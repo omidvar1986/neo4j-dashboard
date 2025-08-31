@@ -11,21 +11,35 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root[data-theme="light"] {
-            --bg-color: #f4f4f9;
-            --text-color: #333;
+            --bg-color: #f8f9fa;
+            --text-color: #212529;
             --navbar-bg: #007bff;
             --navbar-text: white;
             --container-bg: white;
-            --border-color: #ddd;
+            --border-color: #dee2e6;
+            --card-bg: white;
+            --card-border: #e9ecef;
+            --btn-primary-bg: #007bff;
+            --btn-primary-border: #007bff;
+            --btn-primary-text: white;
+            --alert-bg: #f8f9fa;
+            --alert-border: #dee2e6;
         }
 
         :root[data-theme="dark"] {
             --bg-color: #1a1a1a;
-            --text-color: #f4f4f4;
-            --navbar-bg: #0056b3;
-            --navbar-text: #f4f4f4;
+            --text-color: #f8f9fa;
+            --navbar-bg: #2c3e50;
+            --navbar-text: #ecf0f1;
             --container-bg: #2d2d2d;
-            --border-color: #404040;
+            --border-color: #495057;
+            --card-bg: #343a40;
+            --card-border: #495057;
+            --btn-primary-bg: #3498db;
+            --btn-primary-border: #3498db;
+            --btn-primary-text: white;
+            --alert-bg: #343a40;
+            --alert-border: #495057;
         }
 
         body { 
@@ -34,62 +48,71 @@
             padding: 0; 
             background-color: var(--bg-color);
             color: var(--text-color);
-            transition: background-color 0.3s, color 0.3s;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .navbar { 
             background-color: var(--navbar-bg); 
-            padding: 10px 20px; /* Added horizontal padding */
+            padding: 15px 20px;
             position: relative;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .navbar-left {
             display: flex;
             gap: 15px;
-            align-items: center; /* Align items vertically */
+            align-items: center;
         }
 
         .navbar a { 
             color: var(--navbar-text); 
-            text-decoration: none; 
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
         }
 
         .navbar a:hover { 
-            text-decoration: underline; 
+            background-color: rgba(255, 255, 255, 0.1);
+            text-decoration: none;
         }
 
         .theme-toggle {
             background: transparent;
             border: 2px solid var(--navbar-text);
             color: var(--navbar-text);
-            padding: 5px 10px;
-            border-radius: 20px;
+            padding: 8px 16px;
+            border-radius: 25px;
             cursor: pointer;
             font-size: 14px;
-            transition: all 0.3s;
-            margin-left: 15px; /* Increased margin from logout button */
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-left: 15px;
         }
 
         .theme-toggle:hover {
             background: var(--navbar-text);
             color: var(--navbar-bg);
+            transform: scale(1.05);
         }
 
         .container { 
             max-width: 1200px; 
             margin: 20px auto; 
-            padding: 20px; /* Added padding */
+            padding: 20px;
             background-color: var(--container-bg);
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: background-color 0.3s;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid var(--border-color);
         }
 
         .back-to-home { 
-            margin: 10px 0; 
+            margin: 15px 0; 
         }
 
         .back-to-home a { 
@@ -98,13 +121,15 @@
             background-color: var(--navbar-bg); 
             color: var(--navbar-text); 
             text-decoration: none; 
-            border-radius: 4px;
-            transition: background-color 0.3s;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            font-weight: 500;
         }
 
         .back-to-home a:hover { 
             background-color: var(--navbar-bg);
             opacity: 0.9;
+            transform: translateY(-2px);
         }
 
         .messages { 
@@ -112,10 +137,13 @@
         }
 
         .alert { 
-            padding: 10px; 
-            border-radius: 4px; 
-            margin-bottom: 10px;
-            border: 1px solid var(--border-color);
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-bottom: 15px;
+            border: 1px solid var(--alert-border);
+            background-color: var(--alert-bg);
+            color: var(--text-color);
+            transition: all 0.3s ease;
         }
 
         .alert-success { 
@@ -130,54 +158,76 @@
             border: 1px solid #f5c6cb; 
         }
 
-        /* Added styles for user info and logout */
+        /* User info and logout styles */
         .user-info {
             color: var(--navbar-text);
-            margin-right: 10px;
-            font-size: 0.9em; /* Small size */
+            margin-right: 15px;
+            font-size: 0.9em;
+            font-weight: 500;
         }
 
         .logout-button {
-            background-color: transparent; /* Start with transparent background */
-            border: 1px solid var(--navbar-text); /* Border using navbar text color */
-            color: var(--navbar-text); /* Text color using navbar text color */
-            padding: 5px 15px; /* Adjusted padding */
-            border-radius: 4px;
+            background-color: transparent;
+            border: 1px solid var(--navbar-text);
+            color: var(--navbar-text);
+            padding: 8px 16px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
-            transition: all 0.3s ease; /* Smooth transition */
+            font-weight: 500;
+            transition: all 0.3s ease;
         }
 
         .logout-button:hover {
-            background-color: var(--navbar-text); /* Solid background on hover */
-            color: var(--navbar-bg); /* Text color changes on hover */
-            border-color: var(--navbar-text); /* Border color stays the same */
+            background-color: var(--navbar-text);
+            color: var(--navbar-bg);
+            border-color: var(--navbar-text);
+            transform: scale(1.05);
         }
 
-        /* Styles for the welcome message when not logged in */
+        /* Welcome message styles */
         .welcome-message {
             text-align: center;
             margin-top: 50px;
             margin-bottom: 30px;
-            color: #333; /* Set to a fixed black color */
+            color: var(--text-color);
         }
 
         .welcome-message h2 {
-            font-size: 2em; /* Larger size */
+            font-size: 2em;
             font-weight: bold;
             margin-bottom: 10px;
-            color: inherit; /* Inherit color from parent */
+            color: inherit;
         }
 
         .welcome-message p {
              font-size: 1.2em;
-             color: inherit; /* Inherit color from parent */
+             color: inherit;
         }
 
-         .welcome-message a {
-             color: inherit; /* Inherit color from parent */
+        .welcome-message a {
+             color: inherit;
              text-decoration: underline;
-         }
+        }
+
+        /* Card styles for dark mode compatibility */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--btn-primary-bg);
+            border-color: var(--btn-primary-border);
+            color: var(--btn-primary-text);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--btn-primary-bg);
+            border-color: var(--btn-primary-border);
+            opacity: 0.9;
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -187,29 +237,16 @@
     <div class="navbar">
         <div class="navbar-left">
             {% if user.is_authenticated %}
-                {% if user.can_access_predefined_queries %}
-                    <a href="{% url 'dashboard:predefined_queries' %}">Predefined Queries</a>
-                {% endif %}
-                {% if user.can_access_add_nodes %}
-                    <a href="{% url 'dashboard:add_nodes' %}">Add Nodes</a>
-                {% endif %}
-                {% if user.can_access_explore_layers %}
-                     <a href="{% url 'dashboard:explore_layers' %}">Explore Layers</a>
-                {% endif %}
-                {% if user.can_access_manual_queries %}
-                    <a href="{% url 'dashboard:manual_queries' %}">Manual Query</a>
-                {% endif %}
-                {% if user.can_access_admin_queries %}
-                    <a href="{% url 'dashboard:admin_queries' %}">Admin Queries</a>
-                {% endif %}
+                <!-- Only show essential navigation items -->
+                <a href="{% url 'dashboard:home' %}">🏠 Dashboard</a>
             {% endif %}
         </div>
         <div class="navbar-right" style="display: flex; align-items: center;">
             {% if user.is_authenticated %}
-                <span class="user-info">Role: {{ user.role }}</span>
-                <form id="logout-form" action="{% url 'dashboard:logout' %}" method="post" style="display: inline-block; margin-right: 10px;"> {# Added margin-right here #}
+                <span class="user-info">👤 {{ user.username }} ({{ user.role|yesno:"Admin,Node User,Query User" }})</span>
+                <form id="logout-form" action="{% url 'dashboard:logout' %}" method="post" style="display: inline-block; margin-right: 10px;">
                     {% csrf_token %}
-                    <button type="submit" class="logout-button">Logout</button>
+                    <button type="submit" class="logout-button">🚪 Logout</button>
                 </form>
             {% endif %}
              <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
@@ -237,7 +274,16 @@
 
         {% if request.resolver_match.url_name != 'home' and user.is_authenticated %}
             <div class="back-to-home">
-                <a href="{% url 'dashboard:home' %}">Back to Home</a>
+                {% if request.resolver_match.url_name == 'neo4j_dashboard' %}
+                    <!-- On Neo4j project page, show "Back to Home" -->
+                    <a href="{% url 'dashboard:home' %}">← Back to Home</a>
+                {% elif request.resolver_match.url_name == 'predefined_queries' or request.resolver_match.url_name == 'explore_layers' or request.resolver_match.url_name == 'add_nodes' or request.resolver_match.url_name == 'manual_queries' or request.resolver_match.url_name == 'admin_queries' or request.resolver_match.url_name == 'admin_user_management' or request.resolver_match.url_name == 'graph_view' or request.resolver_match.url_name == 'test_impact_analysis' or request.resolver_match.url_name == 'test_analysis' or request.resolver_match.url_name == 'manage_nodes' or request.resolver_match.url_name == 'define_relations' or request.resolver_match.url_name == 'confirm_relationships' or request.resolver_match.url_name == 'get_existing_nodes' %}
+                    <!-- On Neo4j feature pages, show "Back to Project" -->
+                    <a href="{% url 'dashboard:neo4j_dashboard' %}">← Back to Project</a>
+                {% else %}
+                    <!-- On other pages, show "Back to Home" -->
+                    <a href="{% url 'dashboard:home' %}">← Back to Home</a>
+                {% endif %}
             </div>
         {% endif %}
         {% block content %}
@@ -261,6 +307,9 @@
             document.documentElement.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             updateThemeButton(newTheme);
+            
+            // Add a smooth transition effect
+            document.body.style.transition = 'background-color 0.3s ease, color 0.3s ease';
         }
 
         function updateThemeButton(theme) {
@@ -281,11 +330,10 @@
                     message.style.transition = 'opacity 0.5s ease-in-out';
                     setTimeout(function() {
                         message.remove();
-                    }, 500); // Remove after fade out
-                }, 5000); // Hide after 5 seconds
+                    }, 500);
+                }, 5000);
             });
         });
-
     </script>
 </body>
 </html>

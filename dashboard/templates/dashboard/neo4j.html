@@ -1,0 +1,155 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Neo4j Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-4 text-center">
+                <i class="fas fa-project-diagram text-primary"></i>
+                Neo4j Dashboard
+            </h1>
+            <p class="lead text-center text-muted">
+                Manage your Neo4j graph database, queries, and visualizations
+            </p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Predefined Queries -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-database fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Predefined Queries</h5>
+                    <p class="card-text">View and execute predefined queries.</p>
+                    <a href="{% url 'dashboard:predefined_queries' %}" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Execute Queries
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Explore Layers -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-sitemap fa-3x text-success"></i>
+                    </div>
+                    <h5 class="card-title">Explore Layers</h5>
+                    <p class="card-text">Visualize nodes and their connections up to a specified depth.</p>
+                    <a href="{% url 'dashboard:explore_layers' %}" class="btn btn-success">
+                        <i class="fas fa-search"></i> Explore
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Nodes -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-plus-circle fa-3x text-info"></i>
+                    </div>
+                    <h5 class="card-title">Add Nodes</h5>
+                    <p class="card-text">Add new nodes and define relationships.</p>
+                    <a href="{% url 'dashboard:add_nodes' %}" class="btn btn-info">
+                        <i class="fas fa-plus"></i> Add Nodes
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manual Query -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-terminal fa-3x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Manual Query</h5>
+                    <p class="card-text">Run custom Cypher queries and view results.</p>
+                    <a href="{% url 'dashboard:manual_queries' %}" class="btn btn-warning">
+                        <i class="fas fa-code"></i> Run Queries
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Queries -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-cogs fa-3x text-secondary"></i>
+                    </div>
+                    <h5 class="card-title">Admin Queries</h5>
+                    <p class="card-text">Manage predefined Cypher queries.</p>
+                    <a href="{% url 'dashboard:admin_queries' %}" class="btn btn-secondary">
+                        <i class="fas fa-tools"></i> Manage
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Management -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-users fa-3x text-danger"></i>
+                    </div>
+                    <h5 class="card-title">User Management</h5>
+                    <p class="card-text">Manage registered users and their permissions.</p>
+                    <a href="{% url 'dashboard:admin_user_management' %}" class="btn btn-danger">
+                        <i class="fas fa-user-cog"></i> Manage Users
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Home Button -->
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <a href="{% url 'dashboard:home' %}" class="btn btn-outline-secondary btn-lg">
+                <i class="fas fa-arrow-left"></i> Back to Projects
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.hover-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+}
+
+.feature-icon {
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card {
+    border: none;
+    border-radius: 15px;
+}
+
+.btn {
+    border-radius: 25px;
+    padding: 8px 20px;
+}
+</style>
+{% endblock %}
