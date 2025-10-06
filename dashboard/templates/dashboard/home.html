@@ -137,21 +137,20 @@
                 </div>
             </div>
 
-            <!-- Future Project Card (Placeholder) -->
+            <!-- API Tools Project Card -->
             <div class="col-lg-6 col-xl-4 mb-4">
-                <div class="card project-card" style="opacity: 0.6;">
+                <div class="card project-card">
                     <div class="card-body">
                         <div class="project-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                            <i class="fas fa-plus"></i>
+                            <i class="fas fa-tools"></i>
                         </div>
-                        <h3 class="project-title">New Project</h3>
+                        <h3 class="project-title">API Tools</h3>
                         <p class="project-description">
-                            Ready to add your next project? This space is reserved for future 
-                            development projects and tools.
+                            A collection of tools for interacting with various APIs, including wallet creation.
                         </p>
-                        <button class="btn btn-secondary project-btn" disabled>
-                            <i class="fas fa-lock"></i> Coming Soon
-                        </button>
+                        <a href="{% url 'dashboard:api_tools' %}" class="btn btn-primary project-btn">
+                            <i class="fas fa-arrow-right"></i> Open Project
+                        </a>
                     </div>
                 </div>
             </div>

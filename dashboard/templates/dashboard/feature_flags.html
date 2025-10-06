@@ -1,0 +1,524 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Feature Flags Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        color: white;
+    }
+    
+    .feature-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        border: 1px solid #e9ecef;
+    }
+    
+    .feature-flag-item {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 4px solid #667eea;
+    }
+    
+    .status-badge {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 600;
+    }
+    
+    .status-waiting { background-color: #fff3cd; color: #856404; }
+    .status-done { background-color: #d4edda; color: #155724; }
+    .status-failed { background-color: #f8d7da; color: #721c24; }
+    
+    .btn-feature {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-feature:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .user-info-card {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .feature-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .loading-spinner {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-0 text-gray-800">
+                        <i class="fas fa-flag text-primary me-2"></i>
+                        Feature Flags Management
+                    </h1>
+                    <p class="text-muted">Manage feature flags for users to enable or disable specific features</p>
+                </div>
+                <a href="{% url 'dashboard:api_tools' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> Back to API Tools
+                </a>
+            </div>
+
+            <!-- User Search Section -->
+            <div class="search-section">
+                <h4 class="mb-3">
+                    <i class="fas fa-search me-2"></i>
+                    Search User
+                </h4>
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <input type="text" class="form-control form-control-lg" id="userSearchInput" 
+                                   placeholder="Enter mobile number, email, or name (e.g., 09358165170 or user@example.com)" 
+                                   style="border-radius: 10px 0 0 10px;">
+                            <button class="btn btn-light btn-lg" type="button" id="searchUserBtn" 
+                                    style="border-radius: 0 10px 10px 0;">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Results Section -->
+            <div id="searchResultsSection" class="feature-card" style="display: none;">
+                <div class="user-info-card">
+                    <h5 class="mb-3">
+                        <i class="fas fa-user me-2"></i>
+                        Selected User
+                    </h5>
+                    <div id="userDetails"></div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="mb-3">
+                            <i class="fas fa-list me-2"></i>
+                            Available Features
+                        </h6>
+                        <div class="feature-list" id="featureList">
+                            <div class="text-center">
+                                <div class="loading-spinner" id="loadingFeatures">
+                                    <i class="fas fa-spinner fa-spin me-2"></i>Loading features...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="mb-3">
+                            <i class="fas fa-plus-circle me-2"></i>
+                            Add Feature Flags
+                        </h6>
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="statusSelect">
+                                <option value="done" selected>Done</option>
+                                <option value="waiting">Waiting</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-feature w-100" id="addAllFeaturesBtn" disabled>
+                            <i class="fas fa-plus me-2"></i>
+                            Add All Features to User
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Flags List -->
+            <div class="feature-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-flag me-2"></i>
+                    Feature Flags Status
+                </h5>
+                <div id="featureFlagsList">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Search for a user to view and manage their feature flags
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables
+let currentSearchedUser = null;
+let availableFeatures = [];
+
+// User search functionality
+document.getElementById('searchUserBtn').addEventListener('click', function() {
+    const mobileNumber = document.getElementById('userSearchInput').value.trim();
+    
+    if (!mobileNumber) {
+        showNotification('Error', 'Please enter a mobile number, email, or name', 'error');
+        return;
+    }
+    
+    const searchBtn = this;
+    searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+    searchBtn.disabled = true;
+    
+    fetch('{% url "dashboard:search_user_for_feature_flags" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `mobile_number=${encodeURIComponent(mobileNumber)}`
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+            currentSearchedUser = data.user_info;
+            displayUserDetails(data.user_info);
+            try {
+                loadAvailableFeatures();
+            } catch (error) {
+                console.error('Error in loadAvailableFeatures:', error);
+            }
+            showNotification('Success', `User found: ${data.user_info.full_name || data.user_info.email}`, 'success');
+        } else {
+            showNotification('Error', data.error || 'User not found', 'error');
+            hideSearchResults();
+        }
+    })
+    .catch(error => {
+        console.error('Error details:', error);
+        console.error('Error stack:', error.stack);
+        showNotification('Error', 'An error occurred while searching', 'error');
+        hideSearchResults();
+    })
+    .finally(() => {
+        searchBtn.innerHTML = '<i class="fas fa-search"></i> Search';
+        searchBtn.disabled = false;
+    });
+});
+
+// Display user details
+function displayUserDetails(userInfo) {
+    const userDetails = document.getElementById('userDetails');
+    userDetails.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <strong>User ID:</strong> ${userInfo.user_id || userInfo.uid || 'N/A'}<br>
+                <strong>Email:</strong> ${userInfo.email || 'N/A'}
+            </div>
+            <div class="col-md-6">
+                <strong>Full Name:</strong> ${userInfo.full_name || 'N/A'}<br>
+                <strong>ID:</strong> ${userInfo.id || 'N/A'}
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('searchResultsSection').style.display = 'block';
+    
+    // Store current user info for later use
+    window.currentSearchedUser = userInfo;
+    
+    // Load available features and existing user feature flags
+    loadAvailableFeatures();
+    loadUserFeatureFlags();
+}
+
+// Load existing user feature flags
+function loadUserFeatureFlags() {
+    console.log('Loading user feature flags...');
+    
+    fetch('{% url "dashboard:get_user_feature_flags_ajax" %}')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('🔍 User feature flags response:', data);
+            
+            if (data.success && data.existing_flags) {
+                window.userExistingFlags = data.existing_flags;
+                console.log('✅ Stored user existing flags:', window.userExistingFlags);
+            } else {
+                console.log('ℹ️ No existing flags found or error:', data.error);
+                window.userExistingFlags = [];
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error loading user feature flags:', error);
+            window.userExistingFlags = [];
+        });
+}
+
+// Load available features
+function loadAvailableFeatures() {
+    console.log('Loading available features...');
+    const loadingDiv = document.getElementById('loadingFeatures');
+    loadingDiv.style.display = 'block';
+    
+    fetch('{% url "dashboard:get_feature_flags_ajax" %}')
+    .then(response => {
+        console.log('Feature flags response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Feature flags response data:', data);
+        loadingDiv.style.display = 'none';
+        
+        if (data.success) {
+            availableFeatures = data.feature_flags;
+            displayAvailableFeatures(data.feature_flags);
+            document.getElementById('addAllFeaturesBtn').disabled = false;
+        } else {
+            showNotification('Error', data.error || 'Failed to load features', 'error');
+        }
+    })
+    .catch(error => {
+        loadingDiv.style.display = 'none';
+        console.error('Feature flags error details:', error);
+        console.error('Feature flags error stack:', error.stack);
+        showNotification('Error', 'An error occurred while loading features', 'error');
+    });
+}
+
+// Display available features
+function displayAvailableFeatures(features) {
+    const featureList = document.getElementById('featureList');
+    
+    if (features.length === 0) {
+        featureList.innerHTML = '<div class="text-center text-muted">No features available</div>';
+        return;
+    }
+    
+    // Get existing user feature flags
+    const existingFlags = window.userExistingFlags || [];
+    console.log('🔍 Displaying features with existing flags:', existingFlags);
+    
+    let html = '';
+    features.forEach(feature => {
+        // Check if this feature is already assigned to the user
+        const isAssigned = existingFlags.some(existing => 
+            existing.text === feature.text || existing.value === feature.value
+        );
+        
+        const statusText = isAssigned ? 'Added' : 'Not Added';
+        const statusClass = isAssigned ? 'status-done' : 'status-waiting';
+        
+        html += `
+            <div class="feature-flag-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${feature.text}</strong>
+                        <br>
+                        <small class="text-muted">${feature.value}</small>
+                    </div>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    featureList.innerHTML = html;
+}
+
+// Add all features to user
+document.getElementById('addAllFeaturesBtn').addEventListener('click', function() {
+    console.log('Add All Features button clicked');
+    console.log('Current searched user:', currentSearchedUser);
+    console.log('Available features:', availableFeatures);
+    
+    if (!currentSearchedUser || availableFeatures.length === 0) {
+        console.log('Error: No user selected or no features available');
+        showNotification('Error', 'No user selected or no features available', 'error');
+        return;
+    }
+    
+    const status = document.getElementById('statusSelect').value;
+    console.log('Selected status:', status);
+    const addBtn = this;
+    addBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding Features...';
+    addBtn.disabled = true;
+    
+    let completed = 0;
+    let errors = 0;
+    
+    // Get existing user feature flags
+    const existingFlags = window.userExistingFlags || [];
+    console.log('🔍 Existing flags for filtering:', existingFlags);
+    
+    // Filter out features that are already assigned
+    const featuresToAdd = availableFeatures.filter(feature => {
+        const isAssigned = existingFlags.some(existing => 
+            existing.text === feature.text || existing.value === feature.value
+        );
+        console.log(`Feature ${feature.text}: isAssigned=${isAssigned}`);
+        return !isAssigned;
+    });
+    
+    console.log(`🔍 Total features: ${availableFeatures.length}, Features to add: ${featuresToAdd.length}`);
+    
+    if (featuresToAdd.length === 0) {
+        showNotification('Info', 'All features are already assigned to this user!', 'info');
+        addBtn.innerHTML = '<i class="fas fa-plus me-2"></i> Add All Features to User';
+        addBtn.disabled = false;
+        return;
+    }
+    
+    // Add each unassigned feature
+    featuresToAdd.forEach((feature, index) => {
+        setTimeout(() => {
+            const userId = currentSearchedUser.user_id || currentSearchedUser.uid;
+            const requestBody = `user_id=${encodeURIComponent(userId)}&feature_name=${encodeURIComponent(feature.value)}&status=${encodeURIComponent(status)}`;
+            
+            console.log(`Creating feature ${index + 1}/${featuresToAdd.length}:`, {
+                userId: userId,
+                featureName: feature.value,
+                status: status,
+                requestBody: requestBody
+            });
+            
+            fetch('{% url "dashboard:create_feature_flag_ajax" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: requestBody
+            })
+            .then(response => {
+                console.log(`Feature ${index + 1} response status:`, response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log(`Feature ${index + 1} response data:`, data);
+                completed++;
+                
+                if (data.success) {
+                    // Update the feature item to show it's been added
+                    const featureItems = document.querySelectorAll('.feature-flag-item');
+                    if (featureItems[index]) {
+                        const statusBadge = featureItems[index].querySelector('.status-badge');
+                        statusBadge.textContent = 'Added';
+                        statusBadge.className = 'status-badge status-done';
+                    }
+                } else {
+                    errors++;
+                }
+                
+                // Check if all features have been processed
+                if (completed + errors === featuresToAdd.length) {
+                    addBtn.innerHTML = '<i class="fas fa-plus me-2"></i> Add All Features to User';
+                    addBtn.disabled = false;
+                    
+                    if (errors === 0) {
+                        showNotification('Success', `${featuresToAdd.length} new features added successfully!`, 'success');
+                        // Reload the features to show updated status
+                        loadAvailableFeatures();
+                        loadUserFeatureFlags();
+                    } else {
+                        showNotification('Warning', `${completed} features added, ${errors} failed`, 'warning');
+                    }
+                }
+            })
+            .catch(error => {
+                completed++;
+                errors++;
+                console.error('Error adding feature:', error);
+                
+                if (completed + errors === availableFeatures.length) {
+                    addBtn.innerHTML = '<i class="fas fa-plus me-2"></i> Add All Features to User';
+                    addBtn.disabled = false;
+                    showNotification('Warning', `${completed} features added, ${errors} failed`, 'warning');
+                }
+            });
+        }, index * 500); // Add delay between requests to avoid overwhelming the server
+    });
+});
+
+// Hide search results
+function hideSearchResults() {
+    document.getElementById('searchResultsSection').style.display = 'none';
+    currentSearchedUser = null;
+    availableFeatures = [];
+    document.getElementById('addAllFeaturesBtn').disabled = true;
+}
+
+// Notification function
+function showNotification(title, message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'warning'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        <strong>${title}:</strong> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if user is authenticated
+    const isAuthenticated = {{ is_authenticated|yesno:"true,false" }};
+    
+    if (!isAuthenticated) {
+        showNotification('Authentication Required', 'Please authenticate first by going to API Tools page.', 'error');
+        setTimeout(() => {
+            window.location.href = '{% url "dashboard:api_tools" %}';
+        }, 2000);
+    }
+});
+</script>
+{% endblock %}

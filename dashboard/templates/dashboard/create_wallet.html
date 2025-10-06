@@ -1,0 +1,107 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Create Wallet{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Create a New Wallet</h2>
+    <p>This page allows you to create a new wallet by providing the necessary details. The data will be sent to an external API to create the wallet.</p>
+    
+    <!-- Global Token Status -->
+    <div id="tokenStatus" class="alert alert-info" style="display: none;">
+        <i class="fas fa-info-circle"></i>
+        <strong>Using global token:</strong> <span id="tokenPreview"></span>
+        <a href="{% url 'dashboard:api_tools' %}" class="btn btn-sm btn-outline-primary ms-2">Change Token</a>
+    </div>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    
+    <!-- User Search Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-search"></i> Search User</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">Search for a user by mobile number, email, or name to automatically fill the User ID field.</p>
+            <form method="get" class="mb-3">
+                <div class="row">
+                    <div class="col-md-8">
+                        <input type="text" name="search_term" class="form-control" placeholder="Enter mobile number, email, or name (e.g., 09358165170, میلاد امیدوار, m.omidvar@nobitex.net)" value="{{ request.GET.search_term|default:'' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" name="search_user" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i> Search User
+                        </button>
+                    </div>
+                </div>
+            </form>
+            
+            {% if searched_user %}
+            <div class="alert alert-success">
+                <h6><i class="fas fa-check-circle"></i> User Found!</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Name:</strong> {{ searched_user.full_name|default:"N/A" }}<br>
+                        <strong>Email:</strong> {{ searched_user.email|default:"N/A" }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>User ID:</strong> {{ searched_user.uid|default:"N/A" }}<br>
+                        <strong>Database ID:</strong> {{ searched_user.id|default:"N/A" }}
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="fillUserId('{{ searched_user.uid|default:searched_user.id }}')">
+                        <i class="fas fa-arrow-down"></i> Use This User ID
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Create Wallet</button>
+        <a href="{% url 'dashboard:api_tools' %}" class="btn btn-secondary">Back to API Tools</a>
+    </form>
+</div>
+
+<script>
+// Check for global token on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const globalToken = sessionStorage.getItem('globalAuthToken');
+    if (globalToken) {
+        document.getElementById('tokenStatus').style.display = 'block';
+        document.getElementById('tokenPreview').textContent = globalToken.substring(0, 20) + '...';
+    } else {
+        // Redirect to API tools if no token
+        window.location.href = "{% url 'dashboard:api_tools' %}";
+    }
+});
+
+// Function to fill User ID field with searched user's ID
+function fillUserId(userId) {
+    const userIdField = document.querySelector('input[name="user_id"]');
+    if (userIdField) {
+        userIdField.value = userId;
+        userIdField.focus();
+        // Show a brief success message
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i> Filled!';
+        button.classList.remove('btn-outline-success');
+        button.classList.add('btn-success');
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-success');
+        }, 2000);
+    }
+}
+</script>
+{% endblock %}

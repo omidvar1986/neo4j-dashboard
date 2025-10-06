@@ -1,0 +1,372 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}API Tools{% endblock %}
+
+{% block extra_css %}
+<style>
+    .home-container {
+        padding: 2rem 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    .welcome-card {
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+    }
+    .project-card {
+        border: none;
+        border-radius: 20px;
+        transition: all 0.3s ease;
+        height: 100%;
+        background: var(--card-bg); /* Use theme variable */
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    .project-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+    .project-card .card-body {
+        padding: 2rem;
+        text-align: center;
+    }
+    .project-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 1.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        color: white;
+    }
+    .project-btn {
+        border-radius: 25px;
+        padding: 10px 25px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+    }
+    .project-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: var(--text-color); /* Use theme variable */
+    }
+    .project-description {
+        color: var(--text-color); /* Use theme variable */
+        opacity: 0.8;
+    }
+    .input-group-text {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+    }
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+    }
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    }
+    
+    /* Circular Guide Button Styles */
+    .guide-circle {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        border: 3px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .guide-circle:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    }
+    
+    .guide-circle i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .guide-circle span {
+        font-size: 0.85rem;
+        font-weight: 600;
+        line-height: 1.2;
+        text-align: center;
+    }
+    
+    /* Tooltip customization */
+    .tooltip {
+        font-size: 0.9rem;
+    }
+    
+    .tooltip-inner {
+        max-width: 350px;
+        text-align: left;
+        background: rgba(0, 0, 0, 0.9);
+        border-radius: 8px;
+        padding: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <div class="container mt-5">
+        <!-- Global Token Input Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card project-card">
+                    <div class="card-body">
+        <div class="text-center mb-3">
+            <i class="fas fa-id-card fa-2x mb-2" style="color: #667eea;"></i>
+            <h4 class="card-title">Testnet Admin Authentication</h4>
+            <p class="text-muted">Enter your session ID and CSRF token to authenticate and access admin tools</p>
+        </div>
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <!-- Authentication Form -->
+                <form method="post" action="{% url 'dashboard:authenticate_user_session' %}">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="session_id" class="form-label">
+                            <i class="fas fa-id-card"></i> Session ID
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-shield-alt"></i>
+                            </span>
+                            <input type="text" class="form-control" id="session_id" name="session_id" 
+                                   placeholder="Enter your session ID here..." required>
+                        </div>
+                        <small class="text-muted">Enter your session ID from the browser cookies</small>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="csrf_token" class="form-label">
+                            <i class="fas fa-key"></i> CSRF Token
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                            <input type="text" class="form-control" id="csrf_token" name="csrf_token" 
+                                   placeholder="Enter your CSRF token here..." required>
+                        </div>
+                        <small class="text-muted">Enter your CSRF token from the browser cookies</small>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-check"></i> Authenticate
+                        </button>
+                    </div>
+                </form>
+                                
+                                
+                                <!-- Compact Help Section -->
+                                <div class="mt-3 text-center">
+                                    <button class="btn btn-link btn-sm text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#helpSection" aria-expanded="false">
+                                        <i class="fas fa-question-circle me-1"></i> Need help with authentication?
+                                    </button>
+                                </div>
+                                
+                                <div class="collapse mt-2" id="helpSection">
+                                    <div class="alert alert-light border">
+                        <h6><i class="fas fa-lightbulb me-2"></i> Quick Help:</h6>
+                        <ul class="mb-0 small">
+                            <li>Make sure you're logged into <a href="https://testnetadminv2.ntx.ir" target="_blank">Testnet Admin</a></li>
+                            <li>Copy <code>sessionid</code> and <code>csrftoken</code> from browser cookies (F12 → Application → Cookies)</li>
+                            <li>If authentication fails, try refreshing the Testnet Admin page and get fresh tokens</li>
+                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <!-- Circular Guide Button -->
+                                <div class="text-center mt-4">
+                                    <div class="guide-circle" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                         data-bs-html="true" 
+                                         title="<strong>How to get your tokens:</strong><br>
+                                         1. Go to <a href='https://testnetadminv2.ntx.ir' target='_blank' style='color: #fff; text-decoration: underline;'>Testnet Admin</a> and log in<br>
+                                         2. Open Developer Tools (F12) → Application/Storage → Cookies<br>
+                                         3. Find <code style='background: rgba(255,255,255,0.2); padding: 2px 4px; border-radius: 3px;'>testnetadminv2.ntx.ir</code> domain<br>
+                                         4. Copy both <code style='background: rgba(255,255,255,0.2); padding: 2px 4px; border-radius: 3px;'>sessionid</code> and <code style='background: rgba(255,255,255,0.2); padding: 2px 4px; border-radius: 3px;'>csrftoken</code> values<br>
+                                         5. Paste them in the fields above to authenticate">
+                                        <i class="fas fa-question-circle"></i>
+                                        <span>Guide to receiving a token</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Token Status Display -->
+                                <div id="tokenStatus" class="mt-3" style="display: none;">
+                                    <div class="alert alert-success">
+                                        <h6><i class="fas fa-check-circle"></i> Token Validated Successfully!</h6>
+                                        <div id="userInfo">
+                                            <!-- User information will be displayed here -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="tokenError" class="mt-3" style="display: none;">
+                                    <div class="alert alert-danger">
+                                        <h6><i class="fas fa-exclamation-triangle"></i> Token Validation Failed</h6>
+                                        <div id="errorMessage">
+                                            <!-- Error message will be displayed here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Authentication Status Section -->
+        {% if user_info and user_info.valid %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-success" role="alert">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>✅ Authenticated Successfully!</strong>
+                        <span class="ms-2">Session ID: {{ user_info.session_id_short }}</span>
+                    </div>
+                    <div class="text-center mt-2">
+                        <small class="text-muted">You can now access all admin tools below</small>
+                        <div class="mt-2">
+                            <a href="{% url 'dashboard:clear_api_session' %}" class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-sign-out-alt me-1"></i> Clear Session
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-warning" role="alert">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>⚠️ Authentication Required</strong>
+                    </div>
+                    <div class="text-center mt-2">
+                        <small class="text-muted">Please authenticate above to access admin tools</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row">
+            <!-- Create Wallet Card -->
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card project-card">
+                    <div class="card-body">
+                        <div class="project-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <h3 class="project-title">Create Wallet</h3>
+                        <p class="project-description">Create a new Testnet wallet by providing user details and initial balance.</p>
+                        <a href="{% url 'dashboard:create_wallet' %}" class="btn btn-primary project-btn"><i class="fas fa-arrow-right"></i> Open Tool</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Transaction Card -->
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card project-card">
+                    <div class="card-body">
+                        <div class="project-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            <i class="fas fa-plus-circle"></i>
+                        </div>
+                        <h3 class="project-title">Create Transaction</h3>
+                        <p class="project-description">Search for users by mobile number or email and create transactions with automatic processing.</p>
+                        <a href="{% url 'dashboard:transaction_management' %}" class="btn btn-primary project-btn"><i class="fas fa-arrow-right"></i> Open Tool</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Flags Card -->
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card project-card">
+                    <div class="card-body">
+                        <div class="project-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <i class="fas fa-flag"></i>
+                        </div>
+                        <h3 class="project-title">Feature Flags</h3>
+                        <p class="project-description">Manage feature flags for users, enabling or disabling specific features and functionality.</p>
+                        <a href="{% url 'dashboard:feature_flags' %}" class="btn btn-primary project-btn"><i class="fas fa-arrow-right"></i> Open Tool</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Tool 2 Card (Placeholder) -->
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card project-card" style="opacity: 0.6;">
+                    <div class="card-body">
+                        <div class="project-icon" style="background: linear-gradient(135deg, #2af598 0%, #009efd 100%);">
+                            <i class="fas fa-plug"></i>
+                        </div>
+                        <h3 class="project-title">New Tool 2</h3>
+                        <p class="project-description">Another placeholder for a future tool. Ready for implementation.</p>
+                        <button class="btn btn-secondary project-btn" disabled>
+                            <i class="fas fa-lock"></i> Coming Soon
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Override tool button clicks to check for authentication
+document.addEventListener('DOMContentLoaded', function() {
+    const toolLinks = document.querySelectorAll('a[href*="transaction-management"], a[href*="create-wallet"]');
+    toolLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            // Check if user is authenticated by looking for success message or session data
+            const successMessage = document.querySelector('.alert-success');
+            const hasSessionData = {{ user_info.valid|yesno:"true,false" }};
+            
+            if (!successMessage && !hasSessionData) {
+                e.preventDefault();
+                alert('Please authenticate first by entering your session ID and CSRF token above.');
+                return false;
+            }
+        });
+    });
+    
+    // Note: Session clearing is now only done manually via the "Clear Session" button
+    // This prevents accidental session clearing when navigating between pages
+    
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

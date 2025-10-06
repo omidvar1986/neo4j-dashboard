@@ -1,0 +1,399 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Transaction Confirmation{% endblock %}
+
+{% block extra_css %}
+<style>
+    .confirmation-container {
+        padding: 2rem 0;
+        background: #f8f9fa;
+        min-height: 100vh;
+    }
+    .confirmation-card {
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        background: white;
+    }
+    .transaction-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        background: #f8f9fa;
+    }
+    .transaction-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .transaction-id {
+        font-weight: bold;
+        color: #495057;
+    }
+    .transaction-status {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .status-new {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+    .transaction-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .detail-label {
+        font-size: 12px;
+        color: #6c757d;
+        margin-bottom: 4px;
+    }
+    .detail-value {
+        font-weight: 500;
+        color: #495057;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+    .btn-confirm {
+        background: #28a745;
+        border: none;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .btn-confirm:hover {
+        background: #218838;
+        color: white;
+    }
+    .btn-reject {
+        background: #dc3545;
+        border: none;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .btn-reject:hover {
+        background: #c82333;
+        color: white;
+    }
+    .btn-edit {
+        background: #ffc107;
+        border: none;
+        color: #212529;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .btn-edit:hover {
+        background: #e0a800;
+        color: #212529;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        border: none;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+        color: white;
+        text-decoration: none;
+    }
+    .header-info {
+        background: #1e3a8a;
+        color: white;
+        padding: 15px;
+        border-radius: 5px 5px 0 0;
+        margin-bottom: 0;
+    }
+    .card-body {
+        padding: 20px;
+    }
+    .alert {
+        border-radius: 5px;
+        border: none;
+        margin-bottom: 1rem;
+    }
+    .no-transactions {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+    .loading {
+        text-align: center;
+        padding: 40px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="confirmation-container">
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card confirmation-card">
+                    <div class="header-info">
+                        <h2 style="margin: 0; color: white;">Transaction Confirmation (تأیید تراکنش)</h2>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">Review and confirm your transaction</p>
+                    </div>
+                    <div class="card-body">
+                        <!-- Global Token Status -->
+                        <div id="tokenStatus" class="alert alert-info" style="display: none;">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Using global token:</strong> <span id="tokenPreview"></span>
+                            <a href="{% url 'dashboard:api_tools' %}" class="btn btn-sm btn-outline-primary ms-2">Change Token</a>
+                        </div>
+
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <!-- Transaction Details -->
+                        <div class="transaction-item">
+                            <div class="transaction-header">
+                                <span class="transaction-id">Transaction Details</span>
+                                <span class="transaction-status status-new">{{ transaction.status }}</span>
+                            </div>
+                            <div class="transaction-details">
+                                <div class="detail-item">
+                                    <span class="detail-label">User ID</span>
+                                    <span class="detail-value">{{ transaction.user_id }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Amount</span>
+                                    <span class="detail-value">{{ transaction.amount }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Wallet</span>
+                                    <span class="detail-value">{{ transaction.wallet }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Type</span>
+                                    <span class="detail-value">{{ transaction.transaction_type }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Description</span>
+                                    <span class="detail-value">{{ transaction.description }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Ref ID</span>
+                                    <span class="detail-value">{{ transaction.ref_id|default:"-" }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Ref Module</span>
+                                    <span class="detail-value">{{ transaction.ref_module|default:"-" }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Created</span>
+                                    <span class="detail-value">{{ transaction.created_at }}</span>
+                                </div>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn-confirm" onclick="confirmTransaction()">
+                                    <i class="fas fa-check"></i> Confirm Transaction
+                                </button>
+                                <button class="btn-edit" onclick="editTransaction()">
+                                    <i class="fas fa-edit"></i> Edit Transaction
+                                </button>
+                                <button class="btn-reject" onclick="rejectTransaction()">
+                                    <i class="fas fa-times"></i> Reject Transaction
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="text-center mt-4">
+                            <a href="{% url 'dashboard:api_tools' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back to API Tools
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load transactions when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const globalToken = sessionStorage.getItem('globalAuthToken');
+    if (globalToken) {
+        // Show token status
+        document.getElementById('tokenStatus').style.display = 'block';
+        document.getElementById('tokenPreview').textContent = globalToken.substring(0, 20) + '...';
+        
+        // Load transactions
+        loadTransactions(globalToken);
+    } else {
+        // Redirect to API tools if no token
+        window.location.href = "{% url 'dashboard:api_tools' %}";
+    }
+});
+
+function loadTransactions(token) {
+    const userId = sessionStorage.getItem('dynamicUserId');
+    if (!userId) {
+        console.error('No user ID found in session storage');
+        return;
+    }
+    
+    // Show loading state
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('noTransactions').style.display = 'none';
+    document.getElementById('transactionsList').style.display = 'none';
+    
+    // Make AJAX request to load transactions
+    fetch('{% url "dashboard:get_transactions_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `user_id=${encodeURIComponent(userId)}&auth_token=${encodeURIComponent(token)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingState').style.display = 'none';
+        
+        if (data.success && data.transactions && data.transactions.length > 0) {
+            displayTransactions(data.transactions);
+            document.getElementById('transactionsList').style.display = 'block';
+        } else {
+            document.getElementById('noTransactions').style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading transactions:', error);
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('noTransactions').style.display = 'block';
+    });
+}
+
+function displayTransactions(transactions) {
+    const container = document.getElementById('transactionsContainer');
+    container.innerHTML = '';
+    
+    transactions.forEach((transaction, index) => {
+        const transactionDiv = document.createElement('div');
+        transactionDiv.className = 'transaction-item';
+        transactionDiv.innerHTML = `
+            <div class="transaction-header">
+                <span class="transaction-id">Transaction #${index + 1}</span>
+                <span class="transaction-status status-new">New</span>
+            </div>
+            <div class="transaction-details">
+                <div class="detail-item">
+                    <span class="detail-label">Transaction ID</span>
+                    <span class="detail-value">${transaction.id || '-'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Amount</span>
+                    <span class="detail-value">${transaction.amount || '0'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Wallet</span>
+                    <span class="detail-value">${transaction.wallet || '-'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Type</span>
+                    <span class="detail-value">${transaction.type || 'Manual'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Description</span>
+                    <span class="detail-value">${transaction.description || '-'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Created</span>
+                    <span class="detail-value">${transaction.created_at || new Date().toLocaleString()}</span>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button class="btn-confirm" onclick="confirmTransaction('${transaction.id || index}')">
+                    <i class="fas fa-check"></i> Confirm
+                </button>
+                <button class="btn-edit" onclick="editTransaction('${transaction.id || index}')">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn-reject" onclick="rejectTransaction('${transaction.id || index}')">
+                    <i class="fas fa-times"></i> Reject
+                </button>
+            </div>
+        `;
+        container.appendChild(transactionDiv);
+    });
+}
+
+function confirmTransaction(transactionId) {
+    if (confirm('Are you sure you want to confirm this transaction?')) {
+        performTransactionAction('confirm', transactionId);
+    }
+}
+
+function rejectTransaction(transactionId) {
+    if (confirm('Are you sure you want to reject this transaction?')) {
+        performTransactionAction('reject', transactionId);
+    }
+}
+
+function editTransaction(transactionId) {
+    // For now, redirect to add transaction page
+    // In a full implementation, this would open an edit modal or redirect to edit page
+    window.location.href = "{% url 'dashboard:add_transaction' %}";
+}
+
+function performTransactionAction(action, transactionId) {
+    const globalToken = sessionStorage.getItem('globalAuthToken');
+    const userId = sessionStorage.getItem('dynamicUserId');
+    if (!userId) {
+        console.error('No user ID found in session storage');
+        return;
+    }
+    
+    fetch('{% url "dashboard:transaction_action_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `user_id=${encodeURIComponent(userId)}&auth_token=${encodeURIComponent(globalToken)}&action=${action}&transaction_id=${encodeURIComponent(transactionId)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Transaction ${action}ed successfully!`);
+            // Reload transactions
+            loadTransactions(globalToken);
+        } else {
+            alert(`Failed to ${action} transaction: ${data.error || 'Unknown error'}`);
+        }
+    })
+    .catch(error => {
+        console.error(`Error ${action}ing transaction:`, error);
+        alert(`Error ${action}ing transaction: ${error.message}`);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1872 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Transaction Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #6366f1;
+        --primary-dark: #4f46e5;
+        --secondary-color: #8b5cf6;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+        --info-color: #3b82f6;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    }
+
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .management-container {
+        padding: 2rem 0;
+        min-height: 100vh;
+    }
+    .management-card {
+        border-radius: 24px;
+        box-shadow: var(--shadow-xl);
+        background: white;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .header-info {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .header-info::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        opacity: 0.3;
+    }
+
+    .header-info > * {
+        position: relative;
+        z-index: 1;
+    }
+
+    .header-info h2 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin: 0;
+        background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .header-info p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin: 0.5rem 0 0 0;
+        font-weight: 500;
+    }
+    .card-body {
+        padding: 0;
+    }
+    .add-transaction-btn {
+        background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 16px;
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 2rem;
+        float: right;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .add-transaction-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-xl);
+    }
+    .transactions-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: var(--shadow-lg);
+        background: white;
+    }
+
+    .transactions-table th {
+        background: linear-gradient(135deg, var(--gray-800) 0%, var(--gray-900) 100%);
+        color: white;
+        padding: 1.25rem 1rem;
+        text-align: center;
+        font-weight: 700;
+        font-size: 0.875rem;
+        border: none;
+        white-space: nowrap;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .transactions-table td {
+        padding: 1rem;
+        text-align: center;
+        border-bottom: 1px solid var(--gray-200);
+        transition: all 0.3s ease;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .transactions-table tbody tr:nth-child(even) {
+        background: var(--gray-50);
+    }
+
+    .transactions-table tbody tr:hover {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        transform: scale(1.01);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    }
+
+    .transactions-table tbody tr:hover td {
+        border-color: #bfdbfe;
+    }
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .status-new {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        color: #1e40af;
+        border: 1px solid #93c5fd;
+    }
+
+    .status-confirmed {
+        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+        color: #166534;
+        border: 1px solid #86efac;
+    }
+
+    .status-rejected {
+        background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+        color: #dc2626;
+        border: 1px solid #f87171;
+    }
+
+    .status-pending {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+        border: 1px solid #fbbf24;
+    }
+    .status-actions {
+        display: flex;
+        gap: 5px;
+        justify-content: center;
+        align-items: center;
+    }
+    .status-actions .btn {
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+    .status-actions .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    .status-actions .badge {
+        font-size: 11px;
+        padding: 6px 10px;
+        border-radius: 6px;
+    }
+    .status-display {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .status-display .badge {
+        font-size: 0.75rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: var(--shadow-md);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .status-display .badge i {
+        font-size: 1rem;
+    }
+    .loading {
+        text-align: center;
+        padding: 40px;
+    }
+    .no-transactions {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+    .alert {
+        border-radius: 5px;
+        border: none;
+        margin: 20px;
+    }
+    .user-info {
+        background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+        padding: 2rem;
+        border-bottom: 1px solid var(--gray-200);
+    }
+
+    .user-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .user-detail {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--gray-200);
+        transition: all 0.3s ease;
+    }
+
+    .user-detail:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .user-detail i {
+        color: var(--primary-color);
+        width: 20px;
+        font-size: 1.1rem;
+    }
+
+    .user-detail span {
+        font-weight: 600;
+        color: var(--gray-700);
+    }
+
+    .global-token-display {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border: 1px solid #93c5fd;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: var(--shadow-md);
+    }
+
+    .global-token-display .token-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .global-token-display .token-text {
+        font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        background: white;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        border: 1px solid var(--gray-300);
+        font-size: 0.875rem;
+        color: var(--gray-800);
+        font-weight: 600;
+        letter-spacing: 0.025em;
+    }
+
+    .global-token-display .change-token-btn {
+        background: linear-gradient(135deg, var(--info-color) 0%, #2563eb 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .global-token-display .change-token-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .header-buttons {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .header-buttons .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .header-buttons .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .btn-outline-light {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        backdrop-filter: blur(10px);
+    }
+
+    .btn-outline-light:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+    }
+
+    .loading {
+        text-align: center;
+        padding: 4rem;
+        color: var(--gray-500);
+    }
+
+    .loading i {
+        font-size: 3rem;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+    }
+
+    .no-transactions {
+        text-align: center;
+        padding: 4rem;
+        color: var(--gray-500);
+    }
+
+    .no-transactions i {
+        font-size: 4rem;
+        color: var(--gray-300);
+        margin-bottom: 1rem;
+    }
+
+    .alert {
+        border-radius: 12px;
+        border: none;
+        margin: 2rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .bulk-actions {
+        background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+        border-radius: 16px;
+        margin: 2rem 0;
+        padding: 2rem;
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--gray-200);
+    }
+
+    .bulk-actions .alert {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border: none;
+        border-radius: 12px;
+        color: #1e40af;
+        font-weight: 600;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .bulk-actions .btn {
+        padding: 0.875rem 1.75rem;
+        border-radius: 12px;
+        font-weight: 700;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-sm);
+        border: none;
+    }
+
+    .bulk-actions .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, var(--danger-color) 0%, #dc2626 100%);
+    }
+
+    .btn-secondary {
+        background: linear-gradient(135deg, var(--gray-500) 0%, var(--gray-600) 100%);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .header-info h2 {
+            font-size: 2rem;
+        }
+        
+        .header-buttons {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .user-details {
+            grid-template-columns: 1fr;
+        }
+        
+        .transactions-table {
+            font-size: 0.75rem;
+        }
+        
+        .transactions-table th,
+        .transactions-table td {
+            padding: 0.75rem 0.5rem;
+        }
+    }
+    
+    /* Notification Bell Styles */
+    .notification-bell {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        padding: 20px;
+        max-width: 400px;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        border-left: 4px solid #007bff;
+    }
+    
+    .notification-bell.show {
+        transform: translateX(0);
+    }
+    
+    .notification-bell .bell-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .notification-bell .bell-icon {
+        font-size: 24px;
+        color: #007bff;
+        margin-right: 10px;
+        animation: ring 0.5s ease-in-out;
+    }
+    
+    .notification-bell .bell-title {
+        font-weight: bold;
+        color: #333;
+        margin: 0;
+    }
+    
+    .notification-bell .bell-message {
+        color: #666;
+        margin-bottom: 15px;
+        line-height: 1.4;
+    }
+    
+    .notification-bell .bell-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+    
+    .notification-bell .btn-bell {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 5px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .notification-bell .btn-confirm {
+        background: #28a745;
+        color: white;
+    }
+    
+    .notification-bell .btn-confirm:hover {
+        background: #218838;
+    }
+    
+    .notification-bell .btn-cancel {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .notification-bell .btn-cancel:hover {
+        background: #5a6268;
+    }
+    
+    @keyframes ring {
+        0%, 100% { transform: rotate(0deg); }
+        25% { transform: rotate(-15deg); }
+        75% { transform: rotate(15deg); }
+    }
+    
+    .notification-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 9998;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .notification-overlay.show {
+        opacity: 1;
+        visibility: visible;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="management-container">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 style="margin: 0; color: #333;">Create Transaction</h2>
+                        <p style="margin: 5px 0 0 0; color: #666;">Search for users and create transactions</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'dashboard:api_tools' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-tools"></i> Back to API Tools
+                        </a>
+                        <a href="{% url 'dashboard:home' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-home"></i> Return to Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Search Section -->
+        {% if is_authenticated and user_info %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
+                    <div class="card-body" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white;">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-2"><i class="fas fa-search"></i> Search User by Mobile Number or Email</h5>
+                                <p class="mb-0">Enter a mobile number or email to find user details and create transactions</p>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="mobileSearchInput" 
+                                           placeholder="Enter mobile number or email (e.g., 09358165170 or user@example.com)" 
+                                           style="border-radius: 8px 0 0 8px;">
+                                    <button class="btn btn-light" type="button" id="searchUserBtn" 
+                                            style="border-radius: 0 8px 8px 0;">
+                                        <i class="fas fa-search"></i> Search
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Results Section -->
+        <div class="row mb-4" id="searchResultsSection" style="display: none;">
+            <div class="col-12">
+                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
+                    <div class="card-body" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-2"><i class="fas fa-user-check"></i> Found User Details</h5>
+                                <div id="userDetailsDisplay">
+                                    <!-- User details will be populated here -->
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-light" id="loadWalletsBtn">
+                                    <i class="fas fa-wallet"></i> Load Wallets
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction Creation Form -->
+        <div class="row mb-4" id="transactionFormSection" style="display: none;">
+            <div class="col-12">
+                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
+                    <div class="card-body" style="background: white;">
+                        <div class="row align-items-center mb-4">
+                            <div class="col-md-8">
+                                <h4 class="mb-2" style="color: #333;">افزودن تراکنش (Add Transaction)</h4>
+                                <p class="mb-0" style="color: #666;">Fill in the transaction details for the selected user</p>
+                            </div>
+                        </div>
+                        
+                        <form id="transactionForm">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <label for="walletSelect" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-wallet me-2"></i>کیف پول (Wallet)
+                                    </label>
+                                    <select class="form-select form-select-lg" id="walletSelect" required style="border-radius: 8px; border: 1px solid #ddd;">
+                                        <option value="">Loading wallets...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="transactionType" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-tag me-2"></i>نوع تراکنش (Transaction Type)
+                                    </label>
+                                    <select class="form-select form-select-lg" id="transactionType" required style="border-radius: 8px; border: 1px solid #ddd;">
+                                        <option value="">Select type...</option>
+                                        <option value="60">Manual (Rial)</option>
+                                        <option value="61">Deposit</option>
+                                        <option value="62">Withdrawal</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="amountInput" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-dollar-sign me-2"></i>مبلغ تراکنش (Transaction Amount)
+                                    </label>
+                                    <input type="number" class="form-control form-control-lg" id="amountInput" 
+                                           placeholder="Enter amount" step="0.01" required style="border-radius: 8px; border: 1px solid #ddd;">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="descriptionInput" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-comment me-2"></i>توضیحات (Description)
+                                    </label>
+                                    <input type="text" class="form-control form-control-lg" id="descriptionInput" 
+                                           placeholder="Transaction description" value="Manual Transaction" style="border-radius: 8px; border: 1px solid #ddd;">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="refModuleInput" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-cog me-2"></i>Ref module (اختیاری)
+                                    </label>
+                                    <input type="text" class="form-control form-control-lg" id="refModuleInput" 
+                                           placeholder="Ref module (optional)" style="border-radius: 8px; border: 1px solid #ddd;">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="refIdInput" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-hashtag me-2"></i>Ref id (اختیاری)
+                                    </label>
+                                    <input type="text" class="form-control form-control-lg" id="refIdInput" 
+                                           placeholder="Ref id (optional)" style="border-radius: 8px; border: 1px solid #ddd;">
+                                </div>
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-end gap-3 mt-4">
+                                        <button type="button" class="btn btn-outline-secondary btn-lg" id="cancelTransactionBtn" style="border-radius: 8px;">
+                                            <i class="fas fa-times me-2"></i> Cancel
+                                        </button>
+                                        <button type="submit" class="btn btn-success btn-lg" style="border-radius: 8px; padding: 12px 30px;">
+                                            <i class="fas fa-plus me-2"></i> افزودن تراکنش (Add Transaction)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// User search functionality
+let currentSearchedUser = null;
+                                <i class="fas fa-user"></i>
+                                <span>سطح کاربری: Level2</span>
+                            </div>
+                            <div class="user-detail">
+                                <i class="fas fa-envelope"></i>
+                                <span>ثبت نام: ایمیل</span>
+                            </div>
+                            <div class="user-detail">
+                                <i class="fas fa-mobile-alt"></i>
+                                <span>همراه: -</span>
+                            </div>
+                            <div class="user-detail">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>شهر: -</span>
+                            </div>
+                            <div class="user-detail">
+                                <i class="fas fa-id-card"></i>
+                                <span>کد ملی: -</span>
+                            </div>
+                            <div class="user-detail">
+                                <i class="fas fa-key"></i>
+                                <span id="currentUserId">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Global Token Status -->
+                    <div id="tokenStatus" class="alert alert-info" style="display: none; margin: 20px;">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Using global token:</strong> <span id="tokenPreview"></span>
+                        <a href="{% url 'dashboard:api_tools' %}" class="btn btn-sm btn-outline-primary ms-2">Change Token</a>
+                    </div>
+
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="margin: 20px;">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+
+                    <!-- Add Transaction Button -->
+                    <div style="padding: 20px; text-align: right;">
+                        <button class="add-transaction-btn" onclick="createTransaction()">
+                            <i class="fas fa-plus"></i> Create & Approve Transaction (ایجاد و تایید تراکنش)
+                        </button>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="loading">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                        <p>Loading transactions...</p>
+                    </div>
+
+                    <!-- No Transactions State -->
+                    <div id="noTransactions" class="no-transactions" style="display: none;">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <h4>No Transactions Found</h4>
+                        <p>No transactions match your current filters.</p>
+                        <button class="btn btn-primary" onclick="clearFilters()">Clear Filters</button>
+                    </div>
+
+                    <!-- Transactions Table -->
+                    <div id="transactionsTable" style="display: none;">
+                        <table class="transactions-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="selectAll" onchange="toggleAllCheckboxes()"></th>
+                                    <th>Row (ردیف)</th>
+                                    <th>Transaction ID (شناسه تراکنش)</th>
+                                    <th>Creation Date (تاریخ ایجاد)</th>
+                                    <th>Type (نوع تراکنش)</th>
+                                    <th>Amount (مقدار تراکنش)</th>
+                                    <th>Wallet (کیف پول)</th>
+                                    <th>Tether Value (ارزش تتری)</th>
+                                    <th>Status (وضعیت)</th>
+                                    <th>Creator (ایجاد کننده)</th>
+                                    <th>Description (توضیحات)</th>
+                                    <th>Actions (عملیات)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsBody">
+                                <!-- Transactions will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Bulk Action Buttons -->
+                    <div id="bulkActions" class="text-center mt-4" style="padding: 25px; display: none; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 12px; margin: 20px 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+                        <div class="alert alert-info" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border: none; border-radius: 8px; color: #1e40af; font-weight: 600;">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Selected Transactions:</strong> <span id="selectedCount" class="badge bg-primary ms-2">0</span>
+                        </div>
+                        <div class="d-flex justify-content-center gap-3 flex-wrap">
+                            <button onclick="bulkConfirm()" class="btn btn-success" style="padding: 12px 24px; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); transition: all 0.3s ease;">
+                                <i class="fas fa-check me-2"></i> Confirm Selected
+                            </button>
+                            <button onclick="bulkReject()" class="btn btn-danger" style="padding: 12px 24px; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); transition: all 0.3s ease;">
+                                <i class="fas fa-times me-2"></i> Reject Selected
+                            </button>
+                            <button onclick="clearSelection()" class="btn btn-secondary" style="padding: 12px 24px; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3); transition: all 0.3s ease;">
+                                <i class="fas fa-eraser me-2"></i> Clear Selection
+                            </button>
+                        </div>
+                    </div>
+
+                    
+                    <!-- User ID Display -->
+                    <div id="userIdDisplay" class="alert alert-info" style="margin: 20px; display: none;">
+                        <i class="fas fa-user"></i>
+                        <strong>Current User ID:</strong> <span id="currentUserId">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Bell -->
+<div class="notification-overlay" id="notificationOverlay"></div>
+<div class="notification-bell" id="notificationBell">
+    <div class="bell-header">
+        <i class="fas fa-bell bell-icon"></i>
+        <h6 class="bell-title">Confirm Transaction</h6>
+    </div>
+    <div class="bell-message" id="bellMessage">
+        Are you sure you want to confirm this transaction?
+    </div>
+    <div class="bell-actions">
+        <button class="btn-bell btn-cancel" onclick="hideNotification()">
+            <i class="fas fa-times"></i> Cancel
+        </button>
+        <button class="btn-bell btn-confirm" onclick="console.log('Bell confirm button clicked!'); confirmTransactionAction();">
+            <i class="fas fa-check"></i> Confirm
+        </button>
+    </div>
+</div>
+
+<script>
+// Global variables
+let allTransactions = [];
+let filteredTransactions = [];
+let pendingAction = null; // Store the pending action details
+
+// Get user information from Django session
+const userInfo = {{ user_info|safe }};
+const userId = '{{ user_id|safe }}';
+const isAuthenticated = {{ is_authenticated|yesno:"true,false" }};
+
+// Load transactions when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded event fired');
+    
+    // Check if we have authenticated user information
+    if (isAuthenticated && userId) {
+        console.log('Authenticated session found, loading transactions automatically');
+        loadTransactions();
+    } else {
+        console.log('No authenticated session found');
+        document.getElementById('loadingState').innerHTML = '<p>Please authenticate first by going to API Tools</p>';
+    }
+    
+    // Legacy token support (for backward compatibility)
+    const globalToken = sessionStorage.getItem('globalAuthToken');
+    if (globalToken && !isAuthenticated) {
+        console.log('Legacy token found, proceeding with transaction load');
+        // Show token status
+        document.getElementById('tokenStatus').style.display = 'block';
+        document.getElementById('tokenPreview').textContent = globalToken.substring(0, 20) + '...';
+        
+        // Show user ID
+        const userId = sessionStorage.getItem('dynamicUserId');
+        if (userId) {
+            document.getElementById('currentUserId').textContent = userId;
+            document.getElementById('userIdDisplay').style.display = 'block';
+            console.log('User ID displayed:', userId);
+        } else {
+            console.log('No user ID found in session storage - will try to get from server');
+            // Try to get user ID from server if not in session storage
+            getUserIdFromServer(globalToken);
+        }
+        
+        // Load transactions
+        loadTransactions(globalToken);
+    } else {
+        console.log('No token found, redirecting to API tools');
+        // Redirect to API tools if no token
+        window.location.href = "{% url 'dashboard:api_tools' %}";
+    }
+});
+
+function getUserIdFromServer(token) {
+    console.log('Trying to get user ID from server...');
+    fetch('{% url "dashboard:validate_token_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `auth_token=${encodeURIComponent(token)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Server response for user ID:', data);
+        if (data.success && data.user_info && data.user_info.user_id) {
+            const userId = data.user_info.user_id;
+            console.log('Got user ID from server:', userId);
+            // Store in session storage
+            sessionStorage.setItem('dynamicUserId', userId);
+            // Update display
+            document.getElementById('currentUserId').textContent = userId;
+            document.getElementById('userIdDisplay').style.display = 'block';
+        } else {
+            console.log('No user ID available from server');
+        }
+    })
+    .catch(error => {
+        console.error('Error getting user ID from server:', error);
+    });
+}
+
+function loadTransactions(token) {
+    console.log('loadTransactions called with token:', token ? 'present' : 'missing');
+    
+    // Check if we have authenticated user information
+    if (!isAuthenticated || !userId) {
+        console.error('No authenticated session found');
+        document.getElementById('loadingState').innerHTML = '<p>Error: Please authenticate first by going to API Tools</p>';
+        return;
+    }
+    
+    console.log('Using authenticated user ID:', userId);
+    
+    // Show loading state
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('noTransactions').style.display = 'none';
+    document.getElementById('transactionsTable').style.display = 'none';
+    
+    // Make AJAX request to load transactions
+    fetch('{% url "dashboard:get_transactions_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `user_id=${encodeURIComponent(userId)}`
+    })
+    .then(response => {
+        console.log('Raw response:', response);
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.json();
+    })
+    .then(data => {
+        console.log('=== AJAX RESPONSE RECEIVED ===');
+        console.log('Full response data:', data);
+        console.log('Response type:', typeof data);
+        console.log('Has success property:', 'success' in data);
+        console.log('Success value:', data.success);
+        console.log('Has transactions property:', 'transactions' in data);
+        console.log('Transactions value:', data.transactions);
+        console.log('Transactions length:', data.transactions ? data.transactions.length : 'undefined');
+        
+        document.getElementById('loadingState').style.display = 'none';
+        
+        if (data.success && data.transactions && data.transactions.length > 0) {
+            console.log('✅ Successfully loaded', data.transactions.length, 'transactions');
+            console.log('Transaction data:', data.transactions);
+            allTransactions = data.transactions;
+            filteredTransactions = [...allTransactions];
+            console.log('About to call displayTransactions...');
+            displayTransactions(filteredTransactions);
+            console.log('displayTransactions called, showing table...');
+            document.getElementById('transactionsTable').style.display = 'block';
+            console.log('Table should now be visible');
+        } else {
+            console.log('❌ No transactions found or error in response');
+            console.log('Success:', data.success);
+            console.log('Transactions:', data.transactions);
+            document.getElementById('noTransactions').style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading transactions:', error);
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('noTransactions').style.display = 'block';
+    });
+}
+
+function displayTransactions(transactions) {
+    console.log('=== DISPLAY TRANSACTIONS CALLED ===');
+    console.log('displayTransactions called with', transactions.length, 'transactions');
+    console.log('First transaction:', transactions[0]);
+    
+    const tbody = document.getElementById('transactionsBody');
+    if (!tbody) {
+        console.error('transactionsBody element not found!');
+        return;
+    }
+    console.log('Found tbody element, clearing it...');
+    tbody.innerHTML = '';
+    
+    console.log('Starting to process transactions...');
+    transactions.forEach((transaction, index) => {
+        console.log(`Processing transaction ${index + 1}:`, transaction);
+        const row = document.createElement('tr');
+        // Use the transaction ID from the data, don't generate fake ones
+        const rawId = transaction.id;
+        const hasValidId = rawId && rawId !== '—' && rawId !== '-' && rawId !== 'undefined';
+        const transactionId = hasValidId ? String(rawId) : `temp-${index}`;
+        console.log(`Transaction ${index + 1} - Raw ID: "${rawId}", Using ID: "${transactionId}", Has Valid ID: ${hasValidId}`);
+        
+        // For display purposes, show the raw ID or a placeholder
+        const displayId = hasValidId ? String(rawId) : '—';
+        
+        try {
+            row.innerHTML = `
+                <td>
+                    <input type="checkbox" class="transaction-checkbox" data-transaction-id="${transactionId}" data-valid-id="${hasValidId}" onchange="updateSelection()">
+                </td>
+                <td>${index + 1}</td>
+                <td>${displayId}</td>
+                <td>${transaction.created_at || '-'}</td>
+                <td>${transaction.type || 'Manual'}</td>
+                <td>${transaction.amount || '0'}</td>
+                <td>${transaction.wallet || '-'}</td>
+                <td>${transaction.tether_value || '0'}</td>
+                <td><span class="status-badge status-${transaction.status?.toLowerCase() || 'new'}">${getStatusText(transaction.status)}</span></td>
+                <td>${transaction.creator || 'Unknown'}</td>
+                <td>${transaction.description || '-'}</td>
+                <td>
+                    <div class="status-display">
+                        ${transaction.status === 'approved' || transaction.status === 'تایید شده' || transaction.status === 'confirmed' ? `
+                            <span class="badge bg-success">
+                                <i class="fas fa-check-circle"></i> Approved
+                            </span>
+                        ` : transaction.status === 'rejected' || transaction.status === 'رد شده' ? `
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times-circle"></i> Rejected
+                            </span>
+                        ` : transaction.status === 'new' || transaction.status === 'جدید' ? `
+                            <span class="badge bg-warning">
+                                <i class="fas fa-clock"></i> Auto-Approving...
+                            </span>
+                        ` : `
+                            <span class="badge bg-info">
+                                <i class="fas fa-info-circle"></i> ${transaction.status || 'Processing'}
+                            </span>
+                        `}
+                    </div>
+                </td>
+            `;
+            console.log(`Row ${index + 1} HTML created successfully`);
+            tbody.appendChild(row);
+            console.log(`Row ${index + 1} appended to tbody`);
+        } catch (error) {
+            console.error(`Error creating row ${index + 1}:`, error);
+        }
+    });
+    
+    console.log('All transactions processed, setting up action button listeners...');
+    // Set up event listeners for action buttons
+    setupActionButtonListeners();
+    console.log('=== DISPLAY TRANSACTIONS COMPLETED ===');
+}
+
+function getStatusText(status) {
+    const statusMap = {
+        'new': 'New (جدید)',
+        'confirmed': 'Confirmed (تایید شده)',
+        'rejected': 'Rejected (رد شده)',
+        'pending': 'Pending (در انتظار)'
+    };
+    return statusMap[status?.toLowerCase()] || 'New (جدید)';
+}
+
+function setupActionButtonListeners() {
+    console.log('=== SETTING UP ACTION BUTTON LISTENERS ===');
+    console.log('Setting up action button listeners...');
+    
+    // Add event listeners for action buttons (dropdown toggles)
+    const actionButtons = document.querySelectorAll('.action-btn');
+    console.log('Found action buttons:', actionButtons.length);
+    
+    if (actionButtons.length === 0) {
+        console.error('No action buttons found! This is the problem.');
+        return;
+    }
+    
+    actionButtons.forEach((button, index) => {
+        console.log(`Setting up listener for button ${index + 1}`);
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const buttonIndex = this.getAttribute('data-index');
+            console.log('Action button clicked, index:', buttonIndex);
+            toggleDropdown(buttonIndex);
+        });
+    });
+    
+    console.log('Action button listeners set up successfully');
+    console.log('=== ACTION BUTTON LISTENERS SETUP COMPLETE ===');
+}
+
+// Transaction action functions
+
+
+
+
+function confirmTransaction(transactionId) {
+    console.log('=== CONFIRM TRANSACTION FUNCTION CALLED ===');
+    console.log('confirmTransaction called with ID:', transactionId);
+    
+    // Check if user is authenticated using Django session data
+    const isAuthenticated = {{ is_authenticated|yesno:"true,false" }};
+    const hasUserInfo = {{ user_info|yesno:"true,false" }};
+    
+    if (!isAuthenticated || !hasUserInfo) {
+        alert('Authentication Required: Please authenticate first by going to API Tools page.');
+        return;
+    }
+    
+    // Show confirmation dialog
+    const confirmed = confirm(`Are you sure you want to confirm this transaction?\n\nTransaction ID: ${transactionId}\n\nThis action cannot be undone.`);
+    
+    if (confirmed) {
+        console.log('User confirmed, proceeding with transaction action...');
+        performTransactionAction('confirm', transactionId);
+    } else {
+        console.log('User cancelled confirmation');
+    }
+}
+
+function rejectTransaction(transactionId) {
+    console.log('=== REJECT TRANSACTION FUNCTION CALLED ===');
+    console.log('rejectTransaction called with ID:', transactionId);
+    
+    // Check if user is authenticated using Django session data
+    const isAuthenticated = {{ is_authenticated|yesno:"true,false" }};
+    const hasUserInfo = {{ user_info|yesno:"true,false" }};
+    
+    if (!isAuthenticated || !hasUserInfo) {
+        alert('Authentication Required: Please authenticate first by going to API Tools page.');
+        return;
+    }
+    
+    // Show confirmation dialog
+    const confirmed = confirm(`Are you sure you want to reject this transaction?\n\nTransaction ID: ${transactionId}\n\nThis action cannot be undone.`);
+    
+    if (confirmed) {
+        console.log('User confirmed, proceeding with transaction action...');
+        performTransactionAction('reject', transactionId);
+    } else {
+        console.log('User cancelled confirmation');
+    }
+}
+
+function editTransaction(transactionId) {
+    console.log('=== EDIT TRANSACTION FUNCTION CALLED ===');
+    console.log('editTransaction called with ID:', transactionId);
+    
+    const globalToken = sessionStorage.getItem('globalAuthToken');
+    if (!globalToken) {
+        console.log('No global token found');
+        alert('Authentication Required: Please authenticate first by going to API Tools page.');
+        return;
+    }
+    
+    console.log('Global token found, proceeding with edit');
+    
+    // Use simple confirm dialog instead of bell notification
+    const confirmed = confirm(`Are you sure you want to edit transaction ${transactionId}? This will modify the transaction details.`);
+    
+    if (confirmed) {
+        console.log('User confirmed edit, proceeding with transaction action...');
+        performTransactionAction('edit', transactionId);
+    } else {
+        console.log('User cancelled edit');
+    }
+    
+    console.log('=== EDIT TRANSACTION FUNCTION COMPLETED ===');
+}
+
+function performTransactionAction(action, transactionId) {
+    console.log('=== PERFORM TRANSACTION ACTION CALLED ===');
+    console.log('Action:', action);
+    console.log('Transaction ID:', transactionId);
+    console.log('Type of transactionId:', typeof transactionId);
+    
+    // Check if we have authenticated user information
+    if (!isAuthenticated || !userId) {
+        console.error('No authenticated session found');
+        alert('Authentication Required: Please authenticate first by going to API Tools page.');
+        return;
+    }
+    console.log('Using user ID:', userId);
+    
+    console.log('Global token exists:', !!globalToken);
+    console.log('User ID:', userId);
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    console.log('CSRF token element found:', !!csrfToken);
+    console.log('CSRF token value:', csrfToken ? csrfToken.value : 'null');
+    
+    // Fallback: try to get CSRF token from cookies
+    let csrfTokenValue = csrfToken ? csrfToken.value : '';
+    if (!csrfTokenValue) {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'csrftoken') {
+                csrfTokenValue = value;
+                break;
+            }
+        }
+    }
+    console.log('Final CSRF token value:', csrfTokenValue);
+    
+    const requestBody = `user_id=${encodeURIComponent(userId)}&action=${action}&transaction_id=${encodeURIComponent(transactionId)}`;
+    console.log('Request body:', requestBody);
+    
+    console.log('Making fetch request to:', '{% url "dashboard:transaction_action_ajax" %}');
+    
+    fetch('{% url "dashboard:transaction_action_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfTokenValue
+        },
+        body: requestBody
+    })
+    .then(response => {
+        console.log('Response received:', response);
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+            console.log('Transaction action successful!');
+            showBellNotification(
+                'Success!', 
+                `Transaction ${action}ed successfully!`, 
+                'success'
+            );
+            // Reload transactions
+            loadTransactions(globalToken);
+        } else {
+            console.log('Transaction action failed:', data.error);
+            showBellNotification(
+                'Error', 
+                `Failed to ${action} transaction: ${data.error || 'Unknown error'}`, 
+                'error'
+            );
+        }
+    })
+    .catch(error => {
+        console.error(`Error ${action}ing transaction:`, error);
+        showBellNotification(
+            'Error', 
+            `Error ${action}ing transaction: ${error.message}`, 
+            'error'
+        );
+    });
+    console.log('=== PERFORM TRANSACTION ACTION COMPLETED ===');
+}
+
+// Bell Notification Functions
+function showBellNotification(title, message, type) {
+    console.log('=== SHOW BELL NOTIFICATION CALLED ===');
+    console.log('Title:', title);
+    console.log('Message:', message);
+    console.log('Type:', type);
+    
+    const bell = document.getElementById('notificationBell');
+    const overlay = document.getElementById('notificationOverlay');
+    const bellTitle = bell.querySelector('.bell-title');
+    const bellMessage = bell.querySelector('#bellMessage');
+    const bellIcon = bell.querySelector('.bell-icon');
+    const confirmBtn = bell.querySelector('.btn-confirm');
+    
+    console.log('Bell elements found:', {
+        bell: !!bell,
+        overlay: !!overlay,
+        bellTitle: !!bellTitle,
+        bellMessage: !!bellMessage,
+        bellIcon: !!bellIcon,
+        confirmBtn: !!confirmBtn
+    });
+    
+    // Update content
+    bellTitle.textContent = title;
+    bellMessage.textContent = message;
+    
+    // Update icon and colors based on type
+    if (type === 'error') {
+        bellIcon.className = 'fas fa-exclamation-triangle bell-icon';
+        bell.style.borderLeftColor = '#dc3545';
+        confirmBtn.style.display = 'none';
+    } else if (type === 'success') {
+        bellIcon.className = 'fas fa-check-circle bell-icon';
+        bell.style.borderLeftColor = '#28a745';
+        confirmBtn.style.display = 'none';
+    } else if (type === 'confirm') {
+        bellIcon.className = 'fas fa-bell bell-icon';
+        bell.style.borderLeftColor = '#28a745';
+        confirmBtn.style.display = 'inline-block';
+        confirmBtn.innerHTML = '<i class="fas fa-check"></i> Confirm';
+        confirmBtn.className = 'btn-bell btn-confirm';
+        // Ensure onclick handler is preserved
+        confirmBtn.setAttribute('onclick', "console.log('Bell confirm button clicked!'); confirmTransactionAction();");
+    } else if (type === 'reject') {
+        bellIcon.className = 'fas fa-bell bell-icon';
+        bell.style.borderLeftColor = '#dc3545';
+        confirmBtn.style.display = 'inline-block';
+        confirmBtn.innerHTML = '<i class="fas fa-times"></i> Reject';
+        confirmBtn.className = 'btn-bell btn-confirm';
+        // Ensure onclick handler is preserved
+        confirmBtn.setAttribute('onclick', "console.log('Bell reject button clicked!'); confirmTransactionAction();");
+    } else if (type === 'edit') {
+        bellIcon.className = 'fas fa-bell bell-icon';
+        bell.style.borderLeftColor = '#ffc107';
+        confirmBtn.style.display = 'inline-block';
+        confirmBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
+        confirmBtn.className = 'btn-bell btn-confirm';
+        // Ensure onclick handler is preserved
+        confirmBtn.setAttribute('onclick', "console.log('Bell edit button clicked!'); confirmTransactionAction();");
+    }
+    
+    // Show the notification
+    console.log('Adding show classes to notification...');
+    overlay.classList.add('show');
+    bell.classList.add('show');
+    console.log('Notification should now be visible');
+    console.log('=== SHOW BELL NOTIFICATION COMPLETED ===');
+    
+    // Auto-hide after 10 seconds for error messages, 5 seconds for success
+    if (type === 'error') {
+        setTimeout(() => {
+            hideNotification();
+        }, 10000);
+    } else if (type === 'success') {
+        setTimeout(() => {
+            hideNotification();
+        }, 5000);
+    }
+}
+
+function hideNotification() {
+    const bell = document.getElementById('notificationBell');
+    const overlay = document.getElementById('notificationOverlay');
+    
+    bell.classList.remove('show');
+    overlay.classList.remove('show');
+    
+    // Note: pendingAction is now cleared in confirmTransactionAction() to avoid race conditions
+}
+
+function confirmTransactionAction() {
+    console.log('=== CONFIRM TRANSACTION ACTION CALLED ===');
+    console.log('Pending action:', pendingAction);
+    console.log('Type of pendingAction:', typeof pendingAction);
+    console.log('Pending action JSON:', JSON.stringify(pendingAction));
+    
+    if (pendingAction) {
+        console.log('Performing transaction action:', pendingAction.type, 'for transaction:', pendingAction.transactionId);
+        // Store the action details before clearing pendingAction
+        const actionType = pendingAction.type;
+        const actionTransactionId = pendingAction.transactionId;
+        
+        // Clear pending action first
+        pendingAction = null;
+        
+        // Hide notification
+        hideNotification();
+        
+        // Perform the actual action
+        performTransactionAction(actionType, actionTransactionId);
+    } else {
+        console.log('No pending action found!');
+        console.log('This means the bell notification was not properly set up');
+        alert('Error: No pending action found. Please try again.');
+    }
+    console.log('=== CONFIRM TRANSACTION ACTION COMPLETED ===');
+}
+
+// Close notification when clicking overlay
+document.getElementById('notificationOverlay').addEventListener('click', function() {
+    hideNotification();
+});
+
+// Close notification with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        hideNotification();
+    }
+});
+
+
+// Checkbox functionality
+function toggleAllCheckboxes() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.transaction-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+    
+    updateSelection();
+}
+
+function updateSelection() {
+    const checkboxes = document.querySelectorAll('.transaction-checkbox:checked');
+    const selectedCount = checkboxes.length;
+    const bulkActions = document.getElementById('bulkActions');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    
+    selectedCountSpan.textContent = selectedCount;
+    
+    if (selectedCount > 0) {
+        bulkActions.style.display = 'block';
+    } else {
+        bulkActions.style.display = 'none';
+    }
+    
+    // Update select all checkbox
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const allCheckboxes = document.querySelectorAll('.transaction-checkbox');
+    selectAllCheckbox.checked = selectedCount === allCheckboxes.length;
+    selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < allCheckboxes.length;
+}
+
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.transaction-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    document.getElementById('selectAll').checked = false;
+    updateSelection();
+}
+
+function bulkConfirm() {
+    const selectedCheckboxes = document.querySelectorAll('.transaction-checkbox:checked');
+    const validTransactions = [];
+    
+    selectedCheckboxes.forEach(checkbox => {
+        const transactionId = checkbox.getAttribute('data-transaction-id');
+        const isValidId = checkbox.getAttribute('data-valid-id') === 'true';
+        
+        if (isValidId && transactionId && !transactionId.startsWith('temp-')) {
+            validTransactions.push(transactionId);
+        }
+    });
+    
+    if (validTransactions.length === 0) {
+        alert('No valid transactions selected for confirmation. Please select transactions that have valid IDs.');
+        return;
+    }
+    
+    const confirmed = confirm(`Are you sure you want to confirm ${validTransactions.length} transaction(s)? This action cannot be undone.`);
+    if (confirmed) {
+        processBulkAction('confirm', validTransactions);
+    }
+}
+
+function bulkReject() {
+    const selectedCheckboxes = document.querySelectorAll('.transaction-checkbox:checked');
+    const validTransactions = [];
+    
+    selectedCheckboxes.forEach(checkbox => {
+        const transactionId = checkbox.getAttribute('data-transaction-id');
+        const isValidId = checkbox.getAttribute('data-valid-id') === 'true';
+        
+        if (isValidId && transactionId && !transactionId.startsWith('temp-')) {
+            validTransactions.push(transactionId);
+        }
+    });
+    
+    if (validTransactions.length === 0) {
+        alert('No valid transactions selected for rejection. Please select transactions that have valid IDs.');
+        return;
+    }
+    
+    const confirmed = confirm(`Are you sure you want to reject ${validTransactions.length} transaction(s)? This action cannot be undone.`);
+    if (confirmed) {
+        processBulkAction('reject', validTransactions);
+    }
+}
+
+function processBulkAction(action, transactionIds) {
+    console.log(`Processing bulk ${action} for transactions:`, transactionIds);
+    
+    // Check if we have authenticated user information
+    if (!isAuthenticated || !userId) {
+        alert('Authentication Required: Please authenticate first by going to API Tools page.');
+        return;
+    }
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    let completed = 0;
+    let failed = 0;
+    
+    // Process transactions one by one
+    transactionIds.forEach((transactionId, index) => {
+        setTimeout(() => {
+            const requestBody = `user_id=${encodeURIComponent(userId)}&action=${action}&transaction_id=${encodeURIComponent(transactionId)}`;
+            
+            fetch('{% url "dashboard:transaction_action_ajax" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken
+                },
+                body: requestBody
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    completed++;
+                    console.log(`Transaction ${transactionId} ${action}ed successfully`);
+                } else {
+                    failed++;
+                    console.error(`Failed to ${action} transaction ${transactionId}:`, data.error);
+                }
+                
+                // Check if all transactions are processed
+                if (completed + failed === transactionIds.length) {
+                    showBellNotification(
+                        'Bulk Action Complete', 
+                        `${action}ed ${completed} transaction(s) successfully. ${failed > 0 ? `${failed} failed.` : ''}`, 
+                        failed > 0 ? 'warning' : 'success'
+                    );
+                    
+                    // Clear selection and reload transactions
+                    clearSelection();
+                    loadTransactions(globalToken);
+                }
+            })
+            .catch(error => {
+                failed++;
+                console.error(`Error ${action}ing transaction ${transactionId}:`, error);
+                
+                if (completed + failed === transactionIds.length) {
+                    showBellNotification(
+                        'Bulk Action Complete', 
+                        `${action}ed ${completed} transaction(s) successfully. ${failed > 0 ? `${failed} failed.` : ''}`, 
+                        'warning'
+                    );
+                    clearSelection();
+                    loadTransactions(globalToken);
+                }
+            });
+        }, index * 500); // Stagger requests by 500ms
+    });
+}
+
+// User search functionality
+let currentSearchedUser = null;
+
+document.getElementById('searchUserBtn').addEventListener('click', function() {
+    const mobileNumber = document.getElementById('mobileSearchInput').value.trim();
+    
+    if (!mobileNumber) {
+        showBellNotification('Error', 'Please enter a mobile number', 'error');
+        return;
+    }
+    
+    // Show loading state
+    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+    this.disabled = true;
+    
+    // Search for user by mobile number
+    searchUserByMobile(mobileNumber);
+});
+
+document.getElementById('mobileSearchInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        document.getElementById('searchUserBtn').click();
+    }
+});
+
+function searchUserByMobile(mobileNumber) {
+    // Get authentication info from session
+    const authInfo = {{ user_info|safe }};
+    
+    if (!authInfo || !authInfo.valid) {
+        showBellNotification('Error', 'No valid authentication found', 'error');
+        return;
+    }
+    
+    // Make AJAX request to search for user
+    fetch('{% url "dashboard:search_user_by_mobile" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `mobile_number=${encodeURIComponent(mobileNumber)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentSearchedUser = data.user_info;
+            displayUserDetails(data.user_info);
+            showBellNotification('Success', `User found: ${data.user_info.full_name}`, 'success');
+        } else {
+            showBellNotification('Error', data.error || 'User not found', 'error');
+            hideSearchResults();
+        }
+    })
+    .catch(error => {
+        console.error('Error searching user:', error);
+        showBellNotification('Error', 'Failed to search user', 'error');
+    })
+    .finally(() => {
+        // Reset button state
+        const searchBtn = document.getElementById('searchUserBtn');
+        searchBtn.innerHTML = '<i class="fas fa-search"></i> Search';
+        searchBtn.disabled = false;
+    });
+}
+
+        function displayUserDetails(userInfo) {
+            const userDetailsDisplay = document.getElementById('userDetailsDisplay');
+            const searchResultsSection = document.getElementById('searchResultsSection');
+            const loadWalletsBtn = document.getElementById('loadWalletsBtn');
+            const transactionFormSection = document.getElementById('transactionFormSection');
+            
+            userDetailsDisplay.innerHTML = `
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>User ID:</strong> ${userInfo.user_id || 'N/A'}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Email:</strong> ${userInfo.email || 'N/A'}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Full Name:</strong> ${userInfo.full_name || 'N/A'}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>ID:</strong> ${userInfo.id || 'N/A'}
+                    </div>
+                </div>
+            `;
+            
+            searchResultsSection.style.display = 'block';
+            transactionFormSection.style.display = 'block';
+            
+            // Store the searched user ID for wallet loading and transaction creation
+            window.searchedUserId = userInfo.user_id;
+            
+            // Automatically load wallets for the found user
+            loadWalletsForUser(userInfo.user_id);
+        }
+
+function hideSearchResults() {
+    document.getElementById('searchResultsSection').style.display = 'none';
+    document.getElementById('transactionFormSection').style.display = 'none';
+    currentSearchedUser = null;
+    window.searchedUserId = null;
+}
+
+// Load wallets for the searched user
+document.getElementById('loadWalletsBtn').addEventListener('click', function() {
+    if (!currentSearchedUser) {
+        showBellNotification('Error', 'No user selected', 'error');
+        return;
+    }
+    
+    loadWalletsForUser(currentSearchedUser.user_id);
+});
+
+function loadWalletsForUser(userId) {
+    // Get authentication info from session
+    const authInfo = {{ user_info|safe }};
+    
+    if (!authInfo || !authInfo.valid) {
+        showBellNotification('Error', 'No valid authentication found', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const loadBtn = document.getElementById('loadWalletsBtn');
+    const originalText = loadBtn.innerHTML;
+    loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    loadBtn.disabled = true;
+    
+    // Make AJAX request to load wallets
+    fetch('{% url "dashboard:load_wallets_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `user_id=${encodeURIComponent(userId)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayWallets(data.wallets);
+            showBellNotification('Success', `Loaded ${data.wallets.length} wallets`, 'success');
+        } else {
+            showBellNotification('Error', data.error || 'Failed to load wallets', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading wallets:', error);
+        showBellNotification('Error', 'Failed to load wallets', 'error');
+    })
+    .finally(() => {
+        // Reset button state
+        loadBtn.innerHTML = originalText;
+        loadBtn.disabled = false;
+    });
+}
+
+function displayWallets(wallets) {
+    // Update the wallet dropdown in the transaction form
+    const walletSelect = document.getElementById('wallet');
+    if (walletSelect) {
+        // Clear existing options
+        walletSelect.innerHTML = '<option value="">Select a wallet...</option>';
+        
+        // Add new wallet options
+        wallets.forEach(wallet => {
+            const option = document.createElement('option');
+            option.value = wallet.value;
+            option.textContent = wallet.text;
+            walletSelect.appendChild(option);
+        });
+        
+        showBellNotification('Success', `Updated wallet dropdown with ${wallets.length} wallets`, 'success');
+    }
+}
+
+// Create Transaction button event listener
+document.getElementById('createTransactionBtn').addEventListener('click', function() {
+    if (!currentSearchedUser || !window.searchedUserId) {
+        showBellNotification('Error', 'No user selected', 'error');
+        return;
+    }
+    
+    // Show the transaction form
+    document.getElementById('transactionFormSection').style.display = 'block';
+    
+    // Load wallets for the selected user
+    loadWalletsForUser(window.searchedUserId);
+});
+
+// Cancel Transaction button event listener
+document.getElementById('cancelTransactionBtn').addEventListener('click', function() {
+    document.getElementById('transactionFormSection').style.display = 'none';
+});
+
+// Transaction form submission
+document.getElementById('transactionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!window.searchedUserId) {
+        showBellNotification('Error', 'No user selected', 'error');
+        return;
+    }
+    
+    const formData = {
+        user_id: window.searchedUserId,
+        wallet: document.getElementById('walletSelect').value,
+        amount: document.getElementById('amountInput').value,
+        description: document.getElementById('descriptionInput').value,
+        ref_id: document.getElementById('refIdInput').value,
+        ref_module: document.getElementById('refModuleInput').value
+    };
+    
+    // Validate form
+    if (!formData.wallet || !formData.amount) {
+        showBellNotification('Error', 'Please fill in all required fields', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+    submitBtn.disabled = true;
+    
+    // Create transaction via AJAX
+    fetch('{% url "dashboard:add_transaction" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: new URLSearchParams(formData)
+    })
+    .then(response => {
+        if (response.ok) {
+            showBellNotification('Success', 'Transaction created successfully!', 'success');
+            // Hide the form
+            document.getElementById('transactionFormSection').style.display = 'none';
+            // Reset form
+            this.reset();
+        } else {
+            showBellNotification('Error', 'Failed to create transaction', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error creating transaction:', error);
+        showBellNotification('Error', 'Failed to create transaction', 'error');
+    })
+    .finally(() => {
+        // Reset button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+function createTransaction() {
+    // Check if a user has been searched and selected
+    if (!currentSearchedUser || !window.searchedUserId) {
+        showBellNotification('Error', 'Please search and select a user first before creating a transaction', 'error');
+        return;
+    }
+    
+    // Redirect to add transaction page with the searched user ID
+    const addTransactionUrl = '{% url "dashboard:add_transaction" %}';
+    const urlWithUserId = `${addTransactionUrl}?user_id=${encodeURIComponent(window.searchedUserId)}`;
+    window.location.href = urlWithUserId;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,562 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Transaction Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #6366f1;
+        --primary-dark: #4f46e5;
+        --secondary-color: #8b5cf6;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+        --info-color: #3b82f6;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    }
+
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .management-container {
+        padding: 2rem 0;
+        min-height: 100vh;
+    }
+
+    .notification-bell {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--shadow-xl);
+        padding: 20px;
+        z-index: 1000;
+        max-width: 350px;
+        transform: translateX(400px);
+        transition: transform 0.3s ease;
+    }
+
+    .notification-bell.show {
+        transform: translateX(0);
+    }
+
+    .notification-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+    }
+
+    .notification-overlay.show {
+        display: block;
+    }
+
+    .bell-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .bell-icon {
+        color: var(--warning-color);
+        margin-right: 10px;
+        font-size: 20px;
+    }
+
+    .bell-title {
+        margin: 0;
+        font-weight: 600;
+        color: var(--gray-800);
+    }
+
+    .bell-message {
+        color: var(--gray-600);
+        margin-bottom: 15px;
+    }
+
+    .bell-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+
+    .btn-bell {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .btn-cancel {
+        background: var(--gray-200);
+        color: var(--gray-700);
+    }
+
+    .btn-cancel:hover {
+        background: var(--gray-300);
+    }
+
+    .btn-confirm {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-confirm:hover {
+        background: #059669;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="management-container">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 style="margin: 0; color: #333;">Create Transaction</h2>
+                        <p style="margin: 5px 0 0 0; color: #666;">Search for users and create transactions</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'dashboard:api_tools' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-tools"></i> Back to API Tools
+                        </a>
+                        <a href="{% url 'dashboard:home' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-home"></i> Return to Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Search Section -->
+        {% if is_authenticated and user_info %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
+                    <div class="card-body" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white;">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-2"><i class="fas fa-search"></i> Search User by Mobile Number or Email</h5>
+                                <p class="mb-0">Enter a mobile number or email to find user details and create transactions</p>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="mobileSearchInput" 
+                                           placeholder="Enter mobile number or email (e.g., 09358165170 or user@example.com)" 
+                                           style="border-radius: 8px 0 0 8px;">
+                                    <button class="btn btn-light" type="button" id="searchUserBtn" 
+                                            style="border-radius: 0 8px 8px 0;">
+                                        <i class="fas fa-search"></i> Search
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Results Section -->
+        <div class="row mb-4" id="searchResultsSection" style="display: none;">
+            <div class="col-12">
+                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
+                    <div class="card-body" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-2"><i class="fas fa-user-check"></i> Found User Details</h5>
+                                <div id="userDetailsDisplay">
+                                    <!-- User details will be populated here -->
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-light" id="loadWalletsBtn">
+                                    <i class="fas fa-wallet"></i> Load Wallets
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction Creation Form -->
+        <div class="row mb-4" id="transactionFormSection" style="display: none;">
+            <div class="col-12">
+                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
+                    <div class="card-body" style="background: white;">
+                        <div class="row align-items-center mb-4">
+                            <div class="col-md-8">
+                                <h4 class="mb-2" style="color: #333;">افزودن تراکنش (Add Transaction)</h4>
+                                <p class="mb-0" style="color: #666;">Fill in the transaction details for the selected user</p>
+                            </div>
+                        </div>
+                        
+                        <form id="transactionForm">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <label for="walletSelect" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-wallet me-2"></i>کیف پول (Wallet)
+                                    </label>
+                                    <select class="form-select form-select-lg" id="walletSelect" required style="border-radius: 8px; border: 1px solid #ddd;">
+                                        <option value="">Loading wallets...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="transactionType" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-tag me-2"></i>نوع تراکنش (Transaction Type)
+                                    </label>
+                                    <select class="form-select form-select-lg" id="transactionType" required style="border-radius: 8px; border: 1px solid #ddd;">
+                                        <option value="">Select type...</option>
+                                        <option value="60">Manual (Rial)</option>
+                                        <option value="61">Deposit</option>
+                                        <option value="62">Withdrawal</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="amountInput" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-dollar-sign me-2"></i>مبلغ تراکنش (Transaction Amount)
+                                    </label>
+                                    <input type="number" class="form-control form-control-lg" id="amountInput" 
+                                           placeholder="Enter amount" step="0.01" required style="border-radius: 8px; border: 1px solid #ddd;">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="descriptionInput" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-comment me-2"></i>توضیحات (Description)
+                                    </label>
+                                    <input type="text" class="form-control form-control-lg" id="descriptionInput" 
+                                           placeholder="Transaction description" value="Manual Transaction" style="border-radius: 8px; border: 1px solid #ddd;">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="refModuleInput" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-cog me-2"></i>Ref module (اختیاری)
+                                    </label>
+                                    <input type="text" class="form-control form-control-lg" id="refModuleInput" 
+                                           placeholder="Ref module (optional)" style="border-radius: 8px; border: 1px solid #ddd;">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="refIdInput" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-hashtag me-2"></i>Ref id (اختیاری)
+                                    </label>
+                                    <input type="text" class="form-control form-control-lg" id="refIdInput" 
+                                           placeholder="Ref id (optional)" style="border-radius: 8px; border: 1px solid #ddd;">
+                                </div>
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-end gap-3 mt-4">
+                                        <button type="button" class="btn btn-outline-secondary btn-lg" id="cancelTransactionBtn" style="border-radius: 8px;">
+                                            <i class="fas fa-times me-2"></i> Cancel
+                                        </button>
+                                        <button type="submit" class="btn btn-success btn-lg" style="border-radius: 8px; padding: 12px 30px;">
+                                            <i class="fas fa-plus me-2"></i> افزودن تراکنش (Add Transaction)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
+                    <div class="card-body" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-2"><i class="fas fa-exclamation-triangle"></i> No Authentication</h5>
+                                <p class="mb-0">Please authenticate with your session ID and CSRF token to access transaction management features.</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <a href="{% url 'dashboard:api_tools' %}" class="btn btn-light">
+                                    <i class="fas fa-key"></i> Authenticate Now
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Notification Bell -->
+<div class="notification-overlay" id="notificationOverlay"></div>
+<div class="notification-bell" id="notificationBell">
+    <div class="bell-header">
+        <i class="fas fa-bell bell-icon"></i>
+        <h6 class="bell-title">Confirm Transaction</h6>
+    </div>
+    <div class="bell-message" id="bellMessage">
+        Are you sure you want to confirm this transaction?
+    </div>
+    <div class="bell-actions">
+        <button class="btn-bell btn-cancel" onclick="hideNotification()">
+            <i class="fas fa-times"></i> Cancel
+        </button>
+        <button class="btn-bell btn-confirm" onclick="confirmTransaction()">
+            <i class="fas fa-check"></i> Confirm
+        </button>
+    </div>
+</div>
+
+<script>
+// User search functionality
+let currentSearchedUser = null;
+
+document.getElementById('searchUserBtn').addEventListener('click', function() {
+    const mobileNumber = document.getElementById('mobileSearchInput').value.trim();
+    
+    if (!mobileNumber) {
+        showBellNotification('Error', 'Please enter a mobile number', 'error');
+        return;
+    }
+    
+    const searchBtn = this;
+    searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+    searchBtn.disabled = true;
+    
+    fetch('{% url "dashboard:search_user_by_mobile" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `mobile_number=${encodeURIComponent(mobileNumber)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentSearchedUser = data.user_info;
+            displayUserDetails(data.user_info);
+            showBellNotification('Success', `User found: ${data.user_info.full_name}`, 'success');
+        } else {
+            showBellNotification('Error', data.error || 'User not found', 'error');
+            hideSearchResults();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showBellNotification('Error', 'An error occurred while searching', 'error');
+        hideSearchResults();
+    })
+    .finally(() => {
+        searchBtn.innerHTML = '<i class="fas fa-search"></i> Search';
+        searchBtn.disabled = false;
+    });
+});
+
+function displayUserDetails(userInfo) {
+    const userDetailsDisplay = document.getElementById('userDetailsDisplay');
+    const searchResultsSection = document.getElementById('searchResultsSection');
+    const loadWalletsBtn = document.getElementById('loadWalletsBtn');
+    const transactionFormSection = document.getElementById('transactionFormSection');
+    
+    userDetailsDisplay.innerHTML = `
+        <div class="row">
+            <div class="col-md-3">
+                <strong>User ID:</strong> ${userInfo.user_id || 'N/A'}
+            </div>
+            <div class="col-md-3">
+                <strong>Email:</strong> ${userInfo.email || 'N/A'}
+            </div>
+            <div class="col-md-3">
+                <strong>Full Name:</strong> ${userInfo.full_name || 'N/A'}
+            </div>
+            <div class="col-md-3">
+                <strong>ID:</strong> ${userInfo.id || 'N/A'}
+            </div>
+        </div>
+    `;
+    
+    searchResultsSection.style.display = 'block';
+    transactionFormSection.style.display = 'block';
+    
+    // Store the searched user ID for wallet loading and transaction creation
+    window.searchedUserId = userInfo.user_id;
+    
+    // Automatically load wallets for the found user
+    loadWalletsForUser(userInfo.user_id);
+}
+
+function hideSearchResults() {
+    document.getElementById('searchResultsSection').style.display = 'none';
+    document.getElementById('transactionFormSection').style.display = 'none';
+    currentSearchedUser = null;
+    window.searchedUserId = null;
+}
+
+// Load wallets for the searched user
+document.getElementById('loadWalletsBtn').addEventListener('click', function() {
+    if (!currentSearchedUser) {
+        showBellNotification('Error', 'No user selected', 'error');
+        return;
+    }
+    loadWalletsForUser(currentSearchedUser.user_id);
+});
+
+function loadWalletsForUser(userId) {
+    const walletSelect = document.getElementById('walletSelect');
+    walletSelect.innerHTML = '<option value="">Loading wallets...</option>';
+    
+    fetch(`{% url 'dashboard:load_wallets_ajax' %}?user_id=${userId}`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.wallets) {
+            walletSelect.innerHTML = '<option value="">Select a wallet...</option>';
+            data.wallets.forEach(wallet => {
+                const option = document.createElement('option');
+                option.value = wallet.id;
+                option.textContent = `${wallet.name} (${wallet.balance})`;
+                walletSelect.appendChild(option);
+            });
+        } else {
+            walletSelect.innerHTML = '<option value="">No wallets found</option>';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading wallets:', error);
+        walletSelect.innerHTML = '<option value="">Error loading wallets</option>';
+    });
+}
+
+// Transaction form submission
+document.getElementById('transactionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!window.searchedUserId) {
+        showBellNotification('Error', 'No user selected', 'error');
+        return;
+    }
+    
+    const formData = {
+        user_id: window.searchedUserId,
+        wallet: document.getElementById('walletSelect').value,
+        amount: document.getElementById('amountInput').value,
+        description: document.getElementById('descriptionInput').value,
+        ref_id: document.getElementById('refIdInput').value,
+        ref_module: document.getElementById('refModuleInput').value
+    };
+    
+    // Validate form
+    if (!formData.wallet || !formData.amount) {
+        showBellNotification('Error', 'Please fill in all required fields', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+    submitBtn.disabled = true;
+    
+    fetch('{% url "dashboard:add_transaction" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: new URLSearchParams(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showBellNotification('Success', 'Transaction created successfully!', 'success');
+            // Reset form
+            this.reset();
+            hideSearchResults();
+        } else {
+            showBellNotification('Error', data.error || 'Failed to create transaction', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showBellNotification('Error', 'An error occurred while creating transaction', 'error');
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+// Cancel transaction button
+document.getElementById('cancelTransactionBtn').addEventListener('click', function() {
+    hideSearchResults();
+    document.getElementById('mobileSearchInput').value = '';
+});
+
+// Notification functions
+function showBellNotification(title, message, type) {
+    const bell = document.getElementById('notificationBell');
+    const overlay = document.getElementById('notificationOverlay');
+    const titleEl = bell.querySelector('.bell-title');
+    const messageEl = bell.querySelector('.bell-message');
+    
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    
+    // Update colors based on type
+    const icon = bell.querySelector('.bell-icon');
+    if (type === 'success') {
+        icon.style.color = '#10b981';
+    } else if (type === 'error') {
+        icon.style.color = '#ef4444';
+    } else {
+        icon.style.color = '#f59e0b';
+    }
+    
+    overlay.classList.add('show');
+    bell.classList.add('show');
+    
+    // Auto hide after 3 seconds
+    setTimeout(() => {
+        hideNotification();
+    }, 3000);
+}
+
+function hideNotification() {
+    const bell = document.getElementById('notificationBell');
+    const overlay = document.getElementById('notificationOverlay');
+    
+    bell.classList.remove('show');
+    overlay.classList.remove('show');
+}
+
+function confirmTransaction() {
+    // This function can be used for additional confirmation if needed
+    hideNotification();
+}
+</script>
+{% endblock %}

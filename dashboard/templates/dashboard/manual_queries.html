@@ -1,5 +1,6 @@
 {% extends 'dashboard/base.html' %}
 {% load static %}
+{% load table_extras %}
 {% block title %}Manual Queries - Neo4j Dashboard{% endblock %}
 {% block extra_head %}
     <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -31,208 +32,377 @@
         .zoom-controls { position: absolute; top: 10px; right: 10px; }
         .zoom-btn { padding: 5px 10px; margin-left: 5px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
         .zoom-btn:hover { background-color: #0056b3; }
-        #graph { width: 100%; height: 600px; border: 1px solid #5c5858; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .links line { stroke: #ff0000; stroke-opacity: 1; stroke-width: 2px; } /* قرمز و ضخیم‌تر */
-        .links text { font-size: 12px; fill: #333; font-weight: bold; }
-        .nodes circle { stroke: #fff; stroke-width: 1.5px; }
-        .nodes text { font-size: 12px; fill: #333; }
+        #graph { width: 100%; height: 600px; border: 1px solid #e0e0e0; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); position: relative; }
+        .links line { stroke: #6c757d; stroke-opacity: 0.7; stroke-width: 3px; }
+        .links text { font-size: 11px; fill: #495057; font-weight: 600; text-shadow: 1px 1px 2px rgba(255,255,255,0.8); }
+        .nodes circle { stroke: #fff; stroke-width: 3px; cursor: pointer; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
+        .nodes text { font-size: 12px; fill: #fff; font-weight: 700; pointer-events: none; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         .tooltip { position: absolute; background-color: white; border: 1px solid #ddd; padding: 5px; font-size: 12px; pointer-events: none; }
-        #graph-tooltip { position: absolute; display: none; pointer-events: none; background: #fff; border: 1px solid #333; border-radius: 6px; padding: 8px 12px; font-size: 1em; color: #222; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        #graph-tooltip { position: absolute; display: none; pointer-events: none; background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%); border: 1px solid #dee2e6; border-radius: 8px; padding: 12px 16px; font-size: 0.9em; color: #212529; z-index: 10000; box-shadow: 0 4px 16px rgba(0,0,0,0.15); max-width: 300px; }
+        .empty-graph { display: flex; align-items: center; justify-content: center; height: 100%; color: #6c757d; font-style: italic; font-size: 16px; }
+        /* Layout */
+        .layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; }
+        .history { background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; }
+        .history h5 { margin: 0 0 8px 0; }
+        .history-item { border-bottom: 1px solid var(--border-color); padding: 8px 0; }
+        .history-item:last-child { border-bottom: none; }
+        .tabs { margin-top: 16px; }
+        .tab-btn { padding: 6px 12px; border: 1px solid var(--border-color); background: var(--container-bg); color: var(--text-color); cursor: pointer; border-radius: 6px; margin-right: 8px; }
+        .tab-btn.active { background: #007bff; color: #fff; border-color: #007bff; }
+        .table-wrap { max-height: 600px; overflow: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        th { position: sticky; top: 0; background: var(--container-bg); }
+        .exec-info { font-size: 0.9em; color: var(--text-color); margin-top: 8px; }
     </style>
 {% endblock %}
 {% block content %}
     <div class="section">
         <h2>Manual Query</h2>
-        <form method="post">
-            {% csrf_token %}
-            <div class="form-group">
-                <label for="cypher_query">Enter Cypher Query:</label>
-                <textarea id="cypher_query" name="cypher_query" style="display: none;">{{ cypher_query }}</textarea>
-            </div>
-            <div style="margin-top: 16px;">
-                <button type="submit" name="action" value="execute" class="btn">Run Query</button>
-                <button type="submit" name="action" value="clear" class="btn btn-clear">Clear</button>
-                {% if cypher_query %}
-                    <form method="post" action="{% url 'dashboard:export_manual_query' %}" style="display:inline;">
-                        {% csrf_token %}
-                        <input type="hidden" name="cypher_query" value="{{ cypher_query|escape }}">
-                        <input type="hidden" name="export_format" value="csv">
-                        <button type="submit" class="btn btn-download">Export as CSV</button>
-                    </form>
-                    <form method="post" action="{% url 'dashboard:export_manual_query' %}" style="display:inline;">
-                        {% csrf_token %}
-                        <input type="hidden" name="cypher_query" value="{{ cypher_query|escape }}">
-                        <input type="hidden" name="export_format" value="json">
-                        <button type="submit" class="btn btn-download">Export as JSON</button>
-                    </form>
+        <div class="layout">
+            <div>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="cypher_query">Enter Cypher Query:</label>
+                        <textarea id="cypher_query" name="cypher_query" style="display: none;">{{ cypher_query }}</textarea>
+                        <div style="margin-top: 8px; font-size: 0.9em; color: #666;">
+                            <strong>Sample Queries:</strong>
+                            <div style="margin-top: 4px;">
+                                <button type="button" class="btn btn-sm" style="background: #e9ecef; color: #495057; padding: 4px 8px; margin: 2px; font-size: 12px;" onclick="loadSampleQuery('MATCH (n)-[r]-(m) RETURN n, r, m')">All nodes & relationships</button>
+                                <button type="button" class="btn btn-sm" style="background: #e9ecef; color: #495057; padding: 4px 8px; margin: 2px; font-size: 12px;" onclick="loadSampleQuery('MATCH (p:Person) RETURN p')">All people</button>
+                                <button type="button" class="btn btn-sm" style="background: #e9ecef; color: #495057; padding: 4px 8px; margin: 2px; font-size: 12px;" onclick="loadSampleQuery('MATCH (c:Company) RETURN c')">All companies</button>
+                                <button type="button" class="btn btn-sm" style="background: #e9ecef; color: #495057; padding: 4px 8px; margin: 2px; font-size: 12px;" onclick="loadSampleQuery('MATCH (p:Person)-[r:WORKS_AT]->(c:Company) RETURN p, r, c')">Work relationships</button>
+                                <button type="button" class="btn btn-sm" style="background: #e9ecef; color: #495057; padding: 4px 8px; margin: 2px; font-size: 12px;" onclick="loadSampleQuery('MATCH (p:Person)-[r:KNOWS]->(p2:Person) RETURN p, r, p2')">Social network</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="buttons" style="margin-top: 16px;">
+                        <button type="submit" name="action" value="execute" class="btn btn-primary">Run Query</button>
+                        <button type="submit" name="action" value="clear" class="btn btn-secondary">Clear</button>
+                    </div>
+
+                    {% if success_message %}
+                        <div class="message success">{{ success_message }}</div>
+                    {% endif %}
+                    {% if error_message %}
+                        <div class="message error">{{ error_message }}</div>
+                    {% endif %}
+                    {% if info_message %}
+                        <div class="message" style="background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb;">
+                            {{ info_message }}
+                            {% if show_sample_data_option %}
+                                <form method="post" style="margin-top: 10px;">
+                                    {% csrf_token %}
+                                    <button type="submit" name="action" value="create_sample_data" class="btn btn-primary">Create Sample Data</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </form>
+
+                {% if query_executed %}
+                    <div class="exec-info">
+                        {% if exec_ms %}Time: {{ exec_ms }} ms · {% endif %}
+                        Rows: {{ row_count }}
+                    </div>
+
+                    <div class="tabs">
+                        <button class="tab-btn active" id="tab-graph">Graph</button>
+                        <button class="tab-btn" id="tab-table">Table</button>
+                    </div>
+
+                    <div id="graph-panel">
+                        <div id="graph">
+                            <div style="position: absolute; top: 20px; right: 40px; z-index: 10;">
+                                <button id="zoom-in" style="padding: 10px 20px; margin-right: 10px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">+</button>
+                                <button id="zoom-out" style="padding: 10px 20px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">-</button>
+                            </div>
+                        </div>
+                        <div id="graph-tooltip"></div>
+                    </div>
+
+                    <div id="table-panel" style="display: none; margin-top: 12px;">
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        {% for col in table_columns %}
+                                            <th>{{ col }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in table_data %}
+                                        <tr>
+                                            {% for col in table_columns %}
+                                                <td>{{ row|get_item:col }}</td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% empty %}
+                                        <tr><td colspan="99" style="text-align:center;">No rows</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 {% endif %}
             </div>
 
-            {% if success_message %}
-                <div class="message success">{{ success_message }}</div>
-            {% endif %}
-            {% if error_message %}
-                <div class="message error">{{ error_message }}</div>
-            {% endif %}
+            <aside class="history">
+                <h5>History</h5>
+                {% if history %}
+                    {% for h in history %}
+                        <div class="history-item">
+                            <div style="font-size: 0.9em; color: var(--text-color);">{{ h.ts }} · {{ h.ms }} ms · {{ h.rows }} rows</div>
+                            <div style="font-family: 'Fira Code', monospace; white-space: pre-wrap; font-size: 12px; margin: 6px 0; color: var(--text-color);">{{ h.query|truncatechars:160 }}</div>
+                            <a class="btn btn-secondary" href="?load_query={{ forloop.counter0 }}">Load</a>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="color: var(--text-color);">No history yet</div>
+                {% endif %}
+            </aside>
+        </div>
 
-            <div id="graph" style="width: 100%; height: 600px; border: 1px solid #5c5858; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;">
-                <div style="position: absolute; top: 20px; right: 40px; z-index: 10;">
-                    <button id="zoom-in" style="padding: 10px 20px; margin-right: 10px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">+</button>
-                    <button id="zoom-out" style="padding: 10px 20px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">-</button>
-                </div>
-            </div>
-            <div id="graph-tooltip" style="position: absolute; display: none; pointer-events: none; background: #fff; border: 1px solid #333; border-radius: 6px; padding: 8px 12px; font-size: 1em; color: #222; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
+        <script type="text/javascript">
+            // Initialize CodeMirror
+            var editor = CodeMirror.fromTextArea(document.getElementById("cypher_query"), {
+                mode: "cypher",
+                theme: "monokai",
+                lineNumbers: true,
+                autoCloseBrackets: true,
+                matchBrackets: true,
+                indentUnit: 4,
+                tabSize: 4,
+                lineWrapping: true,
+            });
 
-            <script type="text/javascript">
-                // Initialize CodeMirror
-                var editor = CodeMirror.fromTextArea(document.getElementById("cypher_query"), {
-                    mode: "cypher",
-                    theme: "monokai",
-                    lineNumbers: true,
-                    autoCloseBrackets: true,
-                    matchBrackets: true,
-                    indentUnit: 4,
-                    tabSize: 4,
-                    lineWrapping: true,
-                    extraKeys: {"Ctrl-Space": "autocomplete"},
-                    hintOptions: {
-                        completeSingle: false
-                    }
+            // Switch tabs
+            const tabGraph = document.getElementById('tab-graph');
+            const tabTable = document.getElementById('tab-table');
+            const graphPanel = document.getElementById('graph-panel');
+            const tablePanel = document.getElementById('table-panel');
+            tabGraph && tabGraph.addEventListener('click', function() {
+                tabGraph.classList.add('active');
+                tabTable.classList.remove('active');
+                graphPanel.style.display = '';
+                tablePanel.style.display = 'none';
+            });
+            tabTable && tabTable.addEventListener('click', function() {
+                tabTable.classList.add('active');
+                tabGraph.classList.remove('active');
+                graphPanel.style.display = 'none';
+                tablePanel.style.display = '';
+            });
+
+            // Update textarea value before form submission
+            const forms = document.getElementsByTagName('form');
+            for (var i = 0; i < forms.length; i++) {
+                forms[i].addEventListener('submit', function() {
+                    var ta = document.getElementById('cypher_query');
+                    if (ta) ta.value = editor.getValue();
                 });
+            }
 
-                // Update textarea value before form submission
-                document.querySelector('form').addEventListener('submit', function() {
-                    document.getElementById('cypher_query').value = editor.getValue();
-                });
-
-                const nodes = {{ nodes_json|safe }};
-                const links = {{ edges_json|safe }};
-
-                const width = document.getElementById("graph").clientWidth;
+            // Graph rendering
+            const nodes = {{ nodes_json|safe }};
+            const links = {{ edges_json|safe }};
+            const graphContainer = document.getElementById('graph');
+            
+            if (graphContainer) {
+                const width = graphContainer.clientWidth;
                 const height = 600;
+                
+                // Clear previous content
+                graphContainer.innerHTML = '';
+                
+                if (!nodes || nodes.length === 0) {
+                    // Show empty state message
+                    graphContainer.innerHTML = '<div class="empty-graph">No data to visualize. Try running a query or create sample data.</div>';
+                } else {
+                    const svg = d3.select("#graph").append("svg").attr("width", width).attr("height", height);
+                    const zoomGroup = svg.append("g");
+                    const zoom = d3.zoom().scaleExtent([0.1, 10]).on("zoom", (event) => { zoomGroup.attr("transform", event.transform); });
+                    svg.call(zoom);
 
-                const svg = d3.select("#graph")
-                    .append("svg")
-                    .attr("width", width)
-                    .attr("height", height);
+                    // Create tooltip
+                    const tooltip = d3.select("body").append("div")
+                        .attr("id", "graph-tooltip")
+                        .style("opacity", 0);
 
-                const zoomGroup = svg.append("g");
+                    // Beautiful color schemes for different node types
+                    const colorSchemes = {
+                        'Person': { 
+                            fill: 'url(#personGradient)', 
+                            stroke: '#2c3e50',
+                            textColor: '#fff'
+                        },
+                        'Company': { 
+                            fill: 'url(#companyGradient)', 
+                            stroke: '#8e44ad',
+                            textColor: '#fff'
+                        },
+                        'default': { 
+                            fill: 'url(#defaultGradient)', 
+                            stroke: '#34495e',
+                            textColor: '#fff'
+                        }
+                    };
+                    
+                    // Create gradient definitions
+                    const defs = svg.append("defs");
+                    
+                    // Person gradient (blue to teal)
+                    const personGradient = defs.append("linearGradient")
+                        .attr("id", "personGradient")
+                        .attr("x1", "0%").attr("y1", "0%")
+                        .attr("x2", "100%").attr("y2", "100%");
+                    personGradient.append("stop").attr("offset", "0%").attr("stop-color", "#3498db");
+                    personGradient.append("stop").attr("offset", "100%").attr("stop-color", "#2980b9");
+                    
+                    // Company gradient (purple to pink)
+                    const companyGradient = defs.append("linearGradient")
+                        .attr("id", "companyGradient")
+                        .attr("x1", "0%").attr("y1", "0%")
+                        .attr("x2", "100%").attr("y2", "100%");
+                    companyGradient.append("stop").attr("offset", "0%").attr("stop-color", "#9b59b6");
+                    companyGradient.append("stop").attr("offset", "100%").attr("stop-color", "#8e44ad");
+                    
+                    // Default gradient (green to emerald)
+                    const defaultGradient = defs.append("linearGradient")
+                        .attr("id", "defaultGradient")
+                        .attr("x1", "0%").attr("y1", "0%")
+                        .attr("x2", "100%").attr("y2", "100%");
+                    defaultGradient.append("stop").attr("offset", "0%").attr("stop-color", "#27ae60");
+                    defaultGradient.append("stop").attr("offset", "100%").attr("stop-color", "#2ecc71");
+                    
+                    // Create links with beautiful styling
+                    const link = zoomGroup.append("g").attr("class", "links")
+                        .selectAll("line").data(links).enter().append("line")
+                        .attr("stroke", "#6c757d")
+                        .attr("stroke-opacity", 0.7)
+                        .attr("stroke-width", 3)
+                        .attr("stroke-dasharray", d => d.label ? "5,5" : "0")
+                        .style("filter", "drop-shadow(0 1px 2px rgba(0,0,0,0.1))");
 
-                const zoom = d3.zoom()
-                    .scaleExtent([0.1, 10])
-                    .on("zoom", (event) => {
-                        zoomGroup.attr("transform", event.transform);
+                    // Create link labels with better styling
+                    const linkLabels = zoomGroup.append("g").attr("class", "link-labels")
+                        .selectAll("text").data(links).enter().append("text")
+                        .text(d => d.label || "")
+                        .attr("font-size", "11px")
+                        .attr("fill", "#495057")
+                        .attr("font-weight", "600")
+                        .attr("text-anchor", "middle")
+                        .style("text-shadow", "1px 1px 2px rgba(255,255,255,0.8)");
+
+                    // Create nodes with beautiful styling
+                    const node = zoomGroup.append("g").attr("class", "nodes")
+                        .selectAll("circle").data(nodes).enter().append("circle")
+                        .attr("r", 25)
+                        .attr("fill", d => {
+                            const nodeType = d.labels && d.labels[0] ? d.labels[0] : 'default';
+                            return colorSchemes[nodeType] ? colorSchemes[nodeType].fill : colorSchemes['default'].fill;
+                        })
+                        .attr("stroke", d => {
+                            const nodeType = d.labels && d.labels[0] ? d.labels[0] : 'default';
+                            return colorSchemes[nodeType] ? colorSchemes[nodeType].stroke : colorSchemes['default'].stroke;
+                        })
+                        .attr("stroke-width", 3)
+                        .style("cursor", "pointer")
+                        .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.2))")
+                        .on("mouseover", function(event, d) {
+                            // Highlight node on hover
+                            d3.select(this)
+                                .transition().duration(200)
+                                .attr("r", 30)
+                                .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.3))");
+                            
+                            tooltip.transition().duration(200).style("opacity", .9);
+                            const props = d.properties || {};
+                            const labels = d.labels || [];
+                            tooltip.html(`
+                                <div style="font-weight: bold; color: #2c3e50; margin-bottom: 8px;">${d.label}</div>
+                                <div style="color: #6c757d; font-size: 0.85em; margin-bottom: 6px;">
+                                    <strong>Type:</strong> ${labels.join(', ') || 'Unknown'}
+                                </div>
+                                ${Object.entries(props).length > 0 ? 
+                                    '<div style="border-top: 1px solid #dee2e6; padding-top: 6px; margin-top: 6px;">' +
+                                    Object.entries(props).map(([k, v]) => 
+                                        `<div style="margin: 2px 0;"><strong>${k}:</strong> ${v}</div>`
+                                    ).join('') + '</div>' : ''
+                                }
+                            `)
+                            .style("left", (event.pageX + 15) + "px")
+                            .style("top", (event.pageY - 15) + "px");
+                        })
+                        .on("mouseout", function(d) {
+                            // Restore node size
+                            d3.select(this)
+                                .transition().duration(200)
+                                .attr("r", 25)
+                                .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.2))");
+                            
+                            tooltip.transition().duration(500).style("opacity", 0);
+                        })
+                        .call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+
+                    // Create node labels with beautiful styling
+                    const label = zoomGroup.append("g").attr("class", "node-labels")
+                        .selectAll("text").data(nodes).enter().append("text")
+                        .text(d => d.label)
+                        .attr("font-size", "12px")
+                        .attr("fill", "#fff")
+                        .attr("font-weight", "700")
+                        .attr("text-anchor", "middle")
+                        .attr("dy", ".35em")
+                        .style("pointer-events", "none")
+                        .style("text-shadow", "1px 1px 2px rgba(0,0,0,0.5)");
+
+                    // Force simulation with better parameters
+                    const simulation = d3.forceSimulation(nodes)
+                        .force("link", d3.forceLink(links).id(d => d.id).distance(120).strength(0.8))
+                        .force("charge", d3.forceManyBody().strength(-400))
+                        .force("center", d3.forceCenter(width / 2, height / 2))
+                        .force("collision", d3.forceCollide().radius(30))
+                        .force("x", d3.forceX(width / 2).strength(0.1))
+                        .force("y", d3.forceY(height / 2).strength(0.1));
+
+                    simulation.on("tick", () => {
+                        link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+                             .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+                        
+                        linkLabels.attr("x", d => (d.source.x + d.target.x) / 2)
+                                 .attr("y", d => (d.source.y + d.target.y) / 2);
+                        
+                        node.attr("cx", d => d.x).attr("cy", d => d.y);
+                        label.attr("x", d => d.x).attr("y", d => d.y);
                     });
 
-                svg.call(zoom);
+                    function dragstarted(event, d) { 
+                        if (!event.active) simulation.alphaTarget(0.3).restart(); 
+                        d.fx = d.x; d.fy = d.y; 
+                    }
+                    function dragged(event, d) { 
+                        d.fx = event.x; d.fy = event.y; 
+                    }
+                    function dragended(event, d) { 
+                        if (!event.active) simulation.alphaTarget(0); 
+                        d.fx = null; d.fy = null; 
+                    }
 
-                const link = zoomGroup.append("g")
-                    .attr("stroke", "#999")
-                    .attr("stroke-opacity", 0.6)
-                    .selectAll("line")
-                    .data(links)
-                    .enter().append("line")
-                    .attr("stroke-width", 2);
-
-                const node = zoomGroup.append("g")
-                    .attr("stroke", "#000")
-                    .attr("stroke-width", 1)
-                    .selectAll("circle")
-                    .data(nodes)
-                    .enter().append("circle")
-                    .attr("r", 18)
-                    .attr("fill", "#90EE90")
-                    .attr("filter", "drop-shadow(0px 2px 2px rgba(0,0,0,0.3))")
-                    .call(d3.drag()
-                        .on("start", dragstarted)
-                        .on("drag", dragged)
-                        .on("end", dragended)
-                    );
-
-                // Add gradient definition for 3D effect
-                svg.append("defs").append("radialGradient")
-                    .attr("id", "nodeGradient")
-                    .selectAll("stop")
-                    .data([
-                        {offset: "0%", color: "#a8ffa8"},
-                        {offset: "100%", color: "#90EE90"}
-                    ])
-                    .enter().append("stop")
-                    .attr("offset", d => d.offset)
-                    .attr("stop-color", d => d.color);
-
-                // Update node fill to use gradient
-                node.attr("fill", "url(#nodeGradient)");
-
-                const label = zoomGroup.append("g")
-                    .selectAll("text")
-                    .data(nodes)
-                    .enter().append("text")
-                    .text(d => d.label)
-                    .attr("font-size", "1em")
-                    .attr("text-anchor", "middle")
-                    .attr("dy", ".35em");
-
-                const tooltip = d3.select("#graph-tooltip");
-                node.on("mouseover", function(event, d) {
-                    tooltip.style("display", "block")
-                        .html(
-                            `<strong>${d.label}</strong><br>` +
-                            Object.entries(d.properties || {}).map(([k,v]) => `<span style='color:#007bff;'>${k}</span>: ${v}`).join("<br>")
-                        );
-                })
-                .on("mousemove", function(event) {
-                    tooltip.style("left", (event.pageX + 15) + "px")
-                           .style("top", (event.pageY - 10) + "px");
-                })
-                .on("mouseout", function() {
-                    tooltip.style("display", "none");
-                });
-
-                const simulation = d3.forceSimulation(nodes)
-                    .force("link", d3.forceLink(links).id(d => d.id).distance(120))
-                    .force("charge", d3.forceManyBody().strength(-350))
-                    .force("center", d3.forceCenter(width / 2, height / 2));
-
-                simulation.on("tick", () => {
-                    link
-                        .attr("x1", d => d.source.x)
-                        .attr("y1", d => d.source.y)
-                        .attr("x2", d => d.target.x)
-                        .attr("y2", d => d.target.y);
-
-                    node
-                        .attr("cx", d => d.x)
-                        .attr("cy", d => d.y);
-
-                    label
-                        .attr("x", d => d.x)
-                        .attr("y", d => d.y);
-                });
-
-                function dragstarted(event, d) {
-                    if (!event.active) simulation.alphaTarget(0.3).restart();
-                    d.fx = d.x;
-                    d.fy = d.y;
+                    // Zoom button handlers
+                    const zi = document.getElementById("zoom-in");
+                    const zo = document.getElementById("zoom-out");
+                    if (zi) zi.onclick = function() { svg.transition().duration(300).call(zoom.scaleBy, 1.2); };
+                    if (zo) zo.onclick = function() { svg.transition().duration(300).call(zoom.scaleBy, 0.8); };
                 }
-                function dragged(event, d) {
-                    d.fx = event.x;
-                    d.fy = event.y;
-                }
-                function dragended(event, d) {
-                    if (!event.active) simulation.alphaTarget(0);
-                    d.fx = null;
-                    d.fy = null;
-                }
-
-                // Zoom button handlers
-                document.getElementById("zoom-in").onclick = function() {
-                    svg.transition().duration(300).call(zoom.scaleBy, 1.2);
-                };
-                document.getElementById("zoom-out").onclick = function() {
-                    svg.transition().duration(300).call(zoom.scaleBy, 0.8);
-                };
-            </script>
-        </form>
+            }
+            
+            // Sample query loader function
+            function loadSampleQuery(query) {
+                editor.setValue(query);
+            }
+        </script>
     </div>
 {% endblock %}
