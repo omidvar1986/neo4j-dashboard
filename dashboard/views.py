@@ -1964,6 +1964,20 @@ def api_tools(request):
     # Get authentication status for display
     user_info = request.session.get('authenticated_user_info')
     
+    # Validate session if it exists
+    if user_info and user_info.get('valid'):
+        logger.info("🔍 Validating existing session in api_tools")
+        is_still_valid = _validate_session_still_active(user_info)
+        
+        if not is_still_valid:
+            logger.warning("⚠️ Session validation failed - clearing session")
+            # Clear the invalid session
+            request.session.pop('authenticated_user_info', None)
+            user_info = None
+            messages.error(request, "Your session has expired. Please authenticate again.")
+        else:
+            logger.info("✅ Session validation passed")
+    
     context = {
         'user_info': user_info,
     }
@@ -2667,6 +2681,132 @@ def create_feature_flag_ajax(request):
     
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
+@csrf_exempt
+def add_all_features_ajax(request):
+    """AJAX endpoint for adding all available features to a user with progress tracking"""
+    logger.info("🚀 add_all_features_ajax called")
+    if request.method == 'POST':
+        try:
+            # Get authenticated user info
+            user_info = request.session.get('authenticated_user_info')
+            if not user_info or not user_info.get('valid'):
+                return JsonResponse({'error': 'Authentication required'}, status=401)
+            
+            # Validate that the session is still active
+            if not _validate_session_still_active(user_info):
+                return JsonResponse({'error': 'Session has expired. Please authenticate again.'}, status=401)
+            
+            # Get database user ID from request (we're sending the database ID directly)
+            user_db_id = request.POST.get('user_id')
+            logger.info(f"🔍 Received user_db_id: {user_db_id}")
+            if not user_db_id:
+                logger.error("❌ No user_db_id provided in request")
+                return JsonResponse({'error': 'User database ID is required'}, status=400)
+            
+            # Get the user UID from session storage (we need both UID and database ID)
+            user_uid = request.session.get('selected_user_uid')
+            if not user_uid:
+                return JsonResponse({'error': 'User UID not found. Please search for the user again.'}, status=400)
+            
+            # Use UID for logging and database ID for API calls
+            user_id = user_uid
+            
+            # Create API instance
+            api = adminAPI()
+            api.session.cookies.set('sessionid', user_info['session_id'], domain="testnetadminv2.ntx.ir", path='/')
+            api.session.cookies.set('csrf_token', user_info['csrf_token'], domain="testnetadminv2.ntx.ir", path='/')
+            
+            # Get all available features
+            logger.info("🔍 Getting all available features...")
+            features = api.get_feature_flags()
+            
+            if not features:
+                return JsonResponse({'error': 'No features available'}, status=400)
+            
+            logger.info(f"✅ Found {len(features)} features to add")
+            
+            # Add each feature with real-time progress
+            results = []
+            for i, feature in enumerate(features):
+                try:
+                    feature_name = feature.get('text', '')
+                    feature_value = feature.get('value', '')
+                    
+                    logger.info(f"🔍 Adding feature {i+1}/{len(features)}: {feature_name}")
+                    
+                    # Create feature flag
+                    success = api.create_feature_flag(user_id, feature_value, 'done', user_db_id)
+                    
+                    result = {
+                        'feature_name': feature_name,
+                        'feature_value': feature_value,
+                        'success': success,
+                        'index': i + 1,
+                        'total': len(features),
+                        'progress_percentage': round(((i + 1) / len(features)) * 100, 1)
+                    }
+                    results.append(result)
+                    
+                    # No artificial delay - process features as fast as possible
+                    
+                except Exception as e:
+                    logger.error(f"❌ Error adding feature {feature_name}: {e}")
+                    result = {
+                        'feature_name': feature_name,
+                        'feature_value': feature_value,
+                        'success': False,
+                        'error': str(e),
+                        'index': i + 1,
+                        'total': len(features),
+                        'progress_percentage': round(((i + 1) / len(features)) * 100, 1)
+                    }
+                    results.append(result)
+            
+            # Count successful additions
+            successful = sum(1 for r in results if r['success'])
+            failed = len(results) - successful
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Added {successful} features successfully. {failed} failed.',
+                'results': results,
+                'total': len(features),
+                'successful': successful,
+                'failed': failed
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error in add_all_features_ajax: {e}")
+            return JsonResponse({'error': f'Internal server error: {str(e)}'}, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@csrf_exempt
+def store_user_db_id(request):
+    """Store user database ID and UID in Django session"""
+    if request.method == 'POST':
+        try:
+            user_db_id = request.POST.get('user_db_id', '').strip()
+            user_uid = request.POST.get('user_uid', '').strip()
+            
+            if not user_db_id:
+                return JsonResponse({'error': 'User database ID is required'}, status=400)
+            
+            if not user_uid:
+                return JsonResponse({'error': 'User UID is required'}, status=400)
+            
+            # Store both in Django session
+            request.session['dynamicUserId'] = user_db_id
+            request.session['selected_user_uid'] = user_uid
+            logger.info(f"✅ Stored user database ID: {user_db_id} and UID: {user_uid} in session")
+            
+            return JsonResponse({'success': True, 'message': 'User information stored successfully'})
+            
+        except Exception as e:
+            logger.error(f"❌ Error storing user information: {e}")
+            return JsonResponse({'error': f'Internal server error: {str(e)}'}, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 @login_required
 def search_user_by_mobile(request):
@@ -3597,3 +3737,150 @@ def debug_csrf_from_url(request):
             }, status=500)
     
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+def centralized_user_search(request):
+    """Centralized user search endpoint for all admin tools"""
+    try:
+        logger.info("🔍 Centralized user search endpoint called")
+        
+        if request.method != 'POST':
+            return JsonResponse({
+                'success': False,
+                'error': 'Only POST method allowed'
+            })
+        
+        # Get search term
+        search_term = request.POST.get('search_term', '').strip()
+        if not search_term:
+            return JsonResponse({
+                'success': False,
+                'error': 'Search term is required'
+            })
+        
+        logger.info(f"Searching for: {search_term}")
+        
+        # Get authenticated user info - STRICT AUTHENTICATION CHECK
+        user_info = request.session.get('authenticated_user_info')
+        if not user_info or not user_info.get('valid'):
+            logger.warning("❌ Unauthorized access attempt to centralized user search")
+            return JsonResponse({
+                'success': False,
+                'error': 'Authentication required. Please authenticate first.'
+            }, status=401)
+        
+        # Additional security: Check if session is still valid
+        if not user_info.get('session_id') or not user_info.get('csrf_token'):
+            logger.warning("❌ Invalid session data in centralized user search")
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid session. Please authenticate again.'
+            }, status=401)
+        
+        # Validate that the session is still active
+        if not _validate_session_still_active(user_info):
+            logger.warning("❌ Session has expired in centralized user search")
+            # Clear the invalid session
+            request.session.pop('authenticated_user_info', None)
+            return JsonResponse({
+                'success': False,
+                'error': 'Your session has expired. Please authenticate again.'
+            }, status=401)
+        
+        # Initialize admin API
+        admin_api = adminAPI(
+            session_id=user_info.get('session_id'),
+            csrf_token=user_info.get('csrf_token'),
+            user_id=user_info.get('user_id')
+        )
+        
+        # Get multiple users from autocomplete API
+        logger.info("🔍 Getting multiple users from autocomplete API...")
+        users = admin_api.get_multiple_users_from_autocomplete_api(
+            user_info.get('csrf_token'), 
+            search_term, 
+            user_info.get('user_id')
+        )
+        
+        if users and len(users) > 0:
+            logger.info(f"✅ Found {len(users)} users: {[u.get('full_name', u.get('email', 'Unknown')) for u in users]}")
+            
+            return JsonResponse({
+                'success': True,
+                'users': users,
+                'message': f'Found {len(users)} user(s)'
+            })
+        else:
+            logger.warning(f"❌ No users found for: {search_term}")
+            return JsonResponse({
+                'success': False,
+                'error': f'No users found for "{search_term}". Try different search terms like mobile number, email, or name.'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error in centralized user search: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Search error: {str(e)}'
+        })
+
+def last_otp(request):
+    """Display the last OTP messages for monitoring"""
+    try:
+        # Get authenticated user info
+        user_info = request.session.get('authenticated_user_info')
+        if not user_info or not user_info.get('valid'):
+            return render(request, 'dashboard/last_otp.html', {
+                'user_info': {'valid': False},
+                'error': 'Authentication required. Please authenticate first.'
+            })
+        
+        # Validate that the session is still active
+        if not _validate_session_still_active(user_info):
+            # Clear the invalid session
+            request.session.pop('authenticated_user_info', None)
+            return render(request, 'dashboard/last_otp.html', {
+                'user_info': {'valid': False},
+                'error': 'Your session has expired. Please authenticate again.'
+            })
+        
+        # Initialize admin API
+        admin_api = adminAPI()
+        admin_api.session.cookies.set('sessionid', user_info['session_id'], domain="testnetadminv2.ntx.ir", path='/')
+        admin_api.session.cookies.set('csrf_token', user_info['csrf_token'], domain="testnetadminv2.ntx.ir", path='/')
+        
+        # Get last OTP messages
+        logger.info("🔍 Fetching last OTP messages...")
+        otp_messages = admin_api.get_last_otp_messages(limit=100)
+        logger.info(f"🔍 Retrieved {len(otp_messages)} messages from API")
+        
+        # Sort by PK (assuming higher PK = more recent)
+        otp_messages.sort(key=lambda x: int(x['pk']) if x['pk'].isdigit() else 0, reverse=True)
+        logger.info(f"🔍 Sorted messages by PK")
+        
+        # Mark the first message as latest (since we sorted by PK descending)
+        # The highest PK should correspond to the most recent message
+        if otp_messages:
+            # Mark only the first message as latest
+            otp_messages[0]['is_latest'] = True
+            for i in range(1, len(otp_messages)):
+                otp_messages[i]['is_latest'] = False
+            
+            logger.info(f"✅ Marked first message as latest: PK={otp_messages[0]['pk']}, Date={otp_messages[0]['created_at']}")
+        else:
+            logger.warning("⚠️ No OTP messages found to mark as latest")
+        
+        return render(request, 'dashboard/last_otp.html', {
+            'user_info': user_info,
+            'otp_messages': otp_messages,
+            'total_count': len(otp_messages)
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Error in last_otp view: {e}")
+        return render(request, 'dashboard/last_otp.html', {
+            'user_info': {'valid': False},
+            'error': f'Error loading OTP messages: {str(e)}'
+        })

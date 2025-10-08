@@ -155,53 +155,26 @@
             </div>
         </div>
 
-        <!-- User Search Section -->
+        <!-- Selected User Display Section -->
         {% if is_authenticated and user_info %}
         <div class="row mb-4">
-            <div class="col-12">
-                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
-                    <div class="card-body" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white;">
-                        <div class="row align-items-center">
-                            <div class="col-md-8">
-                                <h5 class="mb-2"><i class="fas fa-search"></i> Search User by Mobile Number or Email</h5>
-                                <p class="mb-0">Enter a mobile number or email to find user details and create transactions</p>
-                                    </div>
-                            <div class="col-md-4">
-                                <div class="input-group">
-                                    <input type="text" class="form-control" id="mobileSearchInput" 
-                                           placeholder="Enter mobile number or email (e.g., 09358165170 or user@example.com)" 
-                                           style="border-radius: 8px 0 0 8px;">
-                                    <button class="btn btn-light" type="button" id="searchUserBtn" 
-                                            style="border-radius: 0 8px 8px 0;">
-                                        <i class="fas fa-search"></i> Search
-                                    </button>
-                                    </div>
-                                </div>
-                            </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-        <!-- Search Results Section -->
-        <div class="row mb-4" id="searchResultsSection" style="display: none;">
             <div class="col-12">
                 <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
                     <div class="card-body" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
                         <div class="row align-items-center">
                             <div class="col-md-8">
-                                <h5 class="mb-2"><i class="fas fa-user-check"></i> Found User Details</h5>
-                                <div id="userDetailsDisplay">
-                                    <!-- User details will be populated here -->
+                                <h5 class="mb-2"><i class="fas fa-user-check"></i> Selected User Details</h5>
+                                <div id="selectedUserDisplay">
+                                    <!-- User details will be populated here from centralized selection -->
                                 </div>
                             </div>
                             <div class="col-md-4 text-end">
                                 <button class="btn btn-light" id="loadWalletsBtn">
                                     <i class="fas fa-wallet"></i> Load Wallets
                                 </button>
-                                <button class="btn btn-outline-secondary ms-2" onclick="clearSearch()">
-                                    <i class="fas fa-search"></i> Search Another User
-                                </button>
+                                <a href="{% url 'dashboard:api_tools' %}" class="btn btn-outline-secondary ms-2">
+                                    <i class="fas fa-arrow-left"></i> Change User
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -230,58 +203,34 @@
                                     <select class="form-select form-select-lg" id="walletSelect" required style="border-radius: 8px; border: 1px solid #ddd;">
                                         <option value="">Loading wallets...</option>
                                     </select>
-                        </div>
-                                <div class="col-md-6">
-                                    <label for="transactionType" class="form-label" style="font-weight: 600; color: #333;">
-                                        <i class="fas fa-tag me-2"></i>نوع تراکنش (Transaction Type)
-                                    </label>
-                                    <select class="form-select form-select-lg" id="transactionType" required style="border-radius: 8px; border: 1px solid #ddd;">
-                                        <option value="">Select type...</option>
-                                        <option value="60">Manual (Rial)</option>
-                                        <option value="61">Deposit</option>
-                                        <option value="62">Withdrawal</option>
-                                    </select>
-                    </div>
+                                </div>
                                 <div class="col-md-6">
                                     <label for="amountInput" class="form-label" style="font-weight: 600; color: #333;">
                                         <i class="fas fa-dollar-sign me-2"></i>مبلغ تراکنش (Transaction Amount)
                                     </label>
                                     <input type="number" class="form-control form-control-lg" id="amountInput" 
                                            placeholder="Enter amount" step="0.01" required style="border-radius: 8px; border: 1px solid #ddd;">
-                            </div>
-                                <div class="col-md-6">
-                                    <label for="descriptionInput" class="form-label" style="font-weight: 600; color: #333;">
-                                        <i class="fas fa-comment me-2"></i>توضیحات (Description)
-                                    </label>
-                                    <input type="text" class="form-control form-control-lg" id="descriptionInput" 
-                                           placeholder="Transaction description" value="Add transaction" style="border-radius: 8px; border: 1px solid #ddd;">
-                            </div>
-                                <div class="col-md-6">
-                                    <label for="refModuleInput" class="form-label" style="font-weight: 600; color: #333;">
-                                        <i class="fas fa-cog me-2"></i>Ref module (اختیاری)
-                                    </label>
-                                    <input type="text" class="form-control form-control-lg" id="refModuleInput" 
-                                           placeholder="Ref module (optional)" style="border-radius: 8px; border: 1px solid #ddd;">
-                            </div>
-                                <div class="col-md-6">
-                                    <label for="refIdInput" class="form-label" style="font-weight: 600; color: #333;">
-                                        <i class="fas fa-hashtag me-2"></i>Ref id (اختیاری)
-                                    </label>
-                                    <input type="text" class="form-control form-control-lg" id="refIdInput" 
-                                           placeholder="Ref id (optional)" style="border-radius: 8px; border: 1px solid #ddd;">
-                            </div>
+                                </div>
                                 <div class="col-12">
-                                    <div class="d-flex justify-content-end gap-3 mt-4">
-                                        <button type="button" class="btn btn-outline-secondary btn-lg" id="cancelTransactionBtn" style="border-radius: 8px;">
-                                            <i class="fas fa-times me-2"></i> Cancel
-                                        </button>
+                                    <div class="d-flex justify-content-center gap-3 mt-4">
                                         <button type="submit" class="btn btn-success btn-lg" style="border-radius: 8px; padding: 12px 30px;">
                                             <i class="fas fa-plus me-2"></i> افزودن تراکنش (Add Transaction)
                                         </button>
+                                    </div>
+                                </div>
                             </div>
+                        </form>
+                        
+                        <!-- Success Message Display -->
+                        <div id="successMessage" class="alert alert-success mt-4" style="display: none;">
+                            <div class="text-center">
+                                <i class="fas fa-check-circle fa-3x mb-3"></i>
+                                <h4 class="mb-3">Transaction Added Successfully!</h4>
+                                <p class="mb-0" id="successMessageText">
+                                    <!-- Success message will be populated here -->
+                                </p>
                             </div>
                         </div>
-                        </form>
                     </div>
                     </div>
                             </div>
@@ -310,37 +259,6 @@
                     </div>
                     </div>
 
-<!-- Transaction List Section -->
-<div class="card mt-4" id="transactionListCard" style="display: none;">
-    <div class="card-header">
-        <h5 class="card-title mb-0">
-            <i class="fas fa-list me-2"></i>
-            Transaction History
-        </h5>
-                    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ردیف</th>
-                        <th>شناسه تراکنش</th>
-                        <th>تاریخ ایجاد</th>
-                        <th>نوع تراکنش</th>
-                        <th>مقدار تراکنش</th>
-                        <th>کیف پول</th>
-                        <th>وضعیت</th>
-                        <th>ایجاد کننده</th>
-                        <th>توضیحات</th>
-                                </tr>
-                            </thead>
-                <tbody id="transactionListBody">
-                    <!-- Transactions will be added here dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-    </div>
-</div>
 
 <!-- Notification Bell -->
 <div class="notification-overlay" id="notificationOverlay"></div>
@@ -355,62 +273,73 @@
 </div>
 
 <script>
-// User search functionality
+// Centralized user selection functionality
 let currentSearchedUser = null;
 
-document.getElementById('searchUserBtn').addEventListener('click', function() {
-    const mobileNumber = document.getElementById('mobileSearchInput').value.trim();
+// Load selected user on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadSelectedUser();
+});
+
+function loadSelectedUser() {
+    console.log('🔍 Loading selected user...');
+    // Try to get user from URL parameters first
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('selected_user_id'); // This is the database ID
+    const userUid = urlParams.get('selected_user_uid'); // This is the UID
+    const userEmail = urlParams.get('selected_user_email');
+    const userName = urlParams.get('selected_user_name');
     
-    if (!mobileNumber) {
-        showBellNotification('Error', 'Please enter a mobile number', 'error');
+    console.log('🔍 URL params - userId (DB ID):', userId, 'userUid:', userUid, 'userEmail:', userEmail, 'userName:', userName);
+    
+    if (userId && userUid) {
+        // User info from URL parameters
+        currentSearchedUser = {
+            user_id: userUid, // Use UID for API calls
+            uid: userUid, // Store UID
+            email: userEmail || '',
+            full_name: userName || '',
+            id: userId // Database ID for reference
+        };
+        console.log('🔍 User from URL params:', currentSearchedUser);
+        displayUserDetails(currentSearchedUser);
+        showBellNotification('Success', `Loaded user: ${userName || userEmail}`, 'success');
         return;
     }
     
-    const searchBtn = this;
-    searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
-    searchBtn.disabled = true;
-    
-    fetch('{% url "dashboard:search_user_by_mobile" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: `mobile_number=${encodeURIComponent(mobileNumber)}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            currentSearchedUser = data.user_info;
-            displayUserDetails(data.user_info);
-            showBellNotification('Success', `User found: ${data.user_info.full_name}`, 'success');
-        } else {
-            showBellNotification('Error', data.error || 'User not found', 'error');
-            hideSearchResults();
+    // Try to get user from session storage
+    const storedUser = sessionStorage.getItem('selectedUser');
+    console.log('🔍 Stored user from session:', storedUser);
+    if (storedUser) {
+        try {
+            currentSearchedUser = JSON.parse(storedUser);
+            console.log('🔍 Parsed user from session:', currentSearchedUser);
+            displayUserDetails(currentSearchedUser);
+            showBellNotification('Success', `Loaded user: ${currentSearchedUser.full_name || currentSearchedUser.email}`, 'success');
+            return;
+        } catch (e) {
+            console.error('Error parsing stored user:', e);
+            sessionStorage.removeItem('selectedUser');
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showBellNotification('Error', 'An error occurred while searching', 'error');
-        hideSearchResults();
-    })
-    .finally(() => {
-        searchBtn.innerHTML = '<i class="fas fa-search"></i> Search';
-        searchBtn.disabled = false;
-    });
-});
+    }
+    
+    // No user selected, redirect to API tools
+    showBellNotification('Error', 'No user selected. Please select a user first.', 'error');
+    setTimeout(() => {
+        window.location.href = "{% url 'dashboard:api_tools' %}";
+    }, 2000);
+}
 
 function displayUserDetails(userInfo) {
-    const userDetailsDisplay = document.getElementById('userDetailsDisplay');
-    const searchResultsSection = document.getElementById('searchResultsSection');
-    const loadWalletsBtn = document.getElementById('loadWalletsBtn');
+    console.log('🔍 Displaying user details:', userInfo);
+    const selectedUserDisplay = document.getElementById('selectedUserDisplay');
     const transactionFormSection = document.getElementById('transactionFormSection');
     
-    userDetailsDisplay.innerHTML = `
+    selectedUserDisplay.innerHTML = `
         <div class="row">
             <div class="col-md-3">
-                <strong>User ID:</strong> ${userInfo.user_id || 'N/A'}
-                    </div>
+                <strong>User ID (UID):</strong> ${userInfo.user_id || userInfo.uid || 'N/A'}
+            </div>
             <div class="col-md-3">
                 <strong>Email:</strong> ${userInfo.email || 'N/A'}
             </div>
@@ -418,50 +347,27 @@ function displayUserDetails(userInfo) {
                 <strong>Full Name:</strong> ${userInfo.full_name || 'N/A'}
             </div>
             <div class="col-md-3">
-                <strong>ID:</strong> ${userInfo.id || 'N/A'}
+                <strong>Database ID:</strong> ${userInfo.id || 'N/A'}
             </div>
         </div>
     `;
     
-    searchResultsSection.style.display = 'block';
     transactionFormSection.style.display = 'block';
-    
-    // Show the transaction list
-    document.getElementById('transactionListCard').style.display = 'block';
     
     // Store the searched user ID for wallet loading and transaction creation
     window.searchedUserId = userInfo.user_id;
+    console.log('🔍 Set window.searchedUserId to:', window.searchedUserId);
+    console.log('🔍 userInfo object:', userInfo);
+    console.log('🔍 userInfo.user_id:', userInfo.user_id);
+    console.log('🔍 userInfo.uid:', userInfo.uid);
     
     // Automatically load wallets for the found user
+    console.log('🔍 About to call loadWalletsForUser with:', userInfo.user_id);
     loadWalletsForUser(userInfo.user_id);
     
-    // Load real transactions from API
-    loadTransactionsFromAPI(userInfo.user_id);
-    
-    // Set transaction type to Manual (60) by default
-    document.getElementById('transactionType').value = '60';
 }
 
-function clearSearch() {
-    // Clear the search input
-    document.getElementById('searchInput').value = '';
-    
-    // Hide search results and transaction form
-    hideSearchResults();
-    
-    // Clear the searched user ID
-    window.searchedUserId = null;
-}
-
-function hideSearchResults() {
-    document.getElementById('searchResultsSection').style.display = 'none';
-    document.getElementById('transactionFormSection').style.display = 'none';
-    document.getElementById('transactionListCard').style.display = 'none';
-    currentSearchedUser = null;
-    window.searchedUserId = null;
-}
-
-// Load wallets for the searched user
+// Load wallets for the selected user
 document.getElementById('loadWalletsBtn').addEventListener('click', function() {
     if (!currentSearchedUser) {
         showBellNotification('Error', 'No user selected', 'error');
@@ -471,6 +377,7 @@ document.getElementById('loadWalletsBtn').addEventListener('click', function() {
 });
 
 function loadWalletsForUser(userId) {
+    console.log('🔍 Loading wallets for user ID:', userId);
     const walletSelect = document.getElementById('walletSelect');
     walletSelect.innerHTML = '<option value="">Loading wallets...</option>';
     
@@ -480,8 +387,12 @@ function loadWalletsForUser(userId) {
             'X-CSRFToken': '{{ csrf_token }}'
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('🔍 Wallet loading response status:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('🔍 Wallet loading response data:', data);
         if (data.success && data.wallets) {
             walletSelect.innerHTML = '<option value="">Select a wallet...</option>';
             data.wallets.forEach(wallet => {
@@ -490,12 +401,14 @@ function loadWalletsForUser(userId) {
                 option.textContent = wallet.text;
                 walletSelect.appendChild(option);
             });
-    } else {
+            console.log('✅ Loaded', data.wallets.length, 'wallets');
+        } else {
+            console.log('❌ No wallets found or error:', data.error);
             walletSelect.innerHTML = '<option value="">No wallets found</option>';
         }
     })
     .catch(error => {
-        console.error('Error loading wallets:', error);
+        console.error('❌ Error loading wallets:', error);
         walletSelect.innerHTML = '<option value="">Error loading wallets</option>';
     });
 }
@@ -509,20 +422,28 @@ document.getElementById('transactionForm').addEventListener('submit', function(e
         return;
     }
     
-    const formData = {
-        user_id: window.searchedUserId,
-        wallet: document.getElementById('walletSelect').value,
-        amount: document.getElementById('amountInput').value,
-        description: document.getElementById('descriptionInput').value,
-        ref_id: document.getElementById('refIdInput').value,
-        ref_module: document.getElementById('refModuleInput').value
-    };
+    const walletSelect = document.getElementById('walletSelect');
+    const amountInput = document.getElementById('amountInput');
     
     // Validate form
-    if (!formData.wallet || !formData.amount) {
-        showBellNotification('Error', 'Please fill in all required fields', 'error');
+    if (!walletSelect.value || !amountInput.value) {
+        showBellNotification('Error', 'Please select a wallet and enter an amount', 'error');
         return;
     }
+    
+    // Get selected wallet name for display
+    const selectedWalletOption = walletSelect.options[walletSelect.selectedIndex];
+    const walletName = selectedWalletOption.text;
+    
+    const formData = {
+        user_id: window.searchedUserId,
+        wallet: walletSelect.value,
+        amount: amountInput.value,
+        transaction_type: '60', // Manual (Rial) - set as default
+        description: 'Add transaction', // Set as default
+        ref_id: '', // Empty - not required
+        ref_module: '' // Empty - not required
+    };
     
     // Show loading state
     const submitBtn = this.querySelector('button[type="submit"]');
@@ -541,19 +462,23 @@ document.getElementById('transactionForm').addEventListener('submit', function(e
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Show simple success message
-            alert('Transaction created successfully!');
+            // Show success message in the dedicated area
+            const successMessage = document.getElementById('successMessage');
+            const successMessageText = document.getElementById('successMessageText');
             
-            // Reload transactions from API to show the real data
-            if (window.searchedUserId) {
-                loadTransactionsFromAPI(window.searchedUserId);
-            }
+            successMessageText.textContent = `Amount ${amountInput.value} was added to wallet ${walletName}`;
+            successMessage.style.display = 'block';
             
-            // Reset form but keep the search results visible
+            // Scroll to success message
+            successMessage.scrollIntoView({ behavior: 'smooth' });
+            
+            // Reset form
             this.reset();
             
-            // Don't hide search results - keep them visible so user can see the transaction list
-            // and search for another user if needed
+            // Hide success message after 5 seconds
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 5000);
         } else {
             showBellNotification('Error', data.error || 'Failed to create transaction', 'error');
         }
@@ -568,11 +493,6 @@ document.getElementById('transactionForm').addEventListener('submit', function(e
     });
 });
 
-// Cancel transaction button
-document.getElementById('cancelTransactionBtn').addEventListener('click', function() {
-    hideSearchResults();
-    document.getElementById('mobileSearchInput').value = '';
-});
 
 // Notification functions
 function showBellNotification(title, message, type) {
@@ -616,82 +536,7 @@ function confirmTransaction() {
         hideNotification();
 }
 
-// Transaction list management
-let transactionCounter = 0;
 
-function loadTransactionsFromAPI(userId) {
-    fetch(`/get-transactions-ajax/?user_id=${userId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.transactions) {
-                displayTransactionsFromAPI(data.transactions);
-    } else {
-                console.error('Failed to load transactions:', data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error loading transactions:', error);
-        });
-}
 
-function displayTransactionsFromAPI(transactions) {
-    const tbody = document.getElementById('transactionListBody');
-    tbody.innerHTML = ''; // Clear existing transactions
-    
-    if (transactions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center">No transactions found</td></tr>';
-        return;
-    }
-    
-    transactions.forEach((transaction, index) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${transaction.id || 'N/A'}</td>
-            <td>${transaction.created_at || 'N/A'}</td>
-            <td>${transaction.type || 'Manual'}</td>
-            <td>${transaction.amount || 'N/A'}</td>
-            <td>${transaction.wallet || 'N/A'}</td>
-            <td>
-                <span class="badge ${transaction.status === 'تایید شده' ? 'bg-success' : 'bg-warning'}">${transaction.status || 'N/A'}</span>
-            </td>
-            <td>${transaction.creator || 'N/A'}</td>
-            <td>${transaction.description || 'N/A'}</td>
-        `;
-        tbody.appendChild(row);
-    });
-}
-
-function addTransactionToList(transaction) {
-    // This function is now used only for adding new transactions locally
-    // The main transaction list is loaded from the API
-    transactionCounter++;
-    
-    // Show the transaction list card if it's hidden
-    const transactionListCard = document.getElementById('transactionListCard');
-    transactionListCard.style.display = 'block';
-    
-    // Get the table body
-    const tbody = document.getElementById('transactionListBody');
-    
-    // Create new row
-    const row = document.createElement('tr');
-    row.innerHTML = `
-        <td>${transactionCounter}</td>
-        <td>${transaction.id}</td>
-        <td>${transaction.created_at}</td>
-        <td>Manual</td>
-        <td>${transaction.amount}</td>
-        <td>${transaction.wallet}</td>
-        <td>
-            <span class="badge bg-success">${transaction.status}</span>
-        </td>
-        <td>میلاد امیدوار</td>
-        <td>${transaction.description}</td>
-    `;
-    
-    // Add to the top of the table
-    tbody.insertBefore(row, tbody.firstChild);
-}
 </script>
 {% endblock %}

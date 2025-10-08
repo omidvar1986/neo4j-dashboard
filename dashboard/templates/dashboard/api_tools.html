@@ -263,6 +263,72 @@
                 </div>
             </div>
         </div>
+
+        <!-- Centralized User Search Section - Only show when authenticated -->
+        <div class="row mb-4" id="userSearchSection" style="display: none;">
+            <div class="col-12">
+                <div class="card project-card">
+                    <div class="card-body" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white;">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-2"><i class="fas fa-users"></i> Select Target User</h5>
+                                <p class="mb-0">Search and select the user you want to perform actions on. This selection will be used across all admin tools.</p>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="centralizedUserSearch" 
+                                           placeholder="Enter mobile, email, or name (e.g., 09358165170, مسعود)" 
+                                           style="border-radius: 8px 0 0 8px;"
+                                           {% if not user_info.valid %}disabled{% endif %}>
+                                    <button class="btn btn-light" type="button" id="centralizedSearchBtn" 
+                                            style="border-radius: 0 8px 8px 0;"
+                                            {% if not user_info.valid %}disabled{% endif %}>
+                                        <i class="fas fa-search"></i> Search
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected User Display -->
+        <div class="row mb-4" id="selectedUserSection" style="display: none;">
+            <div class="col-12">
+                <div class="card project-card">
+                    <div class="card-body" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-2"><i class="fas fa-user-check"></i> Selected User</h5>
+                                <div id="selectedUserDetails">
+                                    <!-- User details will be populated here -->
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-light" onclick="clearSelectedUser()">
+                                    <i class="fas fa-times"></i> Change User
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Search Results Dropdown -->
+        <div class="row mb-4" id="userSearchResults" style="display: none;">
+            <div class="col-12">
+                <div class="card project-card">
+                    <div class="card-body">
+                        <h6 class="mb-3"><i class="fas fa-list"></i> Search Results - Please select a user:</h6>
+                        <div id="userSearchResultsList">
+                            <!-- Search results will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% else %}
         <div class="row mb-4">
             <div class="col-12">
@@ -322,18 +388,16 @@
                 </div>
             </div>
 
-            <!-- New Tool 2 Card (Placeholder) -->
+            <!-- Last OTP Card -->
             <div class="col-lg-6 col-xl-4 mb-4">
-                <div class="card project-card" style="opacity: 0.6;">
+                <div class="card project-card">
                     <div class="card-body">
-                        <div class="project-icon" style="background: linear-gradient(135deg, #2af598 0%, #009efd 100%);">
-                            <i class="fas fa-plug"></i>
+                        <div class="project-icon" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
+                            <i class="fas fa-key"></i>
                         </div>
-                        <h3 class="project-title">New Tool 2</h3>
-                        <p class="project-description">Another placeholder for a future tool. Ready for implementation.</p>
-                        <button class="btn btn-secondary project-btn" disabled>
-                            <i class="fas fa-lock"></i> Coming Soon
-                        </button>
+                        <h3 class="project-title">Last OTP</h3>
+                        <p class="project-description">Monitor recent OTP messages for security and verification purposes. No user selection required.</p>
+                        <a href="{% url 'dashboard:last_otp' %}" class="btn btn-primary project-btn"><i class="fas fa-arrow-right"></i> Open Tool</a>
                     </div>
                 </div>
             </div>
@@ -342,31 +406,377 @@
 </div>
 
 <script>
-// Override tool button clicks to check for authentication
+// Global variables for centralized user search
+let selectedUser = null;
+let searchResults = [];
+
+// Override tool button clicks to check for authentication and selected user
 document.addEventListener('DOMContentLoaded', function() {
-    const toolLinks = document.querySelectorAll('a[href*="transaction-management"], a[href*="create-wallet"]');
+    // Check authentication status - this is the primary check
+    const hasSessionData = {{ user_info.valid|yesno:"true,false" }};
+    const userSearchSection = document.getElementById('userSearchSection');
+    
+    // ALWAYS hide user search section initially for security
+    userSearchSection.style.display = 'none';
+    
+    // Only show user search section if properly authenticated
+    if (hasSessionData) {
+        userSearchSection.style.display = 'block';
+        // Initialize centralized user search only when authenticated
+        initializeCentralizedUserSearch();
+    }
+    
+    // Additional security: Disable search functionality if not authenticated
+    if (!hasSessionData) {
+        const searchInput = document.getElementById('centralizedUserSearch');
+        const searchBtn = document.getElementById('centralizedSearchBtn');
+        if (searchInput) searchInput.disabled = true;
+        if (searchBtn) searchBtn.disabled = true;
+    }
+    
+    const toolLinks = document.querySelectorAll('a[href*="transaction-management"], a[href*="create-wallet"], a[href*="feature-flags"]');
     toolLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             // Check if user is authenticated by looking for success message or session data
             const successMessage = document.querySelector('.alert-success');
-            const hasSessionData = {{ user_info.valid|yesno:"true,false" }};
             
             if (!successMessage && !hasSessionData) {
                 e.preventDefault();
                 alert('Please authenticate first by entering your session ID and CSRF token above.');
                 return false;
             }
+            
+            // Check if a user is selected
+            if (!selectedUser) {
+                e.preventDefault();
+                alert('Please select a target user first using the search above.');
+                return false;
+            }
+            
+            // Add selected user info to the URL as query parameters
+            const url = new URL(this.href);
+            url.searchParams.set('selected_user_id', selectedUser.id); // Use database ID
+            url.searchParams.set('selected_user_uid', selectedUser.user_id || selectedUser.uid); // Add UID separately
+            url.searchParams.set('selected_user_email', selectedUser.email || '');
+            url.searchParams.set('selected_user_name', selectedUser.full_name || '');
+            this.href = url.toString();
         });
     });
-    
-    // Note: Session clearing is now only done manually via the "Clear Session" button
-    // This prevents accidental session clearing when navigating between pages
     
     // Initialize Bootstrap tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+});
+
+// Initialize centralized user search functionality
+function initializeCentralizedUserSearch() {
+    // SECURITY CHECK: Only initialize if authenticated
+    const hasSessionData = {{ user_info.valid|yesno:"true,false" }};
+    if (!hasSessionData) {
+        console.warn('Attempted to initialize user search without authentication');
+        return;
+    }
+    
+    const searchBtn = document.getElementById('centralizedSearchBtn');
+    const searchInput = document.getElementById('centralizedUserSearch');
+    
+    if (searchBtn && searchInput) {
+        searchBtn.addEventListener('click', function() {
+            performCentralizedUserSearch();
+        });
+        
+        // Allow Enter key to trigger search
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performCentralizedUserSearch();
+            }
+        });
+        
+        // Add real-time search suggestions as user types
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.trim();
+            
+            // Clear previous timeout
+            clearTimeout(searchTimeout);
+            
+            // Hide previous results
+            hideSearchResults();
+            
+            if (searchTerm.length >= 2) { // Start searching after 2 characters
+                // Debounce the search to avoid too many requests
+                searchTimeout = setTimeout(() => {
+                    performCentralizedUserSearch(true); // true = is suggestion search
+                }, 300);
+            }
+        });
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#userSearchResults')) {
+                hideSearchResults();
+            }
+        });
+    }
+}
+
+// Perform centralized user search
+function performCentralizedUserSearch(isSuggestion = false) {
+    // SECURITY CHECK: Ensure user is authenticated before allowing search
+    const hasSessionData = {{ user_info.valid|yesno:"true,false" }};
+    if (!hasSessionData) {
+        showNotification('Error', 'Authentication required. Please authenticate first.', 'error');
+        return;
+    }
+    
+    const searchTerm = document.getElementById('centralizedUserSearch').value.trim();
+    
+    if (!searchTerm) {
+        if (!isSuggestion) {
+            showNotification('Error', 'Please enter a search term', 'error');
+        }
+        return;
+    }
+    
+    const searchBtn = document.getElementById('centralizedSearchBtn');
+    if (!isSuggestion) {
+        searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+        searchBtn.disabled = true;
+    }
+    
+    fetch('{% url "dashboard:centralized_user_search" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `search_term=${encodeURIComponent(searchTerm)}`
+    })
+    .then(response => {
+        // Check for session expiration (401 status)
+        if (response.status === 401) {
+            // Session has expired, hide user search section and show error
+            const userSearchSection = document.getElementById('userSearchSection');
+            if (userSearchSection) {
+                userSearchSection.style.display = 'none';
+            }
+            
+            // Clear any selected user
+            selectedUser = null;
+            sessionStorage.removeItem('selectedUser');
+            
+            if (!isSuggestion) {
+                showNotification('Session Expired', 'Your session has expired. Please authenticate again.', 'error');
+                // Reload the page to show the authentication form
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            }
+            return;
+        }
+        
+        return response.json();
+    })
+    .then(data => {
+        if (!data) return; // Handle 401 case above
+        
+        if (data.success) {
+            searchResults = data.users || [];
+            if (isSuggestion) {
+                displaySearchResults(searchResults, true); // true = is suggestion mode
+            } else {
+                displaySearchResults(searchResults, false);
+                showNotification('Success', `Found ${searchResults.length} user(s)`, 'success');
+            }
+        } else {
+            if (!isSuggestion) {
+                showNotification('Error', data.error || 'No users found', 'error');
+            }
+            hideSearchResults();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        if (!isSuggestion) {
+            showNotification('Error', 'An error occurred while searching', 'error');
+        }
+        hideSearchResults();
+    })
+    .finally(() => {
+        if (!isSuggestion) {
+            searchBtn.innerHTML = '<i class="fas fa-search"></i> Search';
+            searchBtn.disabled = false;
+        }
+    });
+}
+
+// Display search results
+function displaySearchResults(users, isSuggestion = false) {
+    const resultsContainer = document.getElementById('userSearchResultsList');
+    const resultsSection = document.getElementById('userSearchResults');
+    
+    if (users.length === 0) {
+        if (isSuggestion) {
+            // Hide suggestions if no results
+            resultsSection.style.display = 'none';
+            return;
+        } else {
+            resultsContainer.innerHTML = '<p class="text-muted">No users found</p>';
+        }
+    } else {
+        if (isSuggestion) {
+            // For suggestions, show a more compact list
+            resultsContainer.innerHTML = users.map((user, index) => `
+                <div class="card mb-1" style="cursor: pointer; border: 1px solid #e9ecef;" onclick="selectUser(${index})">
+                    <div class="card-body py-2">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <strong>${user.full_name || 'N/A'}</strong>
+                                ${user.email ? `<br><small class="text-muted">${user.email}</small>` : ''}
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <small class="text-muted">ID: ${user.user_id || user.uid || 'N/A'}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            // For regular search, show full details
+            resultsContainer.innerHTML = users.map((user, index) => `
+                <div class="card mb-2" style="cursor: pointer;" onclick="selectUser(${index})">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Name:</strong> ${user.full_name || 'N/A'}<br>
+                                <strong>Email:</strong> ${user.email || 'N/A'}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>User ID:</strong> ${user.user_id || user.uid || 'N/A'}<br>
+                                <strong>Database ID:</strong> ${user.id || 'N/A'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+    
+    resultsSection.style.display = 'block';
+}
+
+// Select a user from search results
+function selectUser(index) {
+    if (index >= 0 && index < searchResults.length) {
+        selectedUser = searchResults[index];
+        displaySelectedUser(selectedUser);
+        hideSearchResults();
+        showNotification('Success', `Selected user: ${selectedUser.full_name || selectedUser.email}`, 'success');
+    }
+}
+
+// Display selected user
+function displaySelectedUser(user) {
+    const selectedUserDetails = document.getElementById('selectedUserDetails');
+    const selectedUserSection = document.getElementById('selectedUserSection');
+    
+    selectedUserDetails.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Name:</strong> ${user.full_name || 'N/A'}<br>
+                <strong>Email:</strong> ${user.email || 'N/A'}
+            </div>
+            <div class="col-md-6">
+                <strong>User ID:</strong> ${user.user_id || user.uid || 'N/A'}<br>
+                <strong>Database ID:</strong> ${user.id || 'N/A'}
+            </div>
+        </div>
+    `;
+    
+    selectedUserSection.style.display = 'block';
+    
+    // Store selected user in session storage for other pages
+    sessionStorage.setItem('selectedUser', JSON.stringify(user));
+    
+    // Store the database ID and UID in Django session for backend use
+    if (user.id && (user.user_id || user.uid)) {
+        const user_uid = user.user_id || user.uid;
+        fetch('{% url "dashboard:store_user_db_id" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `user_db_id=${encodeURIComponent(user.id)}&user_uid=${encodeURIComponent(user_uid)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ User information stored in session - DB ID:', user.id, 'UID:', user_uid);
+            } else {
+                console.error('❌ Failed to store user information:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error storing user information:', error);
+        });
+    }
+}
+
+// Clear selected user
+function clearSelectedUser() {
+    selectedUser = null;
+    document.getElementById('selectedUserSection').style.display = 'none';
+    document.getElementById('centralizedUserSearch').value = '';
+    sessionStorage.removeItem('selectedUser');
+    showNotification('Info', 'User selection cleared', 'info');
+}
+
+// Hide search results
+function hideSearchResults() {
+    document.getElementById('userSearchResults').style.display = 'none';
+}
+
+// Show notification
+function showNotification(title, message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.right = '20px';
+    notification.style.zIndex = '9999';
+    notification.style.minWidth = '300px';
+    
+    notification.innerHTML = `
+        <strong>${title}:</strong> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+
+// Load selected user from session storage on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const storedUser = sessionStorage.getItem('selectedUser');
+    if (storedUser) {
+        try {
+            selectedUser = JSON.parse(storedUser);
+            displaySelectedUser(selectedUser);
+        } catch (e) {
+            console.error('Error parsing stored user:', e);
+            sessionStorage.removeItem('selectedUser');
+        }
+    }
 });
 </script>
 {% endblock %}

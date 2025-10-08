@@ -73,6 +73,7 @@
     .loading-spinner {
         display: none;
     }
+
 </style>
 {% endblock %}
 
@@ -94,57 +95,34 @@
                 </a>
             </div>
 
-            <!-- User Search Section -->
+            <!-- Selected User Display Section -->
             <div class="search-section">
                 <h4 class="mb-3">
-                    <i class="fas fa-search me-2"></i>
-                    Search User
+                    <i class="fas fa-user me-2"></i>
+                    Selected User
                 </h4>
-                <div class="row">
-                    <div class="col-md-8">
-                        <div class="input-group">
-                            <input type="text" class="form-control form-control-lg" id="userSearchInput" 
-                                   placeholder="Enter mobile number, email, or name (e.g., 09358165170 or user@example.com)" 
-                                   style="border-radius: 10px 0 0 10px;">
-                            <button class="btn btn-light btn-lg" type="button" id="searchUserBtn" 
-                                    style="border-radius: 0 10px 10px 0;">
-                                <i class="fas fa-search"></i> Search
-                            </button>
-                        </div>
-                    </div>
+                <div id="selectedUserDisplay">
+                    <!-- User details will be populated here from centralized selection -->
                 </div>
             </div>
 
-            <!-- Search Results Section -->
-            <div id="searchResultsSection" class="feature-card" style="display: none;">
-                <div class="user-info-card">
-                    <h5 class="mb-3">
-                        <i class="fas fa-user me-2"></i>
-                        Selected User
-                    </h5>
-                    <div id="userDetails"></div>
-                </div>
+            <!-- Feature Management Section -->
+            <div id="featureManagementSection" class="feature-card" style="display: none;">
                 
                 <div class="row">
-                    <div class="col-md-6">
-                        <h6 class="mb-3">
-                            <i class="fas fa-list me-2"></i>
-                            Available Features
-                        </h6>
-                        <div class="feature-list" id="featureList">
-                            <div class="text-center">
-                                <div class="loading-spinner" id="loadingFeatures">
-                                    <i class="fas fa-spinner fa-spin me-2"></i>Loading features...
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
+                    <div class="col-md-8">
                         <h6 class="mb-3">
                             <i class="fas fa-plus-circle me-2"></i>
                             Add Feature Flags
                         </h6>
+                        <div class="mb-3">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="fullNameInput" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Database ID</label>
+                            <input type="text" class="form-control" id="databaseIdInput" readonly>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">Status</label>
                             <select class="form-select" id="statusSelect">
@@ -157,23 +135,39 @@
                             <i class="fas fa-plus me-2"></i>
                             Add All Features to User
                         </button>
+                
                     </div>
                 </div>
             </div>
 
-            <!-- Feature Flags List -->
-            <div class="feature-card">
-                <h5 class="mb-3">
-                    <i class="fas fa-flag me-2"></i>
-                    Feature Flags Status
-                </h5>
-                <div id="featureFlagsList">
-                    <div class="text-center text-muted">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Search for a user to view and manage their feature flags
-                    </div>
-                </div>
-            </div>
+             <!-- Progress Section (Hidden by default) -->
+             <div class="feature-card" id="progressSection" style="display: none;">
+                 <h5 class="mb-3">
+                     <i class="fas fa-cog fa-spin me-2"></i>
+                     Adding Features...
+                 </h5>
+                 
+                 <!-- Progress Bar -->
+                 <div class="mb-4">
+                     <div class="d-flex justify-content-between align-items-center mb-2">
+                         <span class="fw-bold">Progress</span>
+                         <span id="progressText" class="badge bg-primary">0/0</span>
+                     </div>
+                 <div class="progress" style="height: 25px; border-radius: 12px; background-color: #e9ecef;">
+                     <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                          role="progressbar" style="width: 0%; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); transition: width 0.3s ease;">
+                     </div>
+                 </div>
+                 </div>
+                 
+                 <!-- Features Being Added -->
+                 <div id="featuresList" class="mt-3">
+                     <h6 class="mb-3">Features being added:</h6>
+                     <div id="featuresContainer" class="row">
+                         <!-- Features will be added here dynamically -->
+                     </div>
+                 </div>
+             </div>
         </div>
     </div>
 </div>
@@ -183,67 +177,81 @@
 let currentSearchedUser = null;
 let availableFeatures = [];
 
-// User search functionality
-document.getElementById('searchUserBtn').addEventListener('click', function() {
-    const mobileNumber = document.getElementById('userSearchInput').value.trim();
+// Simple Progress Bar Functions
+function updateProgress(percentage, current = null, total = null) {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
     
-    if (!mobileNumber) {
-        showNotification('Error', 'Please enter a mobile number, email, or name', 'error');
+    if (progressBar && progressText) {
+        progressBar.style.width = percentage + '%';
+        
+        // Show progress with current/total if available
+        if (current !== null && total !== null) {
+            progressText.textContent = `${current}/${total} (${Math.round(percentage)}%)`;
+        } else {
+            progressText.textContent = Math.round(percentage) + '%';
+        }
+        
+        console.log('Progress updated to:', Math.round(percentage) + '%');
+    } else {
+        console.error('Progress bar elements not found!');
+    }
+}
+
+// Load selected user on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadSelectedUser();
+});
+
+function loadSelectedUser() {
+    // Try to get user from URL parameters first
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('selected_user_id'); // This is now the database ID
+    const userUid = urlParams.get('selected_user_uid'); // This is the UID
+    const userEmail = urlParams.get('selected_user_email');
+    const userName = urlParams.get('selected_user_name');
+    
+    if (userId) {
+        // User info from URL parameters
+        currentSearchedUser = {
+            user_id: userUid || userId, // Use UID for user_id
+            uid: userUid || userId, // Store UID
+            email: userEmail || '',
+            full_name: userName || '',
+            id: userId // This is the database ID
+        };
+        displayUserDetails(currentSearchedUser);
+        showNotification('Success', `Loaded user: ${userName || userEmail}`, 'success');
         return;
     }
     
-    const searchBtn = this;
-    searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
-    searchBtn.disabled = true;
+    // Try to get user from session storage
+    const storedUser = sessionStorage.getItem('selectedUser');
+    if (storedUser) {
+        try {
+            currentSearchedUser = JSON.parse(storedUser);
+            displayUserDetails(currentSearchedUser);
+            showNotification('Success', `Loaded user: ${currentSearchedUser.full_name || currentSearchedUser.email}`, 'success');
+            return;
+        } catch (e) {
+            console.error('Error parsing stored user:', e);
+            sessionStorage.removeItem('selectedUser');
+        }
+    }
     
-    fetch('{% url "dashboard:search_user_for_feature_flags" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: `mobile_number=${encodeURIComponent(mobileNumber)}`
-    })
-    .then(response => {
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.log('Response data:', data);
-        if (data.success) {
-            currentSearchedUser = data.user_info;
-            displayUserDetails(data.user_info);
-            try {
-                loadAvailableFeatures();
-            } catch (error) {
-                console.error('Error in loadAvailableFeatures:', error);
-            }
-            showNotification('Success', `User found: ${data.user_info.full_name || data.user_info.email}`, 'success');
-        } else {
-            showNotification('Error', data.error || 'User not found', 'error');
-            hideSearchResults();
-        }
-    })
-    .catch(error => {
-        console.error('Error details:', error);
-        console.error('Error stack:', error.stack);
-        showNotification('Error', 'An error occurred while searching', 'error');
-        hideSearchResults();
-    })
-    .finally(() => {
-        searchBtn.innerHTML = '<i class="fas fa-search"></i> Search';
-        searchBtn.disabled = false;
-    });
-});
+    // No user selected, redirect to API tools
+    showNotification('Error', 'No user selected. Please select a user first.', 'error');
+    setTimeout(() => {
+        window.location.href = "{% url 'dashboard:api_tools' %}";
+    }, 2000);
+}
 
 // Display user details
 function displayUserDetails(userInfo) {
-    const userDetails = document.getElementById('userDetails');
-    userDetails.innerHTML = `
+    const selectedUserDisplay = document.getElementById('selectedUserDisplay');
+    const featureManagementSection = document.getElementById('featureManagementSection');
+    
+    const userInfoHtml = `
         <div class="row">
             <div class="col-md-6">
                 <strong>User ID:</strong> ${userInfo.user_id || userInfo.uid || 'N/A'}<br>
@@ -251,231 +259,118 @@ function displayUserDetails(userInfo) {
             </div>
             <div class="col-md-6">
                 <strong>Full Name:</strong> ${userInfo.full_name || 'N/A'}<br>
-                <strong>ID:</strong> ${userInfo.id || 'N/A'}
+                <strong>Database ID:</strong> ${userInfo.id || 'N/A'}
             </div>
         </div>
     `;
     
-    document.getElementById('searchResultsSection').style.display = 'block';
+    // Populate the main selected user display
+    selectedUserDisplay.innerHTML = userInfoHtml;
+    featureManagementSection.style.display = 'block';
+    
+    // Populate the form fields
+    document.getElementById('fullNameInput').value = userInfo.full_name || '';
+    document.getElementById('databaseIdInput').value = userInfo.id || '';
     
     // Store current user info for later use
     window.currentSearchedUser = userInfo;
     
-    // Load available features and existing user feature flags
-    loadAvailableFeatures();
-    loadUserFeatureFlags();
-}
-
-// Load existing user feature flags
-function loadUserFeatureFlags() {
-    console.log('Loading user feature flags...');
-    
-    fetch('{% url "dashboard:get_user_feature_flags_ajax" %}')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('🔍 User feature flags response:', data);
-            
-            if (data.success && data.existing_flags) {
-                window.userExistingFlags = data.existing_flags;
-                console.log('✅ Stored user existing flags:', window.userExistingFlags);
-            } else {
-                console.log('ℹ️ No existing flags found or error:', data.error);
-                window.userExistingFlags = [];
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error loading user feature flags:', error);
-            window.userExistingFlags = [];
-        });
-}
-
-// Load available features
-function loadAvailableFeatures() {
-    console.log('Loading available features...');
-    const loadingDiv = document.getElementById('loadingFeatures');
-    loadingDiv.style.display = 'block';
-    
-    fetch('{% url "dashboard:get_feature_flags_ajax" %}')
-    .then(response => {
-        console.log('Feature flags response status:', response.status);
-        return response.json();
-    })
-    .then(data => {
-        console.log('Feature flags response data:', data);
-        loadingDiv.style.display = 'none';
-        
-        if (data.success) {
-            availableFeatures = data.feature_flags;
-            displayAvailableFeatures(data.feature_flags);
+    // Enable the Add All Features button
             document.getElementById('addAllFeaturesBtn').disabled = false;
-        } else {
-            showNotification('Error', data.error || 'Failed to load features', 'error');
-        }
-    })
-    .catch(error => {
-        loadingDiv.style.display = 'none';
-        console.error('Feature flags error details:', error);
-        console.error('Feature flags error stack:', error.stack);
-        showNotification('Error', 'An error occurred while loading features', 'error');
-    });
+    
+    // User selected - ready for feature management
 }
 
-// Display available features
-function displayAvailableFeatures(features) {
-    const featureList = document.getElementById('featureList');
-    
-    if (features.length === 0) {
-        featureList.innerHTML = '<div class="text-center text-muted">No features available</div>';
-        return;
-    }
-    
-    // Get existing user feature flags
-    const existingFlags = window.userExistingFlags || [];
-    console.log('🔍 Displaying features with existing flags:', existingFlags);
-    
-    let html = '';
-    features.forEach(feature => {
-        // Check if this feature is already assigned to the user
-        const isAssigned = existingFlags.some(existing => 
-            existing.text === feature.text || existing.value === feature.value
-        );
-        
-        const statusText = isAssigned ? 'Added' : 'Not Added';
-        const statusClass = isAssigned ? 'status-done' : 'status-waiting';
-        
-        html += `
-            <div class="feature-flag-item">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <strong>${feature.text}</strong>
-                        <br>
-                        <small class="text-muted">${feature.value}</small>
-                    </div>
-                    <span class="status-badge ${statusClass}">${statusText}</span>
-                </div>
-            </div>
-        `;
-    });
-    
-    featureList.innerHTML = html;
-}
+
+
 
 // Add all features to user
 document.getElementById('addAllFeaturesBtn').addEventListener('click', function() {
     console.log('Add All Features button clicked');
     console.log('Current searched user:', currentSearchedUser);
-    console.log('Available features:', availableFeatures);
     
-    if (!currentSearchedUser || availableFeatures.length === 0) {
-        console.log('Error: No user selected or no features available');
-        showNotification('Error', 'No user selected or no features available', 'error');
+    if (!currentSearchedUser) {
+        console.log('Error: No user selected');
+        showNotification('Error', 'No user selected. Please search for a user first.', 'error');
         return;
     }
     
-    const status = document.getElementById('statusSelect').value;
-    console.log('Selected status:', status);
     const addBtn = this;
+    const progressSection = document.getElementById('progressSection');
+    const progressBar = document.getElementById('progressBar');
+    const featuresContainer = document.getElementById('featuresContainer');
+    
+    // Show progress section
+    progressSection.style.display = 'block';
     addBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding Features...';
     addBtn.disabled = true;
     
-    let completed = 0;
-    let errors = 0;
+    // Clear previous results
+    featuresContainer.innerHTML = '';
+    updateProgress(0);
     
-    // Get existing user feature flags
-    const existingFlags = window.userExistingFlags || [];
-    console.log('🔍 Existing flags for filtering:', existingFlags);
+    // Get the user database ID
+    const userId = currentSearchedUser.id;
+    console.log('Sending user ID:', userId);
     
-    // Filter out features that are already assigned
-    const featuresToAdd = availableFeatures.filter(feature => {
-        const isAssigned = existingFlags.some(existing => 
-            existing.text === feature.text || existing.value === feature.value
-        );
-        console.log(`Feature ${feature.text}: isAssigned=${isAssigned}`);
-        return !isAssigned;
-    });
-    
-    console.log(`🔍 Total features: ${availableFeatures.length}, Features to add: ${featuresToAdd.length}`);
-    
-    if (featuresToAdd.length === 0) {
-        showNotification('Info', 'All features are already assigned to this user!', 'info');
-        addBtn.innerHTML = '<i class="fas fa-plus me-2"></i> Add All Features to User';
-        addBtn.disabled = false;
-        return;
-    }
-    
-    // Add each unassigned feature
-    featuresToAdd.forEach((feature, index) => {
-        setTimeout(() => {
-            const userId = currentSearchedUser.user_id || currentSearchedUser.uid;
-            const requestBody = `user_id=${encodeURIComponent(userId)}&feature_name=${encodeURIComponent(feature.value)}&status=${encodeURIComponent(status)}`;
-            
-            console.log(`Creating feature ${index + 1}/${featuresToAdd.length}:`, {
-                userId: userId,
-                featureName: feature.value,
-                status: status,
-                requestBody: requestBody
-            });
-            
-            fetch('{% url "dashboard:create_feature_flag_ajax" %}', {
+    // Call the new endpoint
+    fetch('{% url "dashboard:add_all_features_ajax" %}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
-                body: requestBody
+        body: `user_id=${encodeURIComponent(userId)}`
             })
-            .then(response => {
-                console.log(`Feature ${index + 1} response status:`, response.status);
-                return response.json();
-            })
-            .then(data => {
-                console.log(`Feature ${index + 1} response data:`, data);
-                completed++;
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Add all features response:', data);
                 
-                if (data.success) {
-                    // Update the feature item to show it's been added
-                    const featureItems = document.querySelectorAll('.feature-flag-item');
-                    if (featureItems[index]) {
-                        const statusBadge = featureItems[index].querySelector('.status-badge');
-                        statusBadge.textContent = 'Added';
-                        statusBadge.className = 'status-badge status-done';
-                    }
-                } else {
-                    errors++;
-                }
-                
-                // Check if all features have been processed
-                if (completed + errors === featuresToAdd.length) {
-                    addBtn.innerHTML = '<i class="fas fa-plus me-2"></i> Add All Features to User';
-                    addBtn.disabled = false;
+        if (data.success) {
+            // Show success message
+            showNotification('Success', data.message, 'success');
+            
+            // Update progress bar to 100%
+            updateProgress(100);
+            
+            // Show all features that were added with real-time progress
+            data.results.forEach((result, index) => {
+                setTimeout(() => {
+                    // Update progress bar for each feature with current/total
+                    updateProgress(result.progress_percentage, result.index, result.total);
                     
-                    if (errors === 0) {
-                        showNotification('Success', `${featuresToAdd.length} new features added successfully!`, 'success');
-                        // Reload the features to show updated status
-                        loadAvailableFeatures();
-                        loadUserFeatureFlags();
+                    const featureDiv = document.createElement('div');
+                    featureDiv.className = 'col-md-6 mb-2';
+                    featureDiv.innerHTML = `
+                        <div class="d-flex align-items-center p-2 rounded ${result.success ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10'}">
+                            <i class="fas ${result.success ? 'fa-check-circle text-success' : 'fa-times-circle text-danger'} me-2"></i>
+                            <span class="flex-grow-1">${result.feature_name}</span>
+                            <small class="text-muted">${result.index}/${result.total}</small>
+                        </div>
+                    `;
+                    featuresContainer.appendChild(featureDiv);
+                }, index * 100); // Faster display for better real-time feel
+            });
+            
                     } else {
-                        showNotification('Warning', `${completed} features added, ${errors} failed`, 'warning');
-                    }
+            showNotification('Error', data.error || 'Failed to add features', 'error');
                 }
             })
             .catch(error => {
-                completed++;
-                errors++;
-                console.error('Error adding feature:', error);
-                
-                if (completed + errors === availableFeatures.length) {
+        console.error('Error adding all features:', error);
+        showNotification('Error', 'An error occurred while adding features: ' + error.message, 'error');
+        updateProgress(0); // Reset progress on error
+    })
+    .finally(() => {
+        // Reset button
                     addBtn.innerHTML = '<i class="fas fa-plus me-2"></i> Add All Features to User';
                     addBtn.disabled = false;
-                    showNotification('Warning', `${completed} features added, ${errors} failed`, 'warning');
-                }
-            });
-        }, index * 500); // Add delay between requests to avoid overwhelming the server
     });
 });
 

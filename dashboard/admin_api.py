@@ -1135,3 +1135,151 @@ class adminAPI:
         except Exception as e:
             logger.error(f"❌ Error in comprehensive search: {e}")
             return None
+
+    def get_multiple_users_from_autocomplete_api(self, csrf_token, search_term=None, user_id=None):
+        """Get multiple users from autocomplete API - returns all matching users"""
+        try:
+            logger.info(f"🔍 Getting multiple users from autocomplete API for: {search_term}")
+            
+            autocomplete_url = f"{self.base_url}/accounts/fullname_email_autocomplete"
+            
+            # Use the provided user_id for referer, or default to accounts/ if not provided
+            referer_url = f"{self.base_url}/accounts/{user_id}/user_authentication" if user_id else f"{self.base_url}/accounts/"
+            
+            headers = {
+                'accept': '*/*',
+                'accept-language': 'en-US,en;q=0.9',
+                'cache-control': 'no-cache',
+                'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'dnt': '1',
+                'origin': 'https://testnetadminv2.ntx.ir',
+                'pragma': 'no-cache',
+                'priority': 'u=1, i',
+                'referer': referer_url,
+                'sec-ch-ua': '"Not=A?Brand";v="24", "Chromium";v="140"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"macOS"',
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-origin',
+                'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+                'x-csrftoken': csrf_token,
+                'x-requested-with': 'XMLHttpRequest'
+            }
+            
+            # Prepare form data
+            form_data = {
+                'term': search_term,
+                'q': search_term,
+                '_type': 'query'
+            }
+                
+            response = self.session.post(autocomplete_url, headers=headers, data=form_data)
+            logger.info(f"Autocomplete response: {response.status_code}")
+            
+            if response.status_code == 200:
+                try:
+                    result = response.json()
+                    logger.info(f"Autocomplete result: {result}")
+                    
+                    if 'results' in result and result['results']:
+                        # Convert all results to our standard format
+                        users = []
+                        for user in result['results']:
+                            user_data = {
+                                'uid': user.get('uid'),
+                                'email': user.get('email', ''),
+                                'full_name': user.get('full_name', ''),
+                                'id': user.get('id'),
+                                'user_id': user.get('uid'),  # Add user_id for consistency
+                                'tags': user.get('tags', [])
+                            }
+                            users.append(user_data)
+                        
+                        logger.info(f"✅ Found {len(users)} users with autocomplete API")
+                        return users
+                    else:
+                        logger.info("No results found in autocomplete API")
+                        return []
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse JSON: {e}")
+                    return []
+            else:
+                logger.error(f"Autocomplete API error: {response.status_code}")
+                return []
+            
+        except Exception as e:
+            logger.error(f"Error getting multiple users from autocomplete API: {e}")
+            return []
+
+    def get_last_otp_messages(self, limit=20):
+        """Get the last OTP messages from the admin panel"""
+        try:
+            url = f"{self.base_url}/admin/accounts/usersms/"
+            response = self.session.get(url)
+            
+            if response.status_code == 200:
+                # Parse the HTML response to extract OTP messages
+                soup = BeautifulSoup(response.text, 'html.parser')
+                otp_messages = []
+                
+                # Find all tables on the page
+                tables = soup.find_all('table')
+                
+                # Look for the main data table (usually the largest one)
+                main_table = None
+                max_rows = 0
+                
+                for table in tables:
+                    rows = table.find_all('tr')
+                    if len(rows) > max_rows:
+                        max_rows = len(rows)
+                        main_table = table
+                
+                if main_table:
+                    # Get all rows (including header)
+                    all_rows = main_table.find_all('tr')
+                    
+                    # Skip header row and process data rows
+                    for i, row in enumerate(all_rows[1:], 1):
+                        if i > limit:
+                            break
+                            
+                        cells = row.find_all(['td', 'th'])
+                        
+                        if len(cells) >= 6:  # At least 6 columns
+                            # Extract data from each column (PK is in cell 1, not 0)
+                            pk = cells[1].get_text(strip=True) if len(cells) > 1 else ''
+                            created_at = cells[2].get_text(strip=True) if len(cells) > 2 else ''
+                            to_phone = cells[3].get_text(strip=True) if len(cells) > 3 else ''
+                            user = cells[4].get_text(strip=True) if len(cells) > 4 else ''
+                            tp = cells[5].get_text(strip=True) if len(cells) > 5 else ''
+                            text = cells[6].get_text(strip=True) if len(cells) > 6 else ''
+                            details = cells[7].get_text(strip=True) if len(cells) > 7 else ''
+                            
+                            # Only add if we have meaningful data (PK and at least text or user)
+                            if pk and (text or user or to_phone):
+                                otp_messages.append({
+                                    'pk': pk,
+                                    'created_at': created_at,
+                                    'to': to_phone,
+                                    'user': user,
+                                    'tp': tp,
+                                    'text': text,
+                                    'details': details
+                                })
+                else:
+                    logger.error("❌ No suitable table found on the page")
+                
+                logger.info(f"✅ Found {len(otp_messages)} OTP messages")
+                return otp_messages
+            else:
+                logger.error(f"❌ Failed to get OTP messages: {response.status_code}")
+                logger.error(f"Response content: {response.text[:500]}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting OTP messages: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return []

@@ -56,4 +56,8 @@ urlpatterns = [
     path('debug-cookie-parsing/', views.debug_cookie_parsing, name='debug_cookie_parsing'),
     path('debug-csrf-extraction/', views.debug_csrf_extraction, name='debug_csrf_extraction'),
     path('debug-csrf-from-url/', views.debug_csrf_from_url, name='debug_csrf_from_url'),
+    path('centralized-user-search/', views.centralized_user_search, name='centralized_user_search'),
+    path('add-all-features-ajax/', views.add_all_features_ajax, name='add_all_features_ajax'),
+    path('store-user-db-id/', views.store_user_db_id, name='store_user_db_id'),
+    path('last-otp/', views.last_otp, name='last_otp'),
 ]

@@ -20,46 +20,15 @@
         {% endfor %}
     {% endif %}
     
-    <!-- User Search Section -->
+    <!-- Selected User Display Section -->
     <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-search"></i> Search User</h5>
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-user-check"></i> Selected User</h5>
         </div>
         <div class="card-body">
-            <p class="text-muted">Search for a user by mobile number, email, or name to automatically fill the User ID field.</p>
-            <form method="get" class="mb-3">
-                <div class="row">
-                    <div class="col-md-8">
-                        <input type="text" name="search_term" class="form-control" placeholder="Enter mobile number, email, or name (e.g., 09358165170, میلاد امیدوار, m.omidvar@nobitex.net)" value="{{ request.GET.search_term|default:'' }}">
-                    </div>
-                    <div class="col-md-4">
-                        <button type="submit" name="search_user" class="btn btn-primary w-100">
-                            <i class="fas fa-search"></i> Search User
-                        </button>
-                    </div>
-                </div>
-            </form>
-            
-            {% if searched_user %}
-            <div class="alert alert-success">
-                <h6><i class="fas fa-check-circle"></i> User Found!</h6>
-                <div class="row">
-                    <div class="col-md-6">
-                        <strong>Name:</strong> {{ searched_user.full_name|default:"N/A" }}<br>
-                        <strong>Email:</strong> {{ searched_user.email|default:"N/A" }}
-                    </div>
-                    <div class="col-md-6">
-                        <strong>User ID:</strong> {{ searched_user.uid|default:"N/A" }}<br>
-                        <strong>Database ID:</strong> {{ searched_user.id|default:"N/A" }}
-                    </div>
-                </div>
-                <div class="mt-2">
-                    <button type="button" class="btn btn-sm btn-outline-success" onclick="fillUserId('{{ searched_user.uid|default:searched_user.id }}')">
-                        <i class="fas fa-arrow-down"></i> Use This User ID
-                    </button>
-                </div>
+            <div id="selectedUserDisplay">
+                <!-- User details will be populated here from centralized selection -->
             </div>
-            {% endif %}
         </div>
     </div>
 
@@ -72,36 +41,87 @@
 </div>
 
 <script>
-// Check for global token on page load
+// Load selected user on page load
 document.addEventListener('DOMContentLoaded', function() {
-    const globalToken = sessionStorage.getItem('globalAuthToken');
-    if (globalToken) {
-        document.getElementById('tokenStatus').style.display = 'block';
-        document.getElementById('tokenPreview').textContent = globalToken.substring(0, 20) + '...';
-    } else {
-        // Redirect to API tools if no token
-        window.location.href = "{% url 'dashboard:api_tools' %}";
-    }
+    loadSelectedUser();
 });
 
-// Function to fill User ID field with searched user's ID
-function fillUserId(userId) {
+function loadSelectedUser() {
+    // Try to get user from URL parameters first
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('selected_user_id');
+    const userEmail = urlParams.get('selected_user_email');
+    const userName = urlParams.get('selected_user_name');
+    
+    if (userId) {
+        // User info from URL parameters
+        const selectedUser = {
+            user_id: userId,
+            email: userEmail || '',
+            full_name: userName || '',
+            id: userId
+        };
+        displaySelectedUser(selectedUser);
+        autoFillForm(selectedUser);
+        return;
+    }
+    
+    // Try to get user from session storage
+    const storedUser = sessionStorage.getItem('selectedUser');
+    if (storedUser) {
+        try {
+            const selectedUser = JSON.parse(storedUser);
+            displaySelectedUser(selectedUser);
+            autoFillForm(selectedUser);
+            return;
+        } catch (e) {
+            console.error('Error parsing stored user:', e);
+            sessionStorage.removeItem('selectedUser');
+        }
+    }
+    
+    // No user selected, redirect to API tools
+    alert('No user selected. Please select a user first.');
+    window.location.href = "{% url 'dashboard:api_tools' %}";
+}
+
+function displaySelectedUser(userInfo) {
+    const selectedUserDisplay = document.getElementById('selectedUserDisplay');
+    
+    selectedUserDisplay.innerHTML = `
+        <div class="alert alert-success">
+            <h6><i class="fas fa-check-circle"></i> Selected User</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>Name:</strong> ${userInfo.full_name || 'N/A'}<br>
+                    <strong>Email:</strong> ${userInfo.email || 'N/A'}
+                </div>
+                <div class="col-md-6">
+                    <strong>User ID:</strong> ${userInfo.user_id || userInfo.uid || 'N/A'}<br>
+                    <strong>Database ID:</strong> ${userInfo.id || 'N/A'}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function autoFillForm(userInfo) {
+    // Auto-fill the user_id field
     const userIdField = document.querySelector('input[name="user_id"]');
     if (userIdField) {
-        userIdField.value = userId;
-        userIdField.focus();
-        // Show a brief success message
-        const button = event.target;
-        const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-check"></i> Filled!';
-        button.classList.remove('btn-outline-success');
-        button.classList.add('btn-success');
-        setTimeout(() => {
-            button.innerHTML = originalText;
-            button.classList.remove('btn-success');
-            button.classList.add('btn-outline-success');
-        }, 2000);
+        userIdField.value = userInfo.user_id || userInfo.uid || userInfo.id;
     }
+    
+    // Show success message
+    const successAlert = document.createElement('div');
+    successAlert.className = 'alert alert-info alert-dismissible fade show';
+    successAlert.innerHTML = `
+        <i class="fas fa-info-circle"></i> User ID has been automatically filled from your selection.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const form = document.querySelector('form');
+    form.insertBefore(successAlert, form.firstChild);
 }
 </script>
 {% endblock %}
