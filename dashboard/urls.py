@@ -60,4 +60,7 @@ urlpatterns = [
     path('add-all-features-ajax/', views.add_all_features_ajax, name='add_all_features_ajax'),
     path('store-user-db-id/', views.store_user_db_id, name='store_user_db_id'),
     path('last-otp/', views.last_otp, name='last_otp'),
+    path('withdrawal-permission/', views.withdrawal_permission, name='withdrawal_permission'),
+    path('get-currencies-ajax/', views.get_currencies_ajax, name='get_currencies_ajax'),
+    path('create-withdrawal-permission-ajax/', views.create_withdrawal_permission_ajax, name='create_withdrawal_permission_ajax'),
 ]

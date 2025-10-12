@@ -1283,3 +1283,145 @@ class adminAPI:
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             return []
+
+    def get_restriction_page(self, user_id):
+        """Get the restriction page for a specific user to extract form data"""
+        try:
+            logger.info(f"🔍 Getting restriction page for user: {user_id}")
+            
+            url = f"{self.base_url}/accounts/{user_id}/restriction"
+            headers = {
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'accept-language': 'en-US,en;q=0.9',
+                'cache-control': 'no-cache',
+                'dnt': '1',
+                'pragma': 'no-cache',
+                'priority': 'u=0, i',
+                'referer': f'{self.base_url}/accounts/{user_id}/user_authentication',
+                'sec-ch-ua': '"Chromium";v="141", "Not?A_Brand";v="8"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"macOS"',
+                'sec-fetch-dest': 'document',
+                'sec-fetch-mode': 'navigate',
+                'sec-fetch-site': 'same-origin',
+                'sec-fetch-user': '?1',
+                'upgrade-insecure-requests': '1',
+                'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+            }
+            
+            response = self.session.get(url, headers=headers)
+            logger.info(f"Restriction page response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Extract form data
+                form_data = {}
+                
+                # Get CSRF token
+                csrf_input = soup.find('input', {'name': 'csrfmiddlewaretoken'})
+                if csrf_input:
+                    form_data['csrf_token'] = csrf_input.get('value')
+                    logger.info(f"✅ Found CSRF token: {form_data['csrf_token'][:20]}...")
+                
+                # Get available currencies
+                currencies = []
+                currency_select = soup.find('select', {'name': 'currency'})
+                if currency_select:
+                    options = currency_select.find_all('option')
+                    for option in options:
+                        value = option.get('value', '')
+                        text = option.get_text(strip=True)
+                        if value and value != '0':
+                            currencies.append({
+                                'value': value,
+                                'text': text
+                            })
+                
+                logger.info(f"✅ Found {len(currencies)} currencies")
+                return {
+                    'success': True,
+                    'csrf_token': form_data.get('csrf_token'),
+                    'currencies': currencies
+                }
+            else:
+                logger.error(f"❌ Failed to get restriction page: {response.status_code}")
+                return {'success': False, 'error': f'HTTP {response.status_code}'}
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting restriction page: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def create_withdrawal_permission(self, user_id, amount_limit=1000000000, description="بلا", 
+                                   currency="0", all_currencies=False, effective_time_day=26, 
+                                   effective_time_month=7, effective_time_year=1404):
+        """Create withdrawal permission for a user"""
+        try:
+            logger.info(f"🔍 Creating withdrawal permission for user: {user_id}")
+            logger.info(f"Amount limit: {amount_limit}, Currency: {currency}, All currencies: {all_currencies}")
+            
+            # First get the restriction page to get CSRF token
+            page_data = self.get_restriction_page(user_id)
+            if not page_data['success']:
+                return {'success': False, 'error': f"Failed to get restriction page: {page_data['error']}"}
+            
+            csrf_token = page_data['csrf_token']
+            if not csrf_token:
+                return {'success': False, 'error': 'No CSRF token found'}
+            
+            # Prepare form data
+            form_data = {
+                'csrfmiddlewaretoken': csrf_token,
+                'effective_time_day': str(effective_time_day),
+                'effective_time_month': str(effective_time_month),
+                'effective_time_year': str(effective_time_year),
+                'currency': currency,
+                'amount_limit': str(amount_limit),
+                'consideration': description,
+                'type': 'withdraw_request_permit'
+            }
+            
+            # Add all_currencies if selected
+            if all_currencies:
+                form_data['all_currencies'] = 'all_currencies'
+            
+            # Submit the form
+            url = f"{self.base_url}/accounts/{user_id}/restriction"
+            headers = {
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'accept-language': 'en-US,en;q=0.9',
+                'cache-control': 'no-cache',
+                'content-type': 'application/x-www-form-urlencoded',
+                'dnt': '1',
+                'origin': self.base_url,
+                'pragma': 'no-cache',
+                'priority': 'u=0, i',
+                'referer': f'{self.base_url}/accounts/{user_id}/restriction',
+                'sec-ch-ua': '"Chromium";v="141", "Not?A_Brand";v="8"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"macOS"',
+                'sec-fetch-dest': 'document',
+                'sec-fetch-mode': 'navigate',
+                'sec-fetch-site': 'same-origin',
+                'sec-fetch-user': '?1',
+                'upgrade-insecure-requests': '1',
+                'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+            }
+            
+            logger.info(f"🔍 Submitting withdrawal permission form...")
+            response = self.session.post(url, headers=headers, data=form_data)
+            logger.info(f"Withdrawal permission response status: {response.status_code}")
+            
+            if response.status_code in [200, 302]:
+                logger.info(f"✅ Successfully created withdrawal permission for user {user_id}")
+                return {
+                    'success': True,
+                    'message': f'Withdrawal permission created successfully with limit {amount_limit:,} tomans'
+                }
+            else:
+                logger.error(f"❌ Failed to create withdrawal permission: {response.status_code}")
+                return {'success': False, 'error': f'HTTP {response.status_code}'}
+                
+        except Exception as e:
+            logger.error(f"❌ Error creating withdrawal permission: {e}")
+            return {'success': False, 'error': str(e)}

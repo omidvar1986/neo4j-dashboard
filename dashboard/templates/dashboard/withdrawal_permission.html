@@ -1,0 +1,662 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Withdrawal Permission Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #6366f1;
+        --primary-dark: #4f46e5;
+        --secondary-color: #8b5cf6;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+        --info-color: #3b82f6;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -8px rgb(0 0 0 / 0.1);
+    }
+
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .management-container {
+        padding: 2rem 0;
+        min-height: 100vh;
+    }
+
+    .notification-bell {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--shadow-xl);
+        padding: 20px;
+        z-index: 1000;
+        max-width: 350px;
+        transform: translateX(400px);
+        transition: transform 0.3s ease;
+    }
+    
+    .notification-bell.show {
+        transform: translateX(0);
+    }
+    
+    .notification-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+    }
+
+    .notification-overlay.show {
+        display: block;
+    }
+
+    .bell-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .bell-icon {
+        color: var(--warning-color);
+        margin-right: 10px;
+        font-size: 20px;
+    }
+    
+    .bell-title {
+        margin: 0;
+        font-weight: 600;
+        color: var(--gray-800);
+    }
+    
+    .bell-message {
+        color: var(--gray-600);
+        margin-bottom: 15px;
+    }
+    
+    .bell-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+    
+    .btn-bell {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-cancel {
+        background: var(--gray-200);
+        color: var(--gray-700);
+    }
+
+    .btn-cancel:hover {
+        background: var(--gray-300);
+    }
+
+    .btn-confirm {
+        background: var(--success-color);
+        color: white;
+    }
+    
+    .btn-confirm:hover {
+        background: #059669;
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+    }
+
+    .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+    }
+
+    .amount-display {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: var(--success-color);
+    }
+
+    .currency-info {
+        background: var(--gray-50);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="management-container">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 style="margin: 0; color: #333;">Withdrawal Permission Management</h2>
+                        <p style="margin: 5px 0 0 0; color: #666;">Manage coin withdrawal permissions with 1 billion toman limit</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'dashboard:api_tools' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-tools"></i> Back to API Tools
+                        </a>
+                        <a href="{% url 'dashboard:home' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-home"></i> Return to Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Authentication Required Message -->
+        {% if not user_info.valid %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
+                    <div class="card-body" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-2"><i class="fas fa-exclamation-triangle"></i> Authentication Required</h5>
+                                <p class="mb-0">Please authenticate with your session ID and CSRF token, then select a user to access withdrawal permission management features.</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <a href="{% url 'dashboard:api_tools' %}" class="btn btn-light">
+                                    <i class="fas fa-key"></i> Go to API Tools
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- Selected User Display Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
+                    <div class="card-body" style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); color: white;">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-2"><i class="fas fa-user-check"></i> Selected User Details</h5>
+                                <div id="selectedUserDisplay">
+                                    <!-- User details will be populated here from centralized selection -->
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <a href="{% url 'dashboard:api_tools' %}" class="btn btn-outline-light">
+                                    <i class="fas fa-arrow-left"></i> Change User
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Withdrawal Permission Form -->
+        <div class="row mb-4" id="permissionFormSection" style="display: none;">
+            <div class="col-12">
+                <div class="card" style="border-radius: 16px; box-shadow: var(--shadow-lg);">
+                    <div class="card-body" style="background: white;">
+                        <div class="row align-items-center mb-4">
+                            <div class="col-md-8">
+                                <h4 class="mb-2" style="color: #333;">مجوز برداشت موردی (Individual Withdrawal Permit)</h4>
+                                <p class="mb-0" style="color: #666;">Configure withdrawal permissions for the selected user</p>
+                            </div>
+                        </div>
+                        
+                        <form id="withdrawalPermissionForm">
+                            <div class="row g-4">
+                                <!-- End Date Selection -->
+                                <div class="col-md-4">
+                                    <label class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-calendar me-2"></i>تاریخ پایان (End Date)
+                                    </label>
+                                    <div class="row g-2">
+                                        <div class="col-4">
+                                            <select class="form-select" id="effectiveTimeDay" required>
+                                                <option value="26">26</option>
+                                                {% for day in "1234567890123456789012345678901234567890"|make_list %}
+                                                    <option value="{{ forloop.counter }}">{{ forloop.counter }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-4">
+                                            <select class="form-select" id="effectiveTimeMonth" required>
+                                                <option value="7">مهر</option>
+                                                <option value="1">فروردین</option>
+                                                <option value="2">اردیبهشت</option>
+                                                <option value="3">خرداد</option>
+                                                <option value="4">تیر</option>
+                                                <option value="5">مرداد</option>
+                                                <option value="6">شهریور</option>
+                                                <option value="8">آبان</option>
+                                                <option value="9">آذر</option>
+                                                <option value="10">دی</option>
+                                                <option value="11">بهمن</option>
+                                                <option value="12">اسفند</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-4">
+                                            <select class="form-select" id="effectiveTimeYear" required>
+                                                <option value="1404">1404</option>
+                                                <option value="1403">1403</option>
+                                                <option value="1405">1405</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Withdrawal Ceiling -->
+                                <div class="col-md-4">
+                                    <label for="amountLimit" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-coins me-2"></i>سقف برداشت (Withdrawal Ceiling)
+                                    </label>
+                                    <input type="number" class="form-control form-control-lg" id="amountLimit" 
+                                           value="1000000000" step="1000000" required style="border-radius: 8px; border: 1px solid #ddd;">
+                                    <div class="amount-display mt-2">
+                                        <span id="amountDisplay">1,000,000,000 تومان</span>
+                                    </div>
+                                </div>
+
+                                <!-- Description -->
+                                <div class="col-md-4">
+                                    <label for="description" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-comment me-2"></i>توضیحات (Description)
+                                    </label>
+                                    <input type="text" class="form-control form-control-lg" id="description" 
+                                           value="مجوز برداشت" required style="border-radius: 8px; border: 1px solid #ddd;">
+                                </div>
+
+                                <!-- Currency Selection -->
+                                <div class="col-md-6">
+                                    <label for="currencySelect" class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-coins me-2"></i>انتخاب ارز (Currency Selection)
+                                    </label>
+                                    <select class="form-select form-select-lg" id="currencySelect" required style="border-radius: 8px; border: 1px solid #ddd;">
+                                        <option value="0">Loading currencies...</option>
+                                    </select>
+                                    <div class="currency-info" id="currencyInfo" style="display: none;">
+                                        <small class="text-muted">Select a specific currency or check "All Currencies" below</small>
+                                    </div>
+                                </div>
+
+                                <!-- All Currencies Checkbox -->
+                                <div class="col-md-6">
+                                    <label class="form-label" style="font-weight: 600; color: #333;">
+                                        <i class="fas fa-check-circle me-2"></i>دسترسی به تمام ارزها
+                                    </label>
+                                    <div class="form-check mt-3">
+                                        <input class="form-check-input" type="checkbox" id="allCurrencies" style="transform: scale(1.2);">
+                                        <label class="form-check-label" for="allCurrencies" style="font-size: 1.1rem; font-weight: 500;">
+                                            تمام رمزارزهای کاربر (All user's cryptocurrencies)
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-center gap-3 mt-4">
+                                        <button type="submit" class="btn btn-success btn-lg" style="border-radius: 8px; padding: 12px 30px;">
+                                            <i class="fas fa-check me-2"></i> اعمال (Apply)
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-lg" id="closeBtn" style="border-radius: 8px; padding: 12px 30px;">
+                                            <i class="fas fa-times me-2"></i> بستن (Close)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                        
+                        <!-- Success Message Display -->
+                        <div id="successMessage" class="alert alert-success mt-4" style="display: none;">
+                            <div class="text-center">
+                                <i class="fas fa-check-circle fa-3x mb-3"></i>
+                                <h4 class="mb-3">Withdrawal Permission Created Successfully!</h4>
+                                <p class="mb-0" id="successMessageText">
+                                    <!-- Success message will be populated here -->
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Notification Bell -->
+<div class="notification-overlay" id="notificationOverlay"></div>
+<div class="notification-bell" id="notificationBell">
+    <div class="bell-header">
+        <i class="fas fa-bell bell-icon"></i>
+        <h6 class="bell-title">Notification</h6>
+    </div>
+    <div class="bell-message" id="bellMessage">
+        Message
+    </div>
+</div>
+
+<script>
+// Centralized user selection functionality
+let currentSearchedUser = null;
+
+// Load selected user on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadSelectedUser();
+    setupFormHandlers();
+});
+
+function loadSelectedUser() {
+    console.log('🔍 Loading selected user...');
+    
+    // Check if user is authenticated first
+    const isAuthenticated = {{ user_info.valid|yesno:"true,false" }};
+    console.log('🔍 Authentication status:', isAuthenticated);
+    
+    if (!isAuthenticated) {
+        console.log('❌ User not authenticated, showing authentication required message');
+        return;
+    }
+    
+    // Try to get user from URL parameters first
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('selected_user_id'); // This is the database ID
+    const userUid = urlParams.get('selected_user_uid'); // This is the UID
+    const userEmail = urlParams.get('selected_user_email');
+    const userName = urlParams.get('selected_user_name');
+    
+    console.log('🔍 URL params - userId (DB ID):', userId, 'userUid:', userUid, 'userEmail:', userEmail, 'userName:', userName);
+    
+    if (userId && userUid) {
+        // User info from URL parameters
+        currentSearchedUser = {
+            user_id: userUid, // Use UID for API calls
+            uid: userUid, // Store UID
+            email: userEmail || '',
+            full_name: userName || '',
+            id: userId // Database ID for reference
+        };
+        console.log('🔍 User from URL params:', currentSearchedUser);
+        displayUserDetails(currentSearchedUser);
+        showBellNotification('Success', `Loaded user: ${userName || userEmail}`, 'success');
+        return;
+    }
+    
+    // Try to get user from session storage
+    const storedUser = sessionStorage.getItem('selectedUser');
+    console.log('🔍 Stored user from session:', storedUser);
+    if (storedUser) {
+        try {
+            currentSearchedUser = JSON.parse(storedUser);
+            console.log('🔍 Parsed user from session:', currentSearchedUser);
+            displayUserDetails(currentSearchedUser);
+            showBellNotification('Success', `Loaded user: ${currentSearchedUser.full_name || currentSearchedUser.email}`, 'success');
+            return;
+        } catch (e) {
+            console.error('Error parsing stored user:', e);
+            sessionStorage.removeItem('selectedUser');
+        }
+    }
+    
+    // No user selected, show message and redirect to API tools
+    console.log('❌ No user selected, redirecting to API tools');
+    showBellNotification('Error', 'No user selected. Please select a user first.', 'error');
+    setTimeout(() => {
+        window.location.href = "{% url 'dashboard:api_tools' %}";
+    }, 2000);
+}
+
+function displayUserDetails(userInfo) {
+    console.log('🔍 Displaying user details:', userInfo);
+    const selectedUserDisplay = document.getElementById('selectedUserDisplay');
+    const permissionFormSection = document.getElementById('permissionFormSection');
+    
+    selectedUserDisplay.innerHTML = `
+        <div class="row">
+            <div class="col-md-3">
+                <strong>User ID (UID):</strong> ${userInfo.user_id || userInfo.uid || 'N/A'}
+            </div>
+            <div class="col-md-3">
+                <strong>Email:</strong> ${userInfo.email || 'N/A'}
+            </div>
+            <div class="col-md-3">
+                <strong>Full Name:</strong> ${userInfo.full_name || 'N/A'}
+            </div>
+            <div class="col-md-3">
+                <strong>Database ID:</strong> ${userInfo.id || 'N/A'}
+            </div>
+        </div>
+    `;
+    
+    permissionFormSection.style.display = 'block';
+    
+    // Load currencies for the user
+    loadCurrencies(userInfo.user_id || userInfo.uid);
+}
+
+function loadCurrencies(userId) {
+    console.log('🔍 Loading currencies for user ID:', userId);
+    const currencySelect = document.getElementById('currencySelect');
+    currencySelect.innerHTML = '<option value="0">Loading currencies...</option>';
+    
+    fetch(`{% url 'dashboard:get_currencies_ajax' %}?user_id=${userId}`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => {
+        console.log('🔍 Currency loading response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('🔍 Currency loading response data:', data);
+        if (data.success && data.currencies) {
+            currencySelect.innerHTML = '<option value="0">Select a currency...</option>';
+            data.currencies.forEach(currency => {
+                const option = document.createElement('option');
+                option.value = currency.value;
+                option.textContent = currency.text;
+                currencySelect.appendChild(option);
+            });
+            console.log('✅ Loaded', data.currencies.length, 'currencies');
+        } else {
+            console.log('❌ No currencies found or error:', data.error);
+            currencySelect.innerHTML = '<option value="0">No currencies found</option>';
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error loading currencies:', error);
+        currencySelect.innerHTML = '<option value="0">Error loading currencies</option>';
+    });
+}
+
+function setupFormHandlers() {
+    // Amount limit formatter
+    document.getElementById('amountLimit').addEventListener('input', function() {
+        const value = parseInt(this.value) || 0;
+        document.getElementById('amountDisplay').textContent = value.toLocaleString('fa-IR') + ' تومان';
+    });
+
+    // All currencies checkbox handler
+    document.getElementById('allCurrencies').addEventListener('change', function() {
+        const currencySelect = document.getElementById('currencySelect');
+        const currencyInfo = document.getElementById('currencyInfo');
+        
+        if (this.checked) {
+            currencySelect.disabled = true;
+            currencySelect.style.opacity = '0.5';
+            currencyInfo.style.display = 'block';
+            currencyInfo.innerHTML = '<small class="text-success"><i class="fas fa-check-circle me-1"></i>All user currencies will be selected</small>';
+        } else {
+            currencySelect.disabled = false;
+            currencySelect.style.opacity = '1';
+            currencyInfo.style.display = 'block';
+            currencyInfo.innerHTML = '<small class="text-muted">Select a specific currency or check "All Currencies" above</small>';
+        }
+    });
+
+    // Form submission
+    document.getElementById('withdrawalPermissionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Check authentication first
+        const isAuthenticated = {{ user_info.valid|yesno:"true,false" }};
+        if (!isAuthenticated) {
+            showBellNotification('Error', 'Authentication required. Please authenticate first.', 'error');
+            return;
+        }
+        
+        if (!currentSearchedUser) {
+            showBellNotification('Error', 'No user selected. Please select a user first.', 'error');
+            return;
+        }
+        
+        const formData = {
+            user_id: currentSearchedUser.user_id || currentSearchedUser.uid,
+            amount_limit: document.getElementById('amountLimit').value,
+            description: document.getElementById('description').value,
+            currency: document.getElementById('currencySelect').value,
+            all_currencies: document.getElementById('allCurrencies').checked,
+            effective_time_day: document.getElementById('effectiveTimeDay').value,
+            effective_time_month: document.getElementById('effectiveTimeMonth').value,
+            effective_time_year: document.getElementById('effectiveTimeYear').value
+        };
+        
+        // Validate form
+        if (!formData.amount_limit || !formData.description) {
+            showBellNotification('Error', 'Please fill in all required fields', 'error');
+            return;
+        }
+        
+        if (!formData.all_currencies && formData.currency === '0') {
+            showBellNotification('Error', 'Please select a currency or check "All Currencies"', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+        submitBtn.disabled = true;
+        
+        fetch('{% url "dashboard:create_withdrawal_permission_ajax" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: new URLSearchParams(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const successMessage = document.getElementById('successMessage');
+                const successMessageText = document.getElementById('successMessageText');
+                
+                successMessageText.textContent = data.message;
+                successMessage.style.display = 'block';
+                
+                // Scroll to success message
+                successMessage.scrollIntoView({ behavior: 'smooth' });
+                
+                // Reset form
+                this.reset();
+                document.getElementById('amountDisplay').textContent = '1,000,000,000 تومان';
+                document.getElementById('currencyInfo').style.display = 'none';
+                
+                // Hide success message after 5 seconds
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
+                }, 5000);
+            } else {
+                showBellNotification('Error', data.error || 'Failed to create withdrawal permission', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showBellNotification('Error', 'An error occurred while creating withdrawal permission', 'error');
+        })
+        .finally(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    });
+
+    // Close button handler
+    document.getElementById('closeBtn').addEventListener('click', function() {
+        window.location.href = "{% url 'dashboard:api_tools' %}";
+    });
+}
+
+// Notification functions
+function showBellNotification(title, message, type) {
+    const bell = document.getElementById('notificationBell');
+    const overlay = document.getElementById('notificationOverlay');
+    const titleEl = bell.querySelector('.bell-title');
+    const messageEl = bell.querySelector('.bell-message');
+    
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    
+    // Update colors based on type
+    const icon = bell.querySelector('.bell-icon');
+    if (type === 'success') {
+        icon.style.color = '#10b981';
+    } else if (type === 'error') {
+        icon.style.color = '#ef4444';
+    } else {
+        icon.style.color = '#f59e0b';
+    }
+    
+    overlay.classList.add('show');
+    bell.classList.add('show');
+    
+    // Auto hide after 3 seconds
+    setTimeout(() => {
+        hideNotification();
+    }, 3000);
+}
+
+function hideNotification() {
+    const bell = document.getElementById('notificationBell');
+    const overlay = document.getElementById('notificationOverlay');
+    
+    bell.classList.remove('show');
+    overlay.classList.remove('show');
+}
+</script>
+{% endblock %}
