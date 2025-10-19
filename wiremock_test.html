@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiremock Dashboard Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Base styles that might conflict */
+        .btn {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        
+        /* Our custom styles with !important */
+        .home-container {
+            padding: 2rem 0;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+            min-height: 100vh;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #3498db, #2980b9) !important;
+            color: white !important;
+            border-radius: 15px !important;
+            padding: 20px !important;
+            text-align: center !important;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+        
+        .btn-refresh {
+            background: linear-gradient(135deg, #27ae60, #229954) !important;
+            border: none !important;
+            color: white !important;
+            padding: 12px 24px !important;
+            border-radius: 25px !important;
+            font-weight: 700 !important;
+            font-size: 14px !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3) !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+        
+        .btn-logs {
+            background: linear-gradient(135deg, #8e44ad, #7d3c98) !important;
+            border: none !important;
+            color: white !important;
+            padding: 12px 24px !important;
+            border-radius: 25px !important;
+            font-weight: 700 !important;
+            font-size: 14px !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3) !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+        
+        .json-viewer {
+            background: #f8f9fa;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+            margin: 10px 0;
+        }
+        
+        .json-viewer::before {
+            content: "REQUEST";
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            background: #007bff;
+            color: white;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+        
+        .json-viewer-response {
+            background: #1a1a1a !important;
+            border: 2px solid #ff8c00 !important;
+            border-radius: 8px !important;
+            padding: 20px !important;
+            font-family: 'Courier New', monospace !important;
+            font-size: 13px !important;
+            max-height: 400px !important;
+            overflow-y: auto !important;
+            color: #ff8c00 !important;
+            box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3) !important;
+            position: relative !important;
+            margin: 10px 0;
+        }
+        
+        .json-viewer-response::before {
+            content: "RESPONSE";
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            background: #ff8c00;
+            color: #1a1a1a;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+        
+        .json-viewer-response pre {
+            color: #ff8c00 !important;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="home-container">
+        <div class="container">
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="stats-card">
+                        <h4 class="mb-0">54</h4>
+                        <small>Total Mappings</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card">
+                        <h4 class="mb-0">54</h4>
+                        <small>Active Mappings</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card">
+                        <h4 class="mb-0">0</h4>
+                        <small>Total Requests</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card">
+                        <h4 class="mb-0">0%</h4>
+                        <small>Success Rate</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Control Panel -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-1">
+                                <i class="fas fa-cogs"></i> Control Panel
+                            </h4>
+                            <p class="text-muted mb-0">Manage your Wiremock server mappings and monitor request logs</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-refresh me-2">
+                                <i class="fas fa-sync-alt"></i> Refresh Mappings
+                            </button>
+                            <button class="btn btn-logs">
+                                <i class="fas fa-list-alt"></i> View Logs
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stub Mappings -->
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="mb-3">
+                        <i class="fas fa-map"></i> Stub Mappings
+                    </h4>
+                    
+                    <!-- Sample Mapping -->
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-arrow-right"></i> Request</h6>
+                                    <div class="json-viewer">
+                                        <pre>{
+  "urlPathPattern": "/jibit-cobank/v1/orders/aug-statement/IR02",
+  "method": "GET",
+  "headers": {
+    "Authorization": {
+      "equalTo": "Bearer 1bKRgzdFSxbhx0n8"
+    }
+  }
+}</pre>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-arrow-left"></i> Response</h6>
+                                    <div class="json-viewer-response">
+                                        <pre>{
+  "status": 200,
+  "jsonBody": {
+    "referenceNumber": "d9fdbeec78c985f4",
+    "trackId": "f2a85cfca021848e",
+    "ownerCode": "b3682ba7a20c40d7",
+    "requestChannel": "API",
+    "type": "FULL_REFUND",
+    "sourceIban": "",
+    "destinationIban": "e527e0176c03b89f",
+    "totalAmount": 34534523,
+    "primeCount": 2,
+    "createdAt": "2025-10-18T09:11:42.791Z",
+    "updatedAt": "2025-10-18T09:11:42.791Z"
+  }
+}</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

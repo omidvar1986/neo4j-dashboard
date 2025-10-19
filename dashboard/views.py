@@ -21,6 +21,7 @@ from django.db import models
 from bs4 import BeautifulSoup
 # TestnetAdminService removed - using adminAPI instead
 from .admin_api import adminAPI
+from .wiremock_manager import WiremockManager, WireMockEnv
 
 def _validate_session_still_active(user_info):
     """Validate that the stored session is still active by testing it with the API"""
@@ -2567,6 +2568,39 @@ def search_user_for_feature_flags(request):
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 @csrf_exempt
+def get_data_records_info(request):
+    """Get information about where data records are stored"""
+    if request.method == 'GET':
+        try:
+            import os
+            logs_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
+            
+            # Check if logs directory exists and has files
+            if os.path.exists(logs_dir):
+                log_files = [f for f in os.listdir(logs_dir) if f.endswith('.log')]
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': log_files,
+                    'message': f'Data records are saved in: {logs_dir}'
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': [],
+                    'message': f'Logs directory will be created at: {logs_dir}'
+                })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error getting logs info: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
 def get_feature_flags_ajax(request):
     """AJAX endpoint for getting available feature flags"""
     if request.method == 'GET':
@@ -2604,6 +2638,39 @@ def get_feature_flags_ajax(request):
             return JsonResponse({'error': 'Internal server error'}, status=500)
     
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@csrf_exempt
+def get_data_records_info(request):
+    """Get information about where data records are stored"""
+    if request.method == 'GET':
+        try:
+            import os
+            logs_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
+            
+            # Check if logs directory exists and has files
+            if os.path.exists(logs_dir):
+                log_files = [f for f in os.listdir(logs_dir) if f.endswith('.log')]
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': log_files,
+                    'message': f'Data records are saved in: {logs_dir}'
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': [],
+                    'message': f'Logs directory will be created at: {logs_dir}'
+                })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error getting logs info: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
 
 @csrf_exempt
 def get_user_feature_flags_ajax(request):
@@ -2698,6 +2765,39 @@ def create_feature_flag_ajax(request):
             return JsonResponse({'error': 'Internal server error'}, status=500)
     
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@csrf_exempt
+def get_data_records_info(request):
+    """Get information about where data records are stored"""
+    if request.method == 'GET':
+        try:
+            import os
+            logs_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
+            
+            # Check if logs directory exists and has files
+            if os.path.exists(logs_dir):
+                log_files = [f for f in os.listdir(logs_dir) if f.endswith('.log')]
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': log_files,
+                    'message': f'Data records are saved in: {logs_dir}'
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': [],
+                    'message': f'Logs directory will be created at: {logs_dir}'
+                })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error getting logs info: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
 
 @csrf_exempt
 def add_all_features_ajax(request):
@@ -2800,6 +2900,39 @@ def add_all_features_ajax(request):
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 @csrf_exempt
+def get_data_records_info(request):
+    """Get information about where data records are stored"""
+    if request.method == 'GET':
+        try:
+            import os
+            logs_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
+            
+            # Check if logs directory exists and has files
+            if os.path.exists(logs_dir):
+                log_files = [f for f in os.listdir(logs_dir) if f.endswith('.log')]
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': log_files,
+                    'message': f'Data records are saved in: {logs_dir}'
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': [],
+                    'message': f'Logs directory will be created at: {logs_dir}'
+                })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error getting logs info: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
 def store_user_db_id(request):
     """Store user database ID and UID in Django session"""
     if request.method == 'POST':
@@ -2825,6 +2958,39 @@ def store_user_db_id(request):
             return JsonResponse({'error': f'Internal server error: {str(e)}'}, status=500)
     
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@csrf_exempt
+def get_data_records_info(request):
+    """Get information about where data records are stored"""
+    if request.method == 'GET':
+        try:
+            import os
+            logs_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
+            
+            # Check if logs directory exists and has files
+            if os.path.exists(logs_dir):
+                log_files = [f for f in os.listdir(logs_dir) if f.endswith('.log')]
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': log_files,
+                    'message': f'Data records are saved in: {logs_dir}'
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': [],
+                    'message': f'Logs directory will be created at: {logs_dir}'
+                })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error getting logs info: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
 
 @login_required
 def search_user_by_mobile(request):
@@ -3976,6 +4142,73 @@ def get_currencies_ajax(request):
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 @csrf_exempt
+def get_data_records_info(request):
+    """Get information about where data records are stored"""
+    if request.method == 'GET':
+        try:
+            import os
+            logs_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
+            
+            # Check if logs directory exists and has files
+            if os.path.exists(logs_dir):
+                log_files = [f for f in os.listdir(logs_dir) if f.endswith('.log')]
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': log_files,
+                    'message': f'Data records are saved in: {logs_dir}'
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': [],
+                    'message': f'Logs directory will be created at: {logs_dir}'
+                })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error getting logs info: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@csrf_exempt
+def get_all_received_requests(request):
+    """Get all received requests from Wiremock's stored logs using WiremockManager"""
+    if request.method == 'GET':
+        try:
+            # Initialize WiremockManager
+            manager = WiremockManager()
+            
+            # Get all received requests using the manager
+            records_data = manager.get_all_received_requests()
+            requests_list = records_data.get('requests', [])
+            
+            # Debug: Log the structure of the first request to understand the data format
+            # if requests_list:
+            #     logger.info(f"🔍 First request structure: {requests_list[0]}")
+            #     logger.info(f"🔍 First request keys: {list(requests_list[0].keys()) if isinstance(requests_list[0], dict) else 'Not a dict'}")
+            
+            logger.info(f"✅ Successfully retrieved {len(requests_list)} stored logs from Wiremock")
+            
+            return JsonResponse({
+                'success': True,
+                'requests': requests_list,
+                'total': len(requests_list),
+                'message': f'Retrieved {len(requests_list)} stored logs from Wiremock for monitoring'
+            })
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting stored logs from Wiremock: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Error fetching stored logs: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@csrf_exempt
 def create_withdrawal_permission_ajax(request):
     """AJAX endpoint for creating withdrawal permission"""
     if request.method == 'POST':
@@ -4032,3 +4265,202 @@ def create_withdrawal_permission_ajax(request):
             return JsonResponse({'error': f'Internal server error: {str(e)}'}, status=500)
 
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@csrf_exempt
+def get_data_records_info(request):
+    """Get information about where data records are stored"""
+    if request.method == 'GET':
+        try:
+            import os
+            logs_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
+            
+            # Check if logs directory exists and has files
+            if os.path.exists(logs_dir):
+                log_files = [f for f in os.listdir(logs_dir) if f.endswith('.log')]
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': log_files,
+                    'message': f'Data records are saved in: {logs_dir}'
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': [],
+                    'message': f'Logs directory will be created at: {logs_dir}'
+                })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error getting logs info: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+# =============================================================================
+# WIREMOCK MANAGEMENT VIEWS
+# =============================================================================
+
+@login_required
+def wiremock_dashboard(request):
+    """Wiremock dashboard page"""
+    try:
+        config = WireMockEnv.get_wiremock_config()
+        
+        context = {
+            'page_title': 'Wiremock Management',
+            'wiremock_base_url': config.WIREMOCK_BASEURL,
+        }
+        return render(request, 'dashboard/wiremock_dashboard.html', context)
+    except Exception as e:
+        logger.error(f"❌ Error in wiremock_dashboard view: {e}")
+        return render(request, 'dashboard/wiremock_dashboard.html', {
+            'error': f'Error loading Wiremock dashboard: {str(e)}'
+        })
+
+@csrf_exempt
+def wiremock_get_mappings(request):
+    """AJAX endpoint to get all stub mappings from Wiremock using WiremockManager"""
+    if request.method == 'GET':
+        try:
+            # Initialize WiremockManager
+            manager = WiremockManager()
+            
+            # Get all mappings using the manager
+            mappings_data = manager.retrieve_all_mappings()
+            mappings = mappings_data.get('mappings', [])
+            
+            logger.info(f"✅ Successfully retrieved {len(mappings)} mappings from Wiremock")
+            
+            return JsonResponse({
+                'success': True,
+                'mappings': mappings,
+                'total': len(mappings)
+            })
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting Wiremock mappings: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Error fetching mappings: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@csrf_exempt
+def get_data_records_info(request):
+    """Get information about where data records are stored"""
+    if request.method == 'GET':
+        try:
+            import os
+            logs_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
+            
+            # Check if logs directory exists and has files
+            if os.path.exists(logs_dir):
+                log_files = [f for f in os.listdir(logs_dir) if f.endswith('.log')]
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': log_files,
+                    'message': f'Data records are saved in: {logs_dir}'
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': [],
+                    'message': f'Logs directory will be created at: {logs_dir}'
+                })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error getting logs info: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+def wiremock_get_logs(request):
+    """AJAX endpoint to get request logs from Wiremock"""
+    if request.method == 'GET':
+        try:
+            import requests
+            import base64
+            from .wiremock_manager import WiremockManager, WireMockEnv
+            
+            # Get Wiremock configuration
+            config = WireMockEnv.get_wiremock_config()
+            
+            # Create authentication header
+            credentials = f"{config.WIREMOCK_ADMIN_USERNAME}:{config.WIREMOCK_ADMIN_PASSWORD}"
+            encoded_credentials = base64.b64encode(credentials.encode()).decode('utf-8')
+            headers = {
+                'Authorization': f'Basic {encoded_credentials}',
+                'Content-Type': 'application/json'
+            }
+            
+            logs_url = f"{config.WIREMOCK_BASEURL}/__admin/requests"
+            response = requests.get(logs_url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return JsonResponse({
+                    'success': True,
+                    'requests': data.get('requests', []),
+                    'total': len(data.get('requests', []))
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Wiremock server returned status {response.status_code}'
+                }, status=response.status_code)
+                
+        except requests.exceptions.ConnectionError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Cannot connect to Wiremock server. Please check if it\'s running.'
+            }, status=503)
+        except Exception as e:
+            logger.error(f"❌ Error getting Wiremock logs: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Error fetching logs: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@csrf_exempt
+def get_data_records_info(request):
+    """Get information about where data records are stored"""
+    if request.method == 'GET':
+        try:
+            import os
+            logs_dir = os.path.join(os.path.dirname(__file__), '..', 'logs')
+            
+            # Check if logs directory exists and has files
+            if os.path.exists(logs_dir):
+                log_files = [f for f in os.listdir(logs_dir) if f.endswith('.log')]
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': log_files,
+                    'message': f'Data records are saved in: {logs_dir}'
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'logs_directory': logs_dir,
+                    'log_files': [],
+                    'message': f'Logs directory will be created at: {logs_dir}'
+                })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error getting logs info: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+

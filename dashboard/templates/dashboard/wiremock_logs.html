@@ -1,0 +1,495 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Wiremock Request Logs{% endblock %}
+
+{% block extra_css %}
+<style>
+    .home-container {
+        padding: 2rem 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    .welcome-card {
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+    }
+    .log-card {
+        border: none;
+        border-radius: 15px;
+        transition: all 0.3s ease;
+        background: var(--card-bg);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
+    .log-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+    .method-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    .method-get { background-color: #10b981; color: white; }
+    .method-post { background-color: #3b82f6; color: white; }
+    .method-put { background-color: #f59e0b; color: white; }
+    .method-delete { background-color: #ef4444; color: white; }
+    .method-patch { background-color: #8b5cf6; color: white; }
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+    .status-2xx { background-color: #10b981; color: white; }
+    .status-3xx { background-color: #3b82f6; color: white; }
+    .status-4xx { background-color: #f59e0b; color: white; }
+    .status-5xx { background-color: #ef4444; color: white; }
+    .json-viewer {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 15px;
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .log-details {
+        font-size: 12px;
+        color: #6b7280;
+    }
+    .log-timestamp {
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+    }
+    .filter-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    .filter-card .form-control {
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        color: #333;
+    }
+    .filter-card .form-control:focus {
+        background: white;
+        box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+    }
+    .stats-card {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+    .stats-number {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <div class="container">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="text-center mb-4">
+                    <h1 class="text-white mb-3">
+                        <i class="fas fa-list-alt"></i> Wiremock Request Logs
+                    </h1>
+                    <p class="text-white-50">Monitor and analyze all requests made to your Wiremock server</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Server Configuration -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card welcome-card">
+                    <div class="card-body">
+                        <h4 class="mb-3"><i class="fas fa-cog"></i> Server Configuration</h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="input-group mb-3">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-link"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="wiremockUrl" 
+                                           value="{{ wiremock_base_url }}" 
+                                           placeholder="http://localhost:8080">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group mb-3">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="wiremockGuiUrl" 
+                                           value="{{ wiremock_gui_url }}" 
+                                           placeholder="http://localhost:8080/__admin/webapp" readonly>
+                                    <button class="btn btn-outline-primary" onclick="openWiremockGui()">
+                                        <i class="fas fa-external-link-alt"></i> Open GUI
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <button class="btn btn-primary" onclick="refreshLogs()">
+                                    <i class="fas fa-sync-alt"></i> Refresh Logs
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-list fa-2x mb-2"></i>
+                        <div class="stats-number" id="totalRequests">0</div>
+                        <div>Total Requests</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-check-circle fa-2x mb-2"></i>
+                        <div class="stats-number" id="successRequests">0</div>
+                        <div>Success (2xx)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <div class="stats-number" id="clientErrors">0</div>
+                        <div>Client Errors (4xx)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-times-circle fa-2x mb-2"></i>
+                        <div class="stats-number" id="serverErrors">0</div>
+                        <div>Server Errors (5xx)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card log-card filter-card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="fas fa-filter"></i> Filters
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Method</label>
+                                    <select class="form-control" id="filterMethod">
+                                        <option value="">All Methods</option>
+                                        <option value="GET">GET</option>
+                                        <option value="POST">POST</option>
+                                        <option value="PUT">PUT</option>
+                                        <option value="DELETE">DELETE</option>
+                                        <option value="PATCH">PATCH</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Status Code</label>
+                                    <select class="form-control" id="filterStatus">
+                                        <option value="">All Status Codes</option>
+                                        <option value="2xx">2xx Success</option>
+                                        <option value="3xx">3xx Redirection</option>
+                                        <option value="4xx">4xx Client Error</option>
+                                        <option value="5xx">5xx Server Error</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">URL Contains</label>
+                                    <input type="text" class="form-control" id="filterUrl" 
+                                           placeholder="e.g., /api/users">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">&nbsp;</label>
+                                    <button class="btn btn-light w-100" onclick="applyFilters()">
+                                        <i class="fas fa-search"></i> Apply Filters
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Request Logs -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card welcome-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="mb-0">
+                                <i class="fas fa-history"></i> Request Logs
+                            </h4>
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm me-2" onclick="refreshLogs()">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
+                                    <i class="fas fa-times"></i> Clear Filters
+                                </button>
+                            </div>
+                        </div>
+                        <div id="logsList">
+                            <div class="text-center">
+                                <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                                <p class="mt-2 text-muted">Loading request logs...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back to API Tools -->
+        <div class="row mt-4">
+            <div class="col-12 text-center">
+                <a href="{% url 'dashboard:api_tools' %}" class="btn btn-outline-light">
+                    <i class="fas fa-arrow-left"></i> Back to API Tools
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentWiremockUrl = '{{ wiremock_base_url }}';
+let allLogs = [];
+let filteredLogs = [];
+
+// Update Wiremock URL when input changes
+document.getElementById('wiremockUrl').addEventListener('change', function() {
+    currentWiremockUrl = this.value;
+    refreshLogs();
+});
+
+// Refresh logs
+function refreshLogs() {
+    const logsDiv = document.getElementById('logsList');
+    logsDiv.innerHTML = `
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+            <p class="mt-2 text-muted">Loading request logs...</p>
+        </div>
+    `;
+
+    fetch(`{% url 'dashboard:wiremock_get_logs' %}?wiremock_url=${encodeURIComponent(currentWiremockUrl)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                allLogs = data.requests;
+                filteredLogs = [...allLogs];
+                displayLogs(filteredLogs);
+                updateStatistics(allLogs);
+            } else {
+                logsDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Error:</strong> ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            logsDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>Error:</strong> Connection failed
+                </div>
+            `;
+        });
+}
+
+// Display logs
+function displayLogs(logs) {
+    const logsDiv = document.getElementById('logsList');
+    
+    if (logs.length === 0) {
+        logsDiv.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-inbox fa-3x mb-3"></i>
+                <p>No request logs found. Make some requests to your Wiremock server!</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Sort by timestamp (newest first)
+    logs.sort((a, b) => new Date(b.loggedDate) - new Date(a.loggedDate));
+
+    let html = '';
+    logs.forEach((log, index) => {
+        const method = log.request?.method || 'GET';
+        const url = log.request?.url || 'Unknown';
+        const statusCode = log.response?.status || 0;
+        const timestamp = new Date(log.loggedDate).toLocaleString();
+        const duration = log.response?.headers?.['X-Wiremock-Response-Time'] || 'N/A';
+        
+        html += `
+            <div class="card log-card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="method-badge method-${method.toLowerCase()}">${method}</span>
+                                <span class="ms-2 fw-bold">${url}</span>
+                                <span class="status-badge status-${Math.floor(statusCode/100)}xx ms-2">${statusCode}</span>
+                            </div>
+                            <div class="log-details">
+                                <div class="log-timestamp">
+                                    <i class="fas fa-clock"></i> ${timestamp}
+                                </div>
+                                <div class="mt-1">
+                                    <strong>Duration:</strong> ${duration}ms | 
+                                    <strong>Size:</strong> ${log.response?.headers?.['Content-Length'] || 'N/A'} bytes
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-outline-primary btn-sm" onclick="viewLogDetails(${index})">
+                                <i class="fas fa-eye"></i> View Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    logsDiv.innerHTML = html;
+}
+
+// View log details
+function viewLogDetails(index) {
+    const log = filteredLogs[index];
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Request Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Request</h6>
+                            <div class="json-viewer">
+                                <pre>${JSON.stringify(log.request, null, 2)}</pre>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Response</h6>
+                            <div class="json-viewer">
+                                <pre>${JSON.stringify(log.response, null, 2)}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    new bootstrap.Modal(modal).show();
+    modal.addEventListener('hidden.bs.modal', () => modal.remove());
+}
+
+// Apply filters
+function applyFilters() {
+    const methodFilter = document.getElementById('filterMethod').value;
+    const statusFilter = document.getElementById('filterStatus').value;
+    const urlFilter = document.getElementById('filterUrl').value.toLowerCase();
+
+    filteredLogs = allLogs.filter(log => {
+        const method = log.request?.method || '';
+        const statusCode = log.response?.status || 0;
+        const url = log.request?.url || '';
+
+        const methodMatch = !methodFilter || method === methodFilter;
+        const statusMatch = !statusFilter || Math.floor(statusCode/100) === parseInt(statusFilter.charAt(0));
+        const urlMatch = !urlFilter || url.toLowerCase().includes(urlFilter);
+
+        return methodMatch && statusMatch && urlMatch;
+    });
+
+    displayLogs(filteredLogs);
+}
+
+// Clear filters
+function clearFilters() {
+    document.getElementById('filterMethod').value = '';
+    document.getElementById('filterStatus').value = '';
+    document.getElementById('filterUrl').value = '';
+    filteredLogs = [...allLogs];
+    displayLogs(filteredLogs);
+}
+
+// Update statistics
+function updateStatistics(logs) {
+    const total = logs.length;
+    const success = logs.filter(log => {
+        const status = log.response?.status || 0;
+        return status >= 200 && status < 300;
+    }).length;
+    const clientErrors = logs.filter(log => {
+        const status = log.response?.status || 0;
+        return status >= 400 && status < 500;
+    }).length;
+    const serverErrors = logs.filter(log => {
+        const status = log.response?.status || 0;
+        return status >= 500;
+    }).length;
+
+    document.getElementById('totalRequests').textContent = total;
+    document.getElementById('successRequests').textContent = success;
+    document.getElementById('clientErrors').textContent = clientErrors;
+    document.getElementById('serverErrors').textContent = serverErrors;
+}
+
+function openWiremockGui() {
+    const guiUrl = document.getElementById('wiremockGuiUrl').value;
+    window.open(guiUrl, '_blank');
+}
+
+// Auto-refresh on page load
+document.addEventListener('DOMContentLoaded', function() {
+    refreshLogs();
+});
+</script>
+{% endblock %}

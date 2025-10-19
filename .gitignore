@@ -66,3 +66,8 @@ env/
 
 # Miscellaneous
 *.local.*
+
+# Sensitive configuration files
+wiremock_config.json
+logs/
+*.log

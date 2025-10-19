@@ -63,4 +63,10 @@ urlpatterns = [
     path('withdrawal-permission/', views.withdrawal_permission, name='withdrawal_permission'),
     path('get-currencies-ajax/', views.get_currencies_ajax, name='get_currencies_ajax'),
     path('create-withdrawal-permission-ajax/', views.create_withdrawal_permission_ajax, name='create_withdrawal_permission_ajax'),
+    
+    # Wiremock Management URLs
+    path('wiremock/', views.wiremock_dashboard, name='wiremock_dashboard'),
+    path('wiremock-get-mappings/', views.wiremock_get_mappings, name='wiremock_get_mappings'),
+    path('wiremock-get-logs/', views.wiremock_get_logs, name='wiremock_get_logs'),
+    path('get-all-received-requests/', views.get_all_received_requests, name='get_all_received_requests'),
 ]

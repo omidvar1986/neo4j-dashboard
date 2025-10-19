@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiremock UI Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-refresh {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 10px;
+        }
+        
+        .btn-refresh:hover {
+            background: linear-gradient(135deg, #229954, #1e8449);
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+        }
+        
+        .btn-logs {
+            background: linear-gradient(135deg, #8e44ad, #7d3c98);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 10px;
+        }
+        
+        .btn-logs:hover {
+            background: linear-gradient(135deg, #7d3c98, #6c3483);
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(142, 68, 173, 0.4);
+        }
+        
+        .json-viewer {
+            background: #f8f9fa;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+            margin: 10px 0;
+        }
+        
+        .json-viewer::before {
+            content: "REQUEST";
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            background: #007bff;
+            color: white;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+        
+        .json-viewer-response {
+            background: #1a1a1a;
+            border: 2px solid #ff8c00;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            color: #ff8c00;
+            box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3);
+            position: relative;
+            margin: 10px 0;
+        }
+        
+        .json-viewer-response::before {
+            content: "RESPONSE";
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            background: #ff8c00;
+            color: #1a1a1a;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+        
+        .json-viewer-response pre {
+            color: #ff8c00;
+            margin: 0;
+        }
+        
+        .row {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .col {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>Wiremock UI Test</h2>
+            <p>This demonstrates the new button styles and response section styling.</p>
+            
+            <div>
+                <button class="btn-refresh">Refresh Mappings</button>
+                <button class="btn-logs">View Logs</button>
+            </div>
+            
+            <h3>Request vs Response Comparison</h3>
+            <div class="row">
+                <div class="col">
+                    <h4>Request Section</h4>
+                    <div class="json-viewer">
+                        <pre>{
+  "urlPathPattern": "/api/test",
+  "method": "GET",
+  "headers": {
+    "Authorization": "Bearer token123"
+  }
+}</pre>
+                    </div>
+                </div>
+                <div class="col">
+                    <h4>Response Section</h4>
+                    <div class="json-viewer-response">
+                        <pre>{
+  "status": 200,
+  "jsonBody": {
+    "message": "Success",
+    "data": {
+      "id": 123,
+      "name": "Test Item"
+    }
+  }
+}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

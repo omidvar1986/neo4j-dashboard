@@ -1,0 +1,889 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Wiremock Management{% endblock %}
+
+{% block extra_css %}
+<!-- Cache bust: 2025-10-19-14:00 -->
+<style>
+    .home-container {
+        padding: 2rem 0;
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+        min-height: 100vh;
+    }
+    .welcome-card {
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+    }
+    .mapping-card {
+        border: none;
+        border-radius: 15px;
+        transition: all 0.3s ease;
+        background: white;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    .mapping-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+    .method-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .method-get { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+    .method-post { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; }
+    .method-put { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+    .method-delete { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+    .method-patch { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; }
+    .method-any { background: linear-gradient(135deg, #6b7280, #4b5563); color: white; }
+        .json-viewer {
+            background: #f8f9fa !important;
+            border: 2px solid #007bff !important;
+            border-radius: 8px !important;
+            padding: 20px !important;
+            font-family: 'Courier New', monospace !important;
+            font-size: 13px !important;
+            max-height: 400px !important;
+            overflow-y: auto !important;
+            position: relative !important;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2) !important;
+        margin-top: 15px !important;
+        }
+    .json-viewer::before {
+        content: "REQUEST";
+        position: absolute;
+        top: -3px;
+        left: 10px;
+        background: #007bff;
+        color: white;
+        padding: 2px 8px;
+        font-size: 10px;
+        font-weight: bold;
+        border-radius: 3px;
+        z-index: 10;
+    }
+    .json-viewer-response {
+        background: #1a1a1a !important;
+        border: 2px solid #ff8c00 !important;
+        border-radius: 8px !important;
+        padding: 20px !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 13px !important;
+        max-height: 400px !important;
+        overflow-y: auto !important;
+        color: #ff8c00 !important;
+        box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3) !important;
+        margin-top: 15px !important;
+        position: relative !important;
+    }
+    .json-viewer-response::before {
+        content: "RESPONSE";
+        position: absolute;
+        top: -3px;
+        left: 10px;
+        background: #ff8c00;
+        color: #1a1a1a;
+        padding: 2px 8px;
+        font-size: 10px;
+        font-weight: bold;
+        border-radius: 3px;
+        z-index: 10;
+    }
+    .json-viewer-response pre {
+        color: #ff8c00;
+        margin: 0;
+    }
+    .json-viewer-response .json-key {
+        color: #ff6b6b;
+    }
+    .json-viewer-response .json-string {
+        color: #98d982;
+    }
+    .json-viewer-response .json-number {
+        color: #ffd93d;
+    }
+    .json-viewer-response .json-boolean {
+        color: #ff8c00;
+    }
+    .json-viewer-response .json-null {
+        color: #808080;
+    }
+    .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    .status-active {
+        background: linear-gradient(135deg, #10b981, #059669);
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    }
+    .status-inactive {
+        background: linear-gradient(135deg, #6b7280, #4b5563);
+    }
+    .stats-card {
+        background: linear-gradient(135deg, #3498db, #2980b9) !important;
+        color: white !important;
+        border-radius: 15px !important;
+        padding: 20px !important;
+        text-align: center !important;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .btn-wiremock {
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .btn-wiremock:hover {
+        background: linear-gradient(135deg, #c0392b, #a93226);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    .btn-outline-wiremock {
+        border: 2px solid #e74c3c;
+        color: #e74c3c;
+        background: transparent;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .btn-outline-wiremock:hover {
+        background: #e74c3c;
+        color: white;
+        transform: translateY(-2px);
+    }
+    .btn-refresh {
+        background: linear-gradient(135deg, #27ae60, #229954) !important;
+        border: none !important;
+        color: white !important;
+        padding: 12px 24px !important;
+        border-radius: 25px !important;
+        font-weight: 700 !important;
+        font-size: 14px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3) !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+    .btn-refresh:hover {
+        background: linear-gradient(135deg, #229954, #1e8449);
+        color: white;
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+    }
+    .btn-logs {
+        background: linear-gradient(135deg, #8e44ad, #7d3c98) !important;
+        border: none !important;
+        color: white !important;
+        padding: 12px 24px !important;
+        border-radius: 25px !important;
+        font-weight: 700 !important;
+        font-size: 14px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3) !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+    .btn-logs:hover {
+        background: linear-gradient(135deg, #7d3c98, #6c3483);
+        color: white;
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(142, 68, 173, 0.4);
+    }
+    .mapping-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-bottom: 1px solid #dee2e6;
+        padding: 15px 20px;
+        border-radius: 15px 15px 0 0;
+    }
+    .mapping-body {
+        padding: 20px;
+    }
+    .priority-badge {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: bold;
+    }
+    .url-pattern {
+        font-family: 'Courier New', monospace;
+        background: #f8f9fa;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #495057;
+    }
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #ff6b6b;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <div class="container">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="text-center mb-4">
+                    <h1 class="text-white mb-3">
+                        <i class="fas fa-server"></i> Wiremock Management
+                    </h1>
+                    <p class="text-white-50">Manage API mock mappings and monitor request logs</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="totalMappings">0</div>
+                    <div>Total Mappings</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="activeMappings">0</div>
+                    <div>Active Mappings</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="totalRequests">0</div>
+                    <div>Total Requests</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="successRate">0%</div>
+                    <div>Success Rate</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card welcome-card">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h4 class="mb-2">
+                                    <i class="fas fa-cogs"></i> Control Panel
+                                </h4>
+                                <p class="text-muted mb-0">Manage your Wiremock server mappings and view stored request logs</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="d-flex gap-3 justify-content-end flex-wrap">
+                                    <button class="btn btn-refresh" onclick="refreshMappings()">
+                                        <i class="fas fa-sync-alt"></i> Refresh Mappings
+                                    </button>
+                                    <button class="btn btn-logs" onclick="showLogs()">
+                                        <i class="fas fa-list-alt"></i> View Logs
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mappings Section -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card welcome-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="mb-0">
+                                <i class="fas fa-map"></i> Stub Mappings
+                            </h4>
+                            <div>
+                                <button class="btn btn-refresh btn-sm" onclick="refreshMappings()">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div id="mappingsContainer">
+                            <div class="text-center py-5">
+                                <div class="loading-spinner"></div>
+                                <p class="mt-3 text-muted">Loading mappings...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back to Dashboard -->
+        <div class="row mt-4">
+            <div class="col-12 text-center">
+                <a href="{% url 'dashboard:home' %}" class="btn btn-outline-light">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Logs Modal -->
+<div class="modal fade" id="logsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-list-alt"></i> Request Logs
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="logsContainer">
+                    <div class="text-center py-4">
+                        <div class="loading-spinner"></div>
+                        <p class="mt-3 text-muted">Loading logs...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-wiremock" onclick="refreshLogs()">
+                    <i class="fas fa-sync-alt"></i> Refresh Logs
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMappings = [];
+
+// Load mappings on page load
+document.addEventListener('DOMContentLoaded', function() {
+    refreshMappings();
+});
+
+// Refresh mappings
+function refreshMappings() {
+    const container = document.getElementById('mappingsContainer');
+    container.innerHTML = `
+        <div class="text-center py-5">
+            <div class="loading-spinner"></div>
+            <p class="mt-3 text-muted">Loading mappings...</p>
+        </div>
+    `;
+
+    fetch('{% url "dashboard:wiremock_get_mappings" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentMappings = data.mappings;
+                displayMappings(data.mappings);
+                updateStatistics(data.mappings);
+            } else {
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Error:</strong> ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Error:</strong> Connection failed
+                </div>
+            `;
+        });
+}
+
+// Display mappings
+function displayMappings(mappings) {
+    const container = document.getElementById('mappingsContainer');
+    
+    if (mappings.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No Mappings Found</h5>
+                <p class="text-muted">No stub mappings are currently configured in your Wiremock server.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    mappings.forEach((mapping, index) => {
+        const method = mapping.request?.method || 'ANY';
+        const urlPattern = mapping.request?.urlPathPattern || mapping.request?.urlPattern || mapping.request?.url || 'Unknown';
+        const statusCode = mapping.response?.status || 200;
+        const priority = mapping.priority || 'Default';
+        const isActive = mapping.priority !== null;
+        
+        html += `
+            <div class="card mapping-card fade-in" style="animation-delay: ${index * 0.1}s">
+                <div class="mapping-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="status-indicator ${isActive ? 'status-active' : 'status-inactive'}"></span>
+                                <span class="method-badge method-${method.toLowerCase()}">${method}</span>
+                                <span class="priority-badge ms-2">Priority: ${priority}</span>
+                            </div>
+                            <div class="url-pattern">${urlPattern}</div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="badge bg-success">${statusCode}</span>
+                            <button class="btn btn-outline-wiremock btn-sm ms-2" onclick="viewMappingDetails(${index})">
+                                <i class="fas fa-eye"></i> View Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="mapping-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-arrow-right"></i> Request</h6>
+                            <div class="json-viewer">
+                                <pre>${JSON.stringify(mapping.request, null, 2)}</pre>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-arrow-left"></i> Response</h6>
+                            <div class="json-viewer-response">
+                                <pre>${JSON.stringify(mapping.response, null, 2)}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// View mapping details in modal
+function viewMappingDetails(index) {
+    const mapping = currentMappings[index];
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Mapping Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="json-viewer">
+                        <pre>${JSON.stringify(mapping, null, 2)}</pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    new bootstrap.Modal(modal).show();
+    modal.addEventListener('hidden.bs.modal', () => modal.remove());
+}
+
+// Show logs modal - displays stored logs from Wiremock
+function showLogs() {
+    const modal = new bootstrap.Modal(document.getElementById('logsModal'));
+    modal.show();
+    
+    // Show loading state
+    const container = document.getElementById('logsContainer');
+    container.innerHTML = `
+        <div class="text-center py-4">
+            <div class="loading-spinner"></div>
+            <p class="mt-3 text-muted">Loading stored logs from Wiremock...</p>
+        </div>
+    `;
+    
+    // Fetch stored logs from Wiremock
+    fetch('{% url "dashboard:get_all_received_requests" %}')
+        .then(response => response.json())
+        .then(data => {
+            // console.log('🔍 Received data from server:', data); // Debug log
+            if (data.success) {
+                // console.log('🔍 Success! Requests data:', data.requests); // Debug log
+                // Update statistics with stored logs data
+                if (data.requests && data.requests.length > 0) {
+                    updateStatisticsFromLogs(data.requests);
+                }
+                // Display the stored logs
+                displayLogs(data.requests);
+            } else {
+                // console.error('❌ Error from server:', data.error); // Debug log
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Error:</strong> ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading stored logs:', error);
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Error:</strong> Failed to load stored logs from Wiremock
+                </div>
+            `;
+        });
+}
+
+// Refresh logs
+function refreshLogs() {
+    const container = document.getElementById('logsContainer');
+    container.innerHTML = `
+        <div class="text-center py-4">
+            <div class="loading-spinner"></div>
+            <p class="mt-3 text-muted">Loading logs...</p>
+        </div>
+    `;
+
+    fetch('{% url "dashboard:wiremock_get_logs" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentLogs = data.requests;
+                displayLogs(data.requests);
+            } else {
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Error:</strong> ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Error:</strong> Connection failed
+                </div>
+            `;
+        });
+}
+
+// Display logs
+function displayLogs(logs) {
+    const container = document.getElementById('logsContainer');
+    
+    // console.log('🔍 Displaying logs:', logs); // Debug log
+    
+    if (logs.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
+                <h5 class="text-muted">No Logs Found</h5>
+                <p class="text-muted">No request logs are available at the moment.</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Sort by ID (newest first) since timestamps are not available
+    logs.sort((a, b) => {
+        return (b.id || '').localeCompare(a.id || '');
+    });
+
+    let html = '';
+    logs.forEach((log, index) => {
+        // console.log(`🔍 Log ${index}:`, log); // Debug each log entry
+        
+        const method = log.request?.method || 'GET';
+        const url = log.request?.url || 'Unknown';
+        const statusCode = log.responseDefinition?.status || 0;
+        
+        // Handle timestamp - use ID as fallback since timestamps are not available
+        let timestamp = 'No Timestamp';
+        if (log.loggedDate) {
+            try {
+                // Convert Unix timestamp (milliseconds) to Date
+                timestamp = new Date(log.loggedDate).toLocaleString();
+            } catch (e) {
+                console.warn('Invalid date format:', log.loggedDate);
+                timestamp = 'Invalid Date';
+            }
+        } else if (log.loggedDateString) {
+            try {
+                timestamp = new Date(log.loggedDateString).toLocaleString();
+            } catch (e) {
+                console.warn('Invalid date format:', log.loggedDateString);
+                timestamp = 'Invalid Date';
+            }
+        } else {
+            // Use ID as a fallback identifier
+            timestamp = `ID: ${log.id ? log.id.substring(0, 8) : 'Unknown'}`;
+        }
+        
+        html += `
+            <div class="card mapping-card fade-in" style="animation-delay: ${index * 0.05}s">
+                <div class="mapping-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2">
+                            <span class="method-badge method-${method.toLowerCase()}">${method}</span>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="url-pattern">${url}</div>
+                        </div>
+                        <div class="col-md-2">
+                            <span class="badge ${statusCode >= 200 && statusCode < 300 ? 'bg-success' : statusCode >= 400 ? 'bg-danger' : 'bg-warning'}">${statusCode}</span>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">${timestamp}</small>
+                        </div>
+                        <div class="col-md-1">
+                            <button class="btn btn-outline-wiremock btn-sm" onclick="viewLogDetails(${index})">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// View log details
+function viewLogDetails(index) {
+    const log = currentLogs[index];
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Request Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Request</h6>
+                            <div class="json-viewer">
+                                <pre>${JSON.stringify(log.request, null, 2)}</pre>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Response</h6>
+                            <div class="json-viewer-response">
+                                <pre>${JSON.stringify(log.response, null, 2)}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    new bootstrap.Modal(modal).show();
+    modal.addEventListener('hidden.bs.modal', () => modal.remove());
+}
+
+// Update statistics
+function updateStatistics(mappings) {
+    const total = mappings.length;
+    const active = mappings.filter(m => m.priority !== null).length;
+    
+    document.getElementById('totalMappings').textContent = total;
+    document.getElementById('activeMappings').textContent = active;
+    document.getElementById('totalRequests').textContent = '0'; // Will be updated when logs are loaded
+    document.getElementById('successRate').textContent = '0%'; // Will be updated when logs are loaded
+}
+
+
+// Update statistics from logs data
+function updateStatisticsFromLogs(logs) {
+    const totalRequests = logs.length;
+    const successfulRequests = logs.filter(log => log.responseDefinition && log.responseDefinition.status >= 200 && log.responseDefinition.status < 300).length;
+    const successRate = totalRequests > 0 ? Math.round((successfulRequests / totalRequests) * 100) : 0;
+    
+    document.getElementById('totalRequests').textContent = totalRequests;
+    document.getElementById('successRate').textContent = `${successRate}%`;
+}
+
+// Show alert function
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insert at the top of the container
+    const container = document.querySelector('.home-container .container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+
+// Force CSS reload
+document.addEventListener('DOMContentLoaded', function() {
+    // Force style recalculation
+    const style = document.createElement('style');
+    style.textContent = `
+        .btn-refresh {
+            background: linear-gradient(135deg, #27ae60, #229954) !important;
+            border: none !important;
+            color: white !important;
+            padding: 12px 24px !important;
+            border-radius: 25px !important;
+            font-weight: 700 !important;
+            font-size: 14px !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3) !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+        .btn-logs {
+            background: linear-gradient(135deg, #8e44ad, #7d3c98) !important;
+            border: none !important;
+            color: white !important;
+            padding: 12px 24px !important;
+            border-radius: 25px !important;
+            font-weight: 700 !important;
+            font-size: 14px !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3) !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #3498db, #2980b9) !important;
+            color: white !important;
+            border-radius: 15px !important;
+            padding: 20px !important;
+            text-align: center !important;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+        .json-viewer-response {
+            background: #1a1a1a !important;
+            border: 2px solid #ff8c00 !important;
+            border-radius: 8px !important;
+            padding: 20px !important;
+            font-family: 'Courier New', monospace !important;
+            font-size: 13px !important;
+            max-height: 400px !important;
+            overflow-y: auto !important;
+            color: #ff8c00 !important;
+            box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3) !important;
+        margin-top: 15px !important;
+            position: relative !important;
+        }
+        .json-viewer-response::before {
+            content: "RESPONSE";
+            position: absolute;
+            top: -5px;
+            left: 10px;
+            background: #ff8c00;
+            color: #1a1a1a;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 3px;
+            z-index: 10;
+        }
+        .json-viewer-response pre {
+            color: #ff8c00 !important;
+            margin: 0;
+        }
+        .json-viewer {
+            background: #f8f9fa !important;
+            border: 2px solid #007bff !important;
+            border-radius: 8px !important;
+            padding: 20px !important;
+            font-family: 'Courier New', monospace !important;
+            font-size: 13px !important;
+            max-height: 400px !important;
+            overflow-y: auto !important;
+            position: relative !important;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2) !important;
+        margin-top: 15px !important;
+        }
+        .json-viewer::before {
+            content: "REQUEST";
+            position: absolute;
+            top: -5px;
+            left: 10px;
+            background: #007bff;
+            color: white;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 3px;
+            z-index: 10;
+        }
+        .json-viewer pre {
+            color: #333 !important;
+            margin: 0;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+{% endblock %}
