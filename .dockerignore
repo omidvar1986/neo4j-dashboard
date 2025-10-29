@@ -1,49 +1,29 @@
 # Git
 .git
 .gitignore
+.gitattributes
 
 # Python
-__pycache__
-*.pyc
-*.pyo
-*.pyd
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 .Python
-env
-pip-log.txt
-pip-delete-this-directory.txt
-.tox
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git
-.mypy_cache
-.pytest_cache
-.hypothesis
+*.egg-info/
+dist/
+build/
+*.egg
+venv/
+env/
+ENV/
 
 # Django
 *.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-media
-
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
-
-# Environment
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+/media
+/staticfiles
 
 # IDE
 .vscode/
@@ -51,21 +31,62 @@ venv.bak/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.local
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+*.md
+docs/
+
+# Logs
+logs/
+*.log
+debug.log
+
+# Static files (will be regenerated in container)
+staticfiles/
+
+# Sensitive configuration
+wiremock_config.json
+*.pem
+*.cert
+*.key
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# OS files
+.DS_Store
 Thumbs.db
 
-# Project specific
-logs/
-staticfiles/
-*.md
-README*
-docs/
-tests/
-node_modules/
+# CI/CD
+.github/
+.gitlab-ci.yml
+.jenkins/
+
+# Development files
+run_local.sh
+start.sh
+test_*.html
+
+# Migration files (optional - uncomment if you don't want to include migrations)
+# dashboard/migrations/
