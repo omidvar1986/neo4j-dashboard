@@ -1,0 +1,39 @@
+{% comment %}
+Recursive template for rendering tree items (sections and test cases)
+level: 0 for root sections, 1 for first-level subsections, etc.
+{% endcomment %}
+<div class="tree-section-item" style="position: relative;">
+    <div class="tree-item tree-section {% if selected_section == item.section.id|stringformat:"s" %}active{% endif %}" 
+         data-section="{{ item.section.id|stringformat:"s" }}">
+        <div class="tree-item-content" onclick="window.location.href='?section={{ item.section.id|stringformat:"s" }}'">
+            <span class="tree-expand-icon" onclick="event.stopPropagation(); toggleTreeItem('tree-section-{{ item.section.id|stringformat:"s" }}', 'tree-icon-section-{{ item.section.id|stringformat:"s" }}');">
+                {% if item.subsections or item.test_cases %}
+                    <i class="fas fa-chevron-down tree-chevron" id="tree-icon-section-{{ item.section.id|stringformat:"s" }}"></i>
+                {% else %}
+                    <i class="fas fa-chevron-right tree-chevron tree-chevron-empty" style="opacity: 0.4;"></i>
+                {% endif %}
+            </span>
+            <i class="fas fa-folder tree-folder-icon"></i>
+            <span class="tree-item-name">{{ item.section.name }}</span>
+        </div>
+    </div>
+    
+    {% if item.subsections or item.test_cases %}
+    <div id="tree-section-{{ item.section.id|stringformat:"s" }}" class="tree-children" style="display: block;">
+        {% for test_case in item.test_cases %}
+            <div class="tree-item tree-test-case {% if selected_test_case == test_case.id|stringformat:"s" %}active{% endif %}" 
+                 data-test-case="{{ test_case.id|stringformat:"s" }}">
+                <div class="tree-item-content" onclick="window.location.href='?test_case={{ test_case.id|stringformat:"s" }}'">
+                    <span class="tree-spacer"></span>
+                    <i class="fas fa-file-alt tree-file-icon"></i>
+                    <span class="tree-item-name">C{{ test_case.id|stringformat:"s"|slice:":8" }}: {{ test_case.title|truncatewords:10 }}</span>
+                </div>
+            </div>
+        {% endfor %}
+        
+        {% for subsection in item.subsections %}
+            {% include 'testcases/tree_item.html' with item=subsection level=level|add:1 %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

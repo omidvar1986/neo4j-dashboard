@@ -1,0 +1,288 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Add Test Case{% endblock %}
+
+{% block extra_css %}
+<style>
+    .add-test-case-container {
+        padding: 2rem 0;
+        background: var(--bg-color);
+        min-height: 100vh;
+        transition: background-color 0.3s ease;
+    }
+    .form-card {
+        background: var(--form-bg);
+        border: 1px solid var(--form-border);
+        border-radius: 10px;
+        box-shadow: 0 2px 10px var(--shadow);
+        padding: 2rem;
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    .required-field::after {
+        content: " *";
+        color: red;
+    }
+    .steps-section {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+    [data-theme="light"] .steps-section {
+        background: #e3f2fd;
+    }
+    [data-theme="dark"] .steps-section {
+        background: #1e3a4a;
+        border-color: #1976d2;
+    }
+    .step-item {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+    .step-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .step-number {
+        font-weight: bold;
+        color: #4facfe;
+        margin-right: 0.5rem;
+    }
+    .remove-step-btn {
+        margin-left: auto;
+    }
+    .char-counter {
+        font-size: 0.875rem;
+        color: var(--text-color);
+        opacity: 0.85;
+        text-align: right;
+        transition: color 0.3s ease, opacity 0.3s ease;
+    }
+    
+    [data-theme="dark"] .char-counter {
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="add-test-case-container">
+    <div class="container">
+        <div class="form-card">
+            <h2 class="mb-4">
+                <i class="fas fa-plus-circle text-primary"></i> Add Test Case
+            </h2>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" id="testCaseForm">
+                {% csrf_token %}
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.title.id_for_label }}" class="form-label required-field">Title</label>
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                            <div class="text-danger small">{{ form.title.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.section.id_for_label }}" class="form-label">Section</label>
+                        {{ form.section }}
+                        {% if form.section.errors %}
+                            <div class="text-danger small">{{ form.section.errors }}</div>
+                        {% endif %}
+                        <small style="color: var(--text-color); opacity: 0.85;">Select an existing section or create a new one below</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.new_section.id_for_label }}" class="form-label">Or Create New Section</label>
+                        {{ form.new_section }}
+                        {% if form.new_section.errors %}
+                            <div class="text-danger small">{{ form.new_section.errors }}</div>
+                        {% endif %}
+                        <small style="color: var(--text-color); opacity: 0.85;">Enter a new section name if you want to create one</small>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="template" class="form-label required-field">Template</label>
+                        <select name="template" id="template" class="form-control" required>
+                            <option value="Test Case (Steps)" selected>Test Case (Steps)</option>
+                        </select>
+                        <small style="color: var(--text-color); opacity: 0.85;">Template is always set to "Test Case (Steps)"</small>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.type.id_for_label }}" class="form-label required-field">Type</label>
+                        {{ form.type }}
+                        {% if form.type.errors %}
+                            <div class="text-danger small">{{ form.type.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.priority.id_for_label }}" class="form-label required-field">Priority</label>
+                        {{ form.priority }}
+                        {% if form.priority.errors %}
+                            <div class="text-danger small">{{ form.priority.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.automation_type.id_for_label }}" class="form-label">Automation Type</label>
+                        {{ form.automation_type }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.preconditions.id_for_label }}" class="form-label required-field">Preconditions</label>
+                        {{ form.preconditions }}
+                        {% if form.preconditions.errors %}
+                            <div class="text-danger small">{{ form.preconditions.errors }}</div>
+                        {% endif %}
+                        <small style="color: var(--text-color); opacity: 0.85;">
+                            The preconditions of this test case. Reference other test cases with [C#] (e.g. [C17]).
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Steps Section -->
+                <div class="steps-section">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="fas fa-info-circle text-primary me-2 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <strong>Add steps to this test case</strong>
+                            <p class="mb-0">For every test step, enter a short description and the expected results. <a href="#" id="addFirstStep" class="text-primary">Add the first step.</a></p>
+                        </div>
+                    </div>
+                    <div id="stepsContainer">
+                        <!-- Steps will be added here dynamically -->
+                    </div>
+                    <button type="button" class="btn btn-link text-primary p-0" id="addStepBtn">
+                        <i class="fas fa-plus"></i> Add Step
+                    </button>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> Add Test Case
+                    </button>
+                    <button type="submit" name="add_and_next" value="1" class="btn btn-success">
+                        <i class="fas fa-check"></i> Add & Next
+                    </button>
+                    <a href="{% url 'testcases:test_case_list' %}" class="btn btn-danger">
+                        <i class="fas fa-times"></i> Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    let stepCount = 0;
+
+    // Add first step
+    document.getElementById('addFirstStep')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        addStep();
+    });
+
+    // Add step button
+    document.getElementById('addStepBtn')?.addEventListener('click', function() {
+        addStep();
+    });
+
+    function addStep() {
+        stepCount++;
+        const stepsContainer = document.getElementById('stepsContainer');
+        const stepDiv = document.createElement('div');
+        stepDiv.className = 'step-item';
+        stepDiv.innerHTML = `
+            <div class="step-header">
+                <span class="step-number">Step ${stepCount}:</span>
+                <button type="button" class="btn btn-sm btn-danger remove-step-btn" onclick="removeStep(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Step Description</label>
+                <textarea name="steps[]" class="form-control" rows="2" required></textarea>
+            </div>
+            <div>
+                <label class="form-label">Expected Result</label>
+                <textarea name="expected_results[]" class="form-control" rows="2" required></textarea>
+            </div>
+        `;
+        stepsContainer.appendChild(stepDiv);
+    }
+
+    function removeStep(btn) {
+        btn.closest('.step-item').remove();
+        // Renumber steps
+        const steps = document.querySelectorAll('.step-item');
+        steps.forEach((step, index) => {
+            step.querySelector('.step-number').textContent = `Step ${index + 1}:`;
+        });
+        stepCount = steps.length;
+    }
+
+    // Section selection logic - hide new section field if existing section is selected
+    const sectionField = document.getElementById('{{ form.section.id_for_label }}');
+    const newSectionField = document.getElementById('{{ form.new_section.id_for_label }}');
+    
+    if (sectionField && newSectionField) {
+        function toggleNewSectionField() {
+            if (sectionField.value && sectionField.value !== '') {
+                newSectionField.closest('.col-md-6').style.display = 'none';
+                newSectionField.required = false;
+            } else {
+                newSectionField.closest('.col-md-6').style.display = 'block';
+            }
+        }
+        
+        sectionField.addEventListener('change', toggleNewSectionField);
+        toggleNewSectionField(); // Initial check
+    }
+
+    // Form validation
+    document.getElementById('testCaseForm')?.addEventListener('submit', function(e) {
+        const steps = document.querySelectorAll('textarea[name="steps[]"]');
+        if (steps.length === 0) {
+            e.preventDefault();
+            alert('Please add at least one test step.');
+            return false;
+        }
+    });
+</script>
+{% endblock %}
+

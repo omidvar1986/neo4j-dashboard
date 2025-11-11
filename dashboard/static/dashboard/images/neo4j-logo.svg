@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="neo4jGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#008CC1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00A8E8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Neo4j Graph Database Logo - Simplified -->
+  <circle cx="100" cy="100" r="90" fill="url(#neo4jGrad)"/>
+  <!-- Graph nodes -->
+  <circle cx="100" cy="60" r="12" fill="white"/>
+  <circle cx="60" cy="100" r="12" fill="white"/>
+  <circle cx="140" cy="100" r="12" fill="white"/>
+  <circle cx="100" cy="140" r="12" fill="white"/>
+  <!-- Graph connections -->
+  <line x1="100" y1="60" x2="60" y2="100" stroke="white" stroke-width="3"/>
+  <line x1="100" y1="60" x2="140" y2="100" stroke="white" stroke-width="3"/>
+  <line x1="60" y1="100" x2="100" y2="140" stroke="white" stroke-width="3"/>
+  <line x1="140" y1="100" x2="100" y2="140" stroke="white" stroke-width="3"/>
+  <line x1="100" y1="60" x2="100" y2="140" stroke="white" stroke-width="3"/>
+</svg>
+

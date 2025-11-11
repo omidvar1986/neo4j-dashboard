@@ -1,0 +1,462 @@
+{% load static %}
+<style>
+    .test-case-card {
+        color: var(--text-color);
+        transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    }
+    
+    .test-case-header,
+    .test-case-body,
+    .test-case-footer {
+        color: var(--text-color);
+    }
+    
+    .attributes-section,
+    .preconditions-section,
+    .steps-section {
+        color: var(--text-color);
+    }
+    
+    .attributes-section strong,
+    .preconditions-section strong,
+    .steps-section strong {
+        color: var(--text-color);
+    }
+    
+    .step-scenario {
+        color: var(--text-color);
+    }
+    
+    .step-details {
+        color: var(--text-color);
+    }
+    
+    .step-details strong {
+        color: var(--text-color);
+    }
+    
+    [data-theme="dark"] .test-case-card * {
+        color: inherit;
+    }
+</style>
+<script>
+    // Function to add subsection - shows modal
+    function addSubsection(sectionId) {
+        // Store section ID for form submission
+        const form = document.getElementById('add-subsection-form');
+        if (form) {
+            form.setAttribute('data-section-id', sectionId);
+            // Show modal
+            document.getElementById('addSubsectionModal').style.display = 'block';
+            // Clear form
+            document.getElementById('subsection-name-input').value = '';
+            document.getElementById('subsection-description-input').value = '';
+        }
+    }
+    
+    // Function to close modal
+    function closeAddSubsectionModal() {
+        document.getElementById('addSubsectionModal').style.display = 'none';
+    }
+    
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('addSubsectionModal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    // Handle form submission
+    function submitAddSubsection() {
+        const form = document.getElementById('add-subsection-form');
+        const sectionId = form.getAttribute('data-section-id');
+        const name = document.getElementById('subsection-name-input').value.trim();
+        const description = document.getElementById('subsection-description-input').value.trim();
+        
+        if (!name) {
+            alert('Section name is required.');
+            return;
+        }
+        
+        // Create and submit form
+        const submitForm = document.createElement('form');
+        submitForm.method = 'POST';
+        submitForm.action = `/testcases/section/${sectionId}/add-subsection/`;
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken.value;
+            submitForm.appendChild(csrfInput);
+        }
+        
+        const nameInput = document.createElement('input');
+        nameInput.type = 'hidden';
+        nameInput.name = 'subsection_name';
+        nameInput.value = name;
+        submitForm.appendChild(nameInput);
+        
+        if (description) {
+            const descInput = document.createElement('input');
+            descInput.type = 'hidden';
+            descInput.name = 'subsection_description';
+            descInput.value = description;
+            submitForm.appendChild(descInput);
+        }
+        
+        document.body.appendChild(submitForm);
+        submitForm.submit();
+    }
+</script>
+<div class="test-case-card mb-4" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; box-shadow: 0 2px 10px var(--shadow);">
+    <div class="test-case-header" style="padding: 1.5rem; border-bottom: 1px solid var(--border-color);">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <h3 class="mb-0" style="font-size: 1.25rem; font-weight: 600; color: var(--text-color);">
+                    C{{ selected_test_case_obj.id|stringformat:"s"|slice:":8" }} {{ selected_test_case_obj.title }}
+                </h3>
+                <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mt-2">
+                    <ol class="breadcrumb mb-0" style="background: transparent; padding: 0; font-size: 0.875rem;">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'testcases:test_case_list' %}?section={{ selected_test_case_obj.section.id|stringformat:"s" }}" style="color: var(--btn-primary-bg); text-decoration: none;">
+                                {{ selected_test_case_obj.section.name }}
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item active">{{ selected_test_case_obj.title|truncatewords:5 }}</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="test-case-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+                <a href="{% url 'testcases:test_case_edit' selected_test_case_obj.id|stringformat:"s" %}" class="btn btn-warning btn-sm">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+                <a href="{% url 'testcases:test_case_list' %}?section={{ selected_test_case_obj.section.id|stringformat:"s" }}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+                <a href="{% url 'testcases:test_case_list' %}" class="btn btn-info btn-sm">
+                    <i class="fas fa-home"></i> Return to Project
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-case-body" style="padding: 1.5rem;">
+        <!-- Attributes Section -->
+        <div class="attributes-section mb-4">
+            <h5 class="mb-3" style="color: var(--text-color);">Attributes</h5>
+            <div class="row">
+                <div class="col-md-6 mb-2" style="color: var(--text-color);">
+                    <strong>Type:</strong> 
+                    <span class="badge bg-secondary">{{ selected_test_case_obj.type }}</span>
+                </div>
+                <div class="col-md-6 mb-2" style="color: var(--text-color);">
+                    <strong>Priority:</strong> 
+                    <span class="badge 
+                        {% if selected_test_case_obj.priority == 'Critical' %}bg-danger
+                        {% elif selected_test_case_obj.priority == 'High' %}bg-warning
+                        {% elif selected_test_case_obj.priority == 'Medium' %}bg-info
+                        {% else %}bg-secondary
+                        {% endif %}">
+                        {{ selected_test_case_obj.priority }}
+                    </span>
+                </div>
+                <div class="col-md-6 mb-2" style="color: var(--text-color);">
+                    <strong>Automation Type:</strong> 
+                    <span>{{ selected_test_case_obj.automation_type|default:"None" }}</span>
+                </div>
+                <div class="col-md-6 mb-2" style="color: var(--text-color);">
+                    <strong>References:</strong> 
+                    <span>{{ selected_test_case_obj.references|default:"None" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preconditions -->
+        {% if selected_test_case_obj.preconditions %}
+        <div class="preconditions-section mb-4" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 4px; padding: 1rem;">
+            <strong style="display: block; margin-bottom: 0.5rem; color: var(--text-color);">Preconditions:</strong>
+            <div style="color: var(--text-color);">{{ selected_test_case_obj.preconditions|linebreaks }}</div>
+        </div>
+        {% endif %}
+        
+        <!-- Test Steps Section (BDD Scenarios format) -->
+        <div class="steps-section">
+            <h5 class="mb-3" style="color: var(--text-color);">Test Steps</h5>
+            {% if selected_test_case_steps %}
+                {% for step in selected_test_case_steps %}
+                    <div class="step-scenario mb-4" style="border: 1px solid var(--card-border); border-radius: 4px; padding: 1rem; background: var(--card-bg);">
+                        <div class="d-flex align-items-start mb-2">
+                            <span class="badge bg-primary me-2" style="font-size: 0.875rem;">{{ step.step_number }}</span>
+                            <div class="flex-grow-1">
+                                <strong style="color: var(--text-color);">Step {{ step.step_number }}: {{ step.description|truncatewords:10 }}</strong>
+                            </div>
+                        </div>
+                        <div class="step-details ms-4" style="margin-left: 2rem;">
+                            <div class="mb-2">
+                                <strong>Description:</strong>
+                                <div class="mt-1" style="background: var(--input-bg); color: var(--input-text); padding: 0.75rem; border-radius: 4px; border-left: 3px solid var(--btn-primary-bg);">
+                                    {{ step.description|linebreaks }}
+                                </div>
+                            </div>
+                            <div>
+                                <strong>Expected Result:</strong>
+                                <div class="mt-1" style="background: var(--input-bg); color: var(--input-text); padding: 0.75rem; border-radius: 4px; border-left: 3px solid #28a745;">
+                                    {{ step.expected_result|linebreaks }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: var(--text-color); opacity: 0.8;">No steps defined for this test case.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="test-case-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color); background: var(--card-bg); display: flex; justify-content: space-between; align-items: center;">
+        <div class="footer-links">
+            <a href="{% url 'testcases:test_case_add' %}?section={{ selected_test_case_obj.section.id|stringformat:"s" }}" style="color: var(--btn-primary-bg); text-decoration: none; margin-right: 1rem;">
+                <i class="fas fa-plus"></i> Add Case
+            </a>
+            <a href="#" style="color: var(--btn-primary-bg); text-decoration: none;" onclick="addSubsection('{{ selected_test_case_obj.section.id|stringformat:"s" }}'); return false;" title="Add subsection to {{ selected_test_case_obj.section.name }}">
+                <i class="fas fa-folder-plus"></i> Add Subsection
+            </a>
+        </div>
+        <div style="color: var(--text-color); opacity: 0.85;" class="small">
+            Created by: {{ selected_test_case_obj.created_by.username|default:"Unknown" }} on {{ selected_test_case_obj.created_at|date:"F d, Y H:i" }}
+            {% if selected_test_case_obj.updated_at != selected_test_case_obj.created_at %}
+                | Updated: {{ selected_test_case_obj.updated_at|date:"F d, Y H:i" }}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Add Subsection Modal -->
+<div id="addSubsectionModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content-add-section">
+        <div class="modal-header-add-section">
+            <h3>Add Section</h3>
+            <span class="modal-close" onclick="closeAddSubsectionModal()">&times;</span>
+        </div>
+        <div class="modal-body-add-section">
+            <form id="add-subsection-form">
+                <div class="form-group-add-section">
+                    <label for="subsection-name-input">Name <span style="color: red;">*</span></label>
+                    <input type="text" id="subsection-name-input" class="form-control-add-section" placeholder="Ex: Save Dialog Tests, Contact Form or Performance Tests" required>
+                </div>
+                
+                <div class="form-group-add-section">
+                    <label for="subsection-description-input">Description</label>
+                    <div class="description-toolbar">
+                        <i class="fas fa-table" title="Table"></i>
+                        <i class="fas fa-image" title="Image"></i>
+                        <i class="fas fa-question-circle" title="Help"></i>
+                    </div>
+                    <textarea id="subsection-description-input" class="form-control-add-section" rows="4" placeholder="An optional description for this section (e.g. to explain its content or purpose)."></textarea>
+                </div>
+                
+                <div class="file-attachment-area">
+                    <div class="file-drop-zone">
+                        <i class="fas fa-plus-circle fa-3x"></i>
+                        <p>Drop files here to attach, or click on "+" to browse</p>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer-add-section">
+            <button type="button" class="btn-add-section" onclick="submitAddSubsection()">
+                <i class="fas fa-check"></i> Add Section
+            </button>
+            <button type="button" class="btn-cancel-section" onclick="closeAddSubsectionModal()">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Modal Overlay */
+    .modal-overlay {
+        position: fixed;
+        z-index: 10000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    /* Modal Content */
+    .modal-content-add-section {
+        background-color: white;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* Modal Header */
+    .modal-header-add-section {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-header-add-section h3 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+    
+    .modal-close {
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+    }
+    
+    .modal-close:hover {
+        opacity: 0.7;
+    }
+    
+    /* Modal Body */
+    .modal-body-add-section {
+        padding: 1.5rem;
+        flex: 1;
+    }
+    
+    .form-group-add-section {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-group-add-section label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .form-control-add-section {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+        box-sizing: border-box;
+    }
+    
+    .form-control-add-section:focus {
+        outline: none;
+        border-color: #4facfe;
+        box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+    }
+    
+    .description-toolbar {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        justify-content: flex-end;
+    }
+    
+    .description-toolbar i {
+        color: #666;
+        cursor: pointer;
+        padding: 0.25rem;
+    }
+    
+    .description-toolbar i:hover {
+        color: #4facfe;
+    }
+    
+    /* File Attachment Area */
+    .file-attachment-area {
+        margin-top: 1.5rem;
+    }
+    
+    .file-drop-zone {
+        border: 2px dashed #ddd;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        background-color: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .file-drop-zone:hover {
+        border-color: #4facfe;
+        background-color: #e3f2fd;
+    }
+    
+    .file-drop-zone i {
+        color: #4facfe;
+        margin-bottom: 0.5rem;
+    }
+    
+    .file-drop-zone p {
+        margin: 0;
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    /* Modal Footer */
+    .modal-footer-add-section {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #ddd;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+    
+    .btn-add-section {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-add-section:hover {
+        background-color: #218838;
+    }
+    
+    .btn-cancel-section {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-cancel-section:hover {
+        background-color: #c82333;
+    }
+</style>

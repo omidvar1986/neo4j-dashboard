@@ -12,17 +12,25 @@
     }
     .welcome-card {
         border-radius: 20px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 10px 30px var(--shadow);
+        background: var(--card-bg);
         backdrop-filter: blur(10px);
+        border: 1px solid var(--card-border);
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+    [data-theme="light"] .welcome-card {
+        background: rgba(255, 255, 255, 0.95);
+    }
+    [data-theme="dark"] .welcome-card {
+        background: rgba(37, 37, 37, 0.95);
     }
     .project-card {
-        border: none;
+        border: 1px solid var(--card-border);
         border-radius: 20px;
         transition: all 0.3s ease;
         height: 100%;
-        background: white;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        background: var(--card-bg);
+        box-shadow: 0 5px 15px var(--shadow);
         overflow: hidden;
     }
     .project-card:hover {
@@ -34,26 +42,48 @@
         text-align: center;
     }
     .project-icon {
-        width: 80px;
-        height: 80px;
+        width: 100px;
+        height: 100px;
         margin: 0 auto 1.5rem;
-        border-radius: 50%;
+        border-radius: 20px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 2.5rem;
-        color: white;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        background: transparent;
+    }
+    
+    .project-card:hover .project-icon {
+        transform: scale(1.1) rotate(5deg);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .project-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        transition: transform 0.3s ease;
+    }
+    
+    .project-card:hover .project-icon img {
+        transform: scale(1.05);
     }
     .project-title {
         font-size: 1.5rem;
         font-weight: 700;
         margin-bottom: 1rem;
-        color: #2c3e50;
+        color: var(--text-color);
+        transition: color 0.3s ease;
     }
     .project-description {
-        color: #7f8c8d;
+        color: var(--text-color);
+        opacity: 0.8;
         margin-bottom: 1.5rem;
         line-height: 1.6;
+        transition: color 0.3s ease, opacity 0.3s ease;
     }
     .project-btn {
         border-radius: 25px;
@@ -67,13 +97,16 @@
         transform: scale(1.05);
     }
     .welcome-title {
-        color: #2c3e50;
+        color: var(--text-color);
         font-weight: 700;
         margin-bottom: 1rem;
+        transition: color 0.3s ease;
     }
     .welcome-subtitle {
-        color: #7f8c8d;
+        color: var(--text-color);
+        opacity: 0.9;
         font-size: 1.1rem;
+        transition: color 0.3s ease, opacity 0.3s ease;
     }
     .stats-card {
         background: rgba(255, 255, 255, 0.1);
@@ -121,8 +154,8 @@
             <div class="col-lg-6 col-xl-4 mb-4">
                 <div class="card project-card">
                     <div class="card-body">
-                        <div class="project-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                            <i class="fas fa-project-diagram"></i>
+                        <div class="project-icon">
+                            <img src="{% static 'dashboard/images/neo4j-logo.svg' %}" alt="Neo4j Logo">
                         </div>
                         <h3 class="project-title">Neo4j Dashboard</h3>
                         <p class="project-description">
@@ -141,8 +174,8 @@
             <div class="col-lg-6 col-xl-4 mb-4">
                 <div class="card project-card">
                     <div class="card-body">
-                        <div class="project-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                            <i class="fas fa-tools"></i>
+                        <div class="project-icon">
+                            <img src="{% static 'dashboard/images/api-tools-logo.svg' %}" alt="API Tools Logo">
                         </div>
                         <h3 class="project-title">API Tools</h3>
                         <p class="project-description">
@@ -159,8 +192,8 @@
             <div class="col-lg-6 col-xl-4 mb-4">
                 <div class="card project-card">
                     <div class="card-body">
-                        <div class="project-icon" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
-                            <i class="fas fa-server"></i>
+                        <div class="project-icon">
+                            <img src="{% static 'dashboard/images/wiremock-logo.svg' %}" alt="Wiremock Logo">
                         </div>
                         <h3 class="project-title">Wiremock</h3>
                         <p class="project-description">
@@ -168,6 +201,25 @@
                             stub mappings with a beautiful interface for comprehensive API testing.
                         </p>
                         <a href="{% url 'dashboard:wiremock_dashboard' %}" class="btn btn-primary project-btn">
+                            <i class="fas fa-arrow-right"></i> Open Project
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Cases Project Card -->
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card project-card">
+                    <div class="card-body">
+                        <div class="project-icon">
+                            <img src="{% static 'dashboard/images/test-cases-logo.svg' %}" alt="Test Cases Logo">
+                        </div>
+                        <h3 class="project-title">Test Cases</h3>
+                        <p class="project-description">
+                            Create, manage, and organize test cases with detailed steps, preconditions, 
+                            and expected results. Comprehensive test case management system.
+                        </p>
+                        <a href="{% url 'testcases:test_case_list' %}" class="btn btn-primary project-btn">
                             <i class="fas fa-arrow-right"></i> Open Project
                         </a>
                     </div>
@@ -193,7 +245,7 @@
                     </div>
                     <div class="col-md-3">
                         <div class="stats-card">
-                            <h4 class="mb-0">3</h4>
+                            <h4 class="mb-0">4</h4>
                             <small>Active Projects</small>
                         </div>
                     </div>

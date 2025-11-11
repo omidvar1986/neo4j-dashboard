@@ -48,7 +48,7 @@ docker-compose up -d
 The application consists of three main services:
 
 ### 1. **PostgreSQL** (`postgres`)
-- **Port**: 5432
+- **Port**: 5433
 - **Purpose**: Django's primary database
 - **Data Persistence**: Yes (Docker volume)
 - **Health Check**: Automatic

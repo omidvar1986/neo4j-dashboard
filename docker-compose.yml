@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init_postgres.sql:/docker-entrypoint-initdb.d/init_postgres.sql
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U neo4j_dashboard_user -d neo_dashboard"]
       interval: 10s
@@ -46,6 +46,25 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # MongoDB Database for Test Cases
+  mongodb:
+    image: mongo:7.0
+    container_name: neo4j_dashboard_mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=mongodb_user
+      - MONGO_INITDB_ROOT_PASSWORD=Milad1986
+      - MONGO_INITDB_DATABASE=testcases_db
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # Django Web Application
   web:
     build: .
@@ -57,6 +76,8 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_started
+      mongodb:
+        condition: service_healthy
     environment:
       # Django settings
       - DEBUG=False
@@ -72,6 +93,12 @@ services:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=Milad1986
+      # MongoDB settings
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_USER=mongodb_user
+      - MONGODB_PASSWORD=Milad1986
+      - MONGODB_DB=testcases_db
     volumes:
       - ./logs:/app/logs
       - ./staticfiles:/app/staticfiles
@@ -83,3 +110,4 @@ volumes:
   neo4j_logs:
   neo4j_import:
   neo4j_plugins:
+  mongodb_data:

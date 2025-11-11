@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'dashboard',
+    'testcases',
 ]
 
 MIDDLEWARE = [
@@ -104,7 +105,9 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_NAME', 'neo_dashboard'),
         'USER': os.getenv('POSTGRES_USER', 'neo4j_dashboard_user'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'Milad1986'),
-        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+        # اصلاح برای داکر: هاست باید نام سرویس داکر باشد
+        'HOST': os.getenv('POSTGRES_HOST', 'postgres'),
+        # اصلاح برای داکر: پورت باید پورت داخلی کانتینر باشد
         'PORT': os.getenv('POSTGRES_PORT', '5432'),
     }
 }
@@ -145,6 +148,34 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Neo4j Configuration
-NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
+# Neo4j URI باید به نام سرویس داکر (neo4j) اشاره کند
+NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://neo4j:7687')
 NEO4J_USER = os.getenv('NEO4J_USER', 'neo4j')
 NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD', 'Milad1986')
+
+# MongoDB Configuration for Test Cases
+try:
+    import mongoengine
+    MONGODB_HOST = os.getenv('MONGODB_HOST', 'localhost')
+    MONGODB_PORT = int(os.getenv('MONGODB_PORT', '27017'))
+    MONGODB_USER = os.getenv('MONGODB_USER', 'mongodb_user')
+    MONGODB_PASSWORD = os.getenv('MONGODB_PASSWORD', 'Milad1986')
+    MONGODB_DB = os.getenv('MONGODB_DB', 'testcases_db')
+
+    # Connect to MongoDB
+    mongoengine.connect(
+        db=MONGODB_DB,
+        host=MONGODB_HOST,
+        port=MONGODB_PORT,
+        username=MONGODB_USER,
+        password=MONGODB_PASSWORD,
+        authentication_source='admin'
+    )
+except Exception as e:
+    # MongoDB connection will be established when needed
+    print(f"Warning: MongoDB connection not available: {e}")
+    MONGODB_HOST = os.getenv('MONGODB_HOST', 'localhost')
+    MONGODB_PORT = int(os.getenv('MONGODB_PORT', '27017'))
+    MONGODB_USER = os.getenv('MONGODB_USER', 'mongodb_user')
+    MONGODB_PASSWORD = os.getenv('MONGODB_PASSWORD', 'Milad1986')
+    MONGODB_DB = os.getenv('MONGODB_DB', 'testcases_db')

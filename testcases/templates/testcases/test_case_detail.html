@@ -1,0 +1,231 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Test Case #{{ test_case.id|stringformat:"s"|slice:":8" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .test-case-detail-container {
+        padding: 1rem;
+    }
+    .test-case-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
+    .test-case-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+    .test-case-title-section {
+        flex: 1;
+    }
+    .test-case-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+    .test-case-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #007bff;
+        color: white;
+        font-weight: bold;
+        margin-right: 0.5rem;
+    }
+    .test-case-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    .test-case-body {
+        padding: 1.5rem;
+    }
+    .references-section {
+        margin-bottom: 1.5rem;
+    }
+    .references-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .references-list li {
+        margin-bottom: 0.5rem;
+    }
+    .references-list a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    .references-list a:hover {
+        text-decoration: underline;
+    }
+    .steps-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .steps-table thead {
+        background: #f8f9fa;
+    }
+    .steps-table th,
+    .steps-table td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .steps-table th {
+        font-weight: 600;
+        color: #495057;
+    }
+    .steps-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    .step-id {
+        font-weight: 600;
+        color: #007bff;
+    }
+    .step-chevron {
+        color: #6c757d;
+        cursor: pointer;
+    }
+    .test-case-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #dee2e6;
+        background: #f8f9fa;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .footer-links a {
+        color: #007bff;
+        text-decoration: none;
+        margin-right: 1rem;
+    }
+    .footer-links a:hover {
+        text-decoration: underline;
+    }
+    .preconditions-section {
+        background: #f8f9fa;
+        border-radius: 4px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .preconditions-section strong {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #495057;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="test-case-detail-container">
+    <div class="test-case-card">
+        <div class="test-case-header">
+            <div class="test-case-title-section">
+                <div class="d-flex align-items-center">
+                    <span class="test-case-badge">{{ test_case.steps|length }}</span>
+                    <h3 class="test-case-title mb-0">{{ test_case.title }}</h3>
+                    <a href="{% url 'testcases:test_case_edit' test_case.id|stringformat:"s" %}" class="btn btn-sm btn-link text-muted ms-2" title="Edit">
+                        <i class="fas fa-pencil-alt"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="test-case-actions">
+                <a href="{% url 'testcases:test_case_edit' test_case.id|stringformat:"s" %}" class="btn btn-warning btn-sm">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+                <a href="{% url 'testcases:test_case_list' %}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+            </div>
+        </div>
+        
+        <div class="test-case-body">
+            <!-- Preconditions -->
+            {% if test_case.preconditions %}
+            <div class="preconditions-section">
+                <strong>Preconditions:</strong>
+                <div>{{ test_case.preconditions|linebreaks }}</div>
+            </div>
+            {% endif %}
+            
+            <!-- References (if we add this field back) -->
+            {% comment %}
+            {% if test_case.references %}
+            <div class="references-section">
+                <strong>References:</strong>
+                <ul class="references-list">
+                    {% for ref in test_case.references|split:"," %}
+                        <li><a href="{{ ref|trim }}" target="_blank">{{ ref|trim }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% endcomment %}
+            
+            <!-- Test Steps Table -->
+            <div class="steps-section">
+                <h5 class="mb-3">Test Steps</h5>
+                {% if test_case.steps %}
+                    <table class="steps-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">
+                                    <input type="checkbox">
+                                </th>
+                                <th style="width: 100px;">ID</th>
+                                <th>Description</th>
+                                <th>Expected Result</th>
+                                <th style="width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for step in steps %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" value="{{ step.step_number }}">
+                                    </td>
+                                    <td class="step-id">C{{ test_case.id|stringformat:"s"|slice:":8" }}-{{ step.step_number }}</td>
+                                    <td>{{ step.description|linebreaks }}</td>
+                                    <td>{{ step.expected_result|linebreaks }}</td>
+                                    <td class="text-end">
+                                        <i class="fas fa-chevron-right step-chevron"></i>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text-muted">No steps defined for this test case.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="test-case-footer">
+            <div class="footer-links">
+                <a href="{% url 'testcases:test_case_add' %}?section={{ test_case.section.id|stringformat:"s" }}">
+                    <i class="fas fa-plus"></i> Add Case
+                </a>
+                <a href="#">
+                    <i class="fas fa-folder-plus"></i> Add Subsection
+                </a>
+            </div>
+            <div class="text-muted small">
+                Created by: {{ test_case.created_by.username|default:"Unknown" }} on {{ test_case.created_at|date:"F d, Y H:i" }}
+                {% if test_case.updated_at != test_case.created_at %}
+                    | Updated: {{ test_case.updated_at|date:"F d, Y H:i" }}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

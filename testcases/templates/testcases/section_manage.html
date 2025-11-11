@@ -1,0 +1,268 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Manage Sections{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-folder-open text-primary"></i> Manage Sections
+        </h2>
+        <a href="{% url 'testcases:test_case_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Test Cases
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Sections Management -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">All Sections</h5>
+            {% if sections %}
+                <button type="button" class="btn btn-sm btn-danger" onclick="deleteSelectedSections()">
+                    <i class="fas fa-trash"></i> Delete Selected
+                </button>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if sections %}
+                <form method="post" id="bulkDeleteSectionsForm">
+                    {% csrf_token %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">
+                                        <input type="checkbox" id="selectAllSections" onchange="toggleAllSections(this)">
+                                    </th>
+                                    <th>Name</th>
+                                    <th>Parent Section</th>
+                                    <th>Test Cases</th>
+                                    <th>Subsections</th>
+                                    <th>Description</th>
+                                    <th style="width: 150px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in sections %}
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" 
+                                                   name="section_ids" 
+                                                   value="{{ item.section.id|stringformat:"s" }}" 
+                                                   class="section-checkbox">
+                                        </td>
+                                        <td>
+                                            <i class="fas fa-folder text-primary me-2"></i>
+                                            <strong>{{ item.section.name }}</strong>
+                                        </td>
+                                        <td>
+                                            {% if item.parent_name %}
+                                                <span style="color: var(--text-color); opacity: 0.8;">{{ item.parent_name }}</span>
+                                            {% else %}
+                                                <span style="color: var(--text-color); opacity: 0.8;">Root Section</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ item.test_case_count }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ item.subsection_count }}</span>
+                                        </td>
+                                        <td>
+                                            <small style="color: var(--text-color); opacity: 0.8;">{{ item.section.description|truncatewords:10|default:"—" }}</small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'testcases:section_edit' item.section.id|stringformat:"s" %}" 
+                                                   class="btn btn-warning" title="Edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <form method="post" 
+                                                      action="{% url 'testcases:section_delete' item.section.id|stringformat:"s" %}" 
+                                                      class="d-inline"
+                                                      onsubmit="return confirm('Are you sure you want to delete section \"{{ item.section.name }}\"? This will also delete all test cases ({{ item.test_case_count }}) and subsections ({{ item.subsection_count }}) within this section. This action cannot be undone.');">
+                                                    {% csrf_token %}
+                                                    <button type="submit" 
+                                                            class="btn btn-danger" 
+                                                            title="Delete section and all its test cases and subsections">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <input type="hidden" name="delete_sections" value="1">
+                </form>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-folder-open fa-3x mb-3" style="color: var(--text-color); opacity: 0.6;"></i>
+                    <p style="color: var(--text-color); opacity: 0.8;">No sections found.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Test Cases Management -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">All Test Cases</h5>
+            {% if all_test_cases %}
+                <button type="button" class="btn btn-sm btn-danger" onclick="deleteSelectedTestCases()">
+                    <i class="fas fa-trash"></i> Delete Selected
+                </button>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if all_test_cases %}
+                <form method="post" id="bulkDeleteForm">
+                    {% csrf_token %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">
+                                        <input type="checkbox" id="selectAllTestCases" onchange="toggleAllTestCases(this)">
+                                    </th>
+                                    <th>ID</th>
+                                    <th>Title</th>
+                                    <th>Section</th>
+                                    <th>Type</th>
+                                    <th>Priority</th>
+                                    <th>Created</th>
+                                    <th style="width: 100px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for test_case in all_test_cases %}
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" 
+                                                   name="test_case_ids" 
+                                                   value="{{ test_case.id|stringformat:"s" }}" 
+                                                   class="test-case-checkbox">
+                                        </td>
+                                        <td>
+                                            <strong>C{{ test_case.id|stringformat:"s"|slice:":8" }}</strong>
+                                        </td>
+                                        <td>{{ test_case.title|truncatewords:15 }}</td>
+                                        <td>
+                                            <span class="badge bg-primary">{{ test_case.section.name }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ test_case.type }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge 
+                                                {% if test_case.priority == 'Critical' %}bg-danger
+                                                {% elif test_case.priority == 'High' %}bg-warning
+                                                {% elif test_case.priority == 'Medium' %}bg-info
+                                                {% else %}bg-secondary
+                                                {% endif %}">
+                                                {{ test_case.priority }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <small style="color: var(--text-color); opacity: 0.8;">{{ test_case.created_at|date:"M d, Y" }}</small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'testcases:test_case_edit' test_case.id|stringformat:"s" %}" 
+                                                   class="btn btn-warning" title="Edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <form method="post" 
+                                                      action="{% url 'testcases:test_case_delete' test_case.id|stringformat:"s" %}" 
+                                                      class="d-inline"
+                                                      onsubmit="return confirm('Are you sure you want to delete test case \"{{ test_case.title|truncatewords:5 }}\"?');">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-danger" title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <input type="hidden" name="delete_test_cases" value="1">
+                </form>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-clipboard-list fa-3x mb-3" style="color: var(--text-color); opacity: 0.6;"></i>
+                    <p style="color: var(--text-color); opacity: 0.8;">No test cases found.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleAllSections(checkbox) {
+        const checkboxes = document.querySelectorAll('.section-checkbox');
+        checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    }
+    
+    function toggleAllTestCases(checkbox) {
+        const checkboxes = document.querySelectorAll('.test-case-checkbox');
+        checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    }
+    
+    function deleteSelectedSections() {
+        const selected = document.querySelectorAll('.section-checkbox:checked');
+        if (selected.length === 0) {
+            alert('Please select at least one section to delete.');
+            return;
+        }
+        
+        if (confirm(`Are you sure you want to delete ${selected.length} section(s)? This will also delete all test cases and subsections within these sections. This action cannot be undone.`)) {
+            document.getElementById('bulkDeleteSectionsForm').submit();
+        }
+    }
+    
+    function deleteSelectedTestCases() {
+        const selected = document.querySelectorAll('.test-case-checkbox:checked');
+        if (selected.length === 0) {
+            alert('Please select at least one test case to delete.');
+            return;
+        }
+        
+        if (confirm(`Are you sure you want to delete ${selected.length} test case(s)? This action cannot be undone.`)) {
+            document.getElementById('bulkDeleteForm').submit();
+        }
+    }
+</script>
+
+<style>
+    .table th {
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .table td {
+        vertical-align: middle;
+    }
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+    }
+    .test-case-checkbox,
+    .section-checkbox {
+        cursor: pointer;
+    }
+    
+</style>
+{% endblock %}
