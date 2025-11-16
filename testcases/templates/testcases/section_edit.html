@@ -51,7 +51,7 @@
                                 <option value="">Root Section (No Parent)</option>
                                 {% for parent in available_parents %}
                                     <option value="{{ parent.id|stringformat:"s" }}" 
-                                            {% if section.parent and str(section.parent.id) == str(parent.id) %}selected{% endif %}>
+                                            {% if section.parent and section.parent.id|stringformat:"s" == parent.id|stringformat:"s" %}selected{% endif %}>
                                         {{ parent.name }}
                                     </option>
                                 {% endfor %}

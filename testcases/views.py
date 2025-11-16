@@ -5,16 +5,58 @@ from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_http_methods
 from django.urls import reverse
 from bson import ObjectId
-from .models import TestCase, TestStep, Section
+from .models import TestCase, TestStep, Section, SectionPermission, ChangeHistory
 from .forms import TestCaseForm
+
+
+def user_can_edit_sections(user):
+    """Check if user can edit sections (admin or has permission)"""
+    if user.role == 3:  # Admin
+        return True
+    try:
+        permission = SectionPermission.objects.get(user_id=user.id)
+        return permission.can_edit
+    except SectionPermission.DoesNotExist:
+        return False
+
+
+def user_can_delete_sections(user):
+    """Check if user can delete sections (admin or has permission)"""
+    if user.role == 3:  # Admin
+        return True
+    try:
+        permission = SectionPermission.objects.get(user_id=user.id)
+        return permission.can_delete
+    except SectionPermission.DoesNotExist:
+        return False
+
+
+def record_change(entity_type, entity_id, action, user_id, description=''):
+    """Record a change in the change history"""
+    try:
+        ChangeHistory(
+            entity_type=entity_type,
+            entity_id=str(entity_id),
+            action=action,
+            user_id=user_id,
+            description=description
+        ).save()
+    except Exception as e:
+        # Don't fail the main operation if history recording fails
+        print(f"Error recording change history: {str(e)}")
 
 
 @login_required
 def test_case_list(request):
-    """Display list of test cases"""
+    """List all test cases, optionally filtered by section or test case."""
+    if not request.user.can_access_test_cases:
+        messages.error(request, 'You do not have permission to access the Test Cases project.')
+        return redirect('dashboard:home')
     # Get filter parameters
     section_filter = request.GET.get('section')
     test_case_filter = request.GET.get('test_case')
+    sort_param = request.GET.get('sort', 'section')  # Default sort by section
+    filter_param = request.GET.get('filter', 'all')  # Default filter: all
     
     # If a specific test case is selected, get it for detail view
     selected_test_case = None
@@ -40,7 +82,57 @@ def test_case_list(request):
         except (Section.DoesNotExist, Exception):
             pass
     
-    test_cases = list(test_cases_query.order_by('-created_at'))
+    # Apply filter (only if not already filtered by section from tree selection)
+    # Note: If section_filter is set, we already filtered by section above
+    # So we only apply additional filters (type, priority) or override section filter if explicitly requested
+    if filter_param == 'all':
+        pass  # Show all (or what's already filtered by section)
+    elif filter_param.startswith('section_'):
+        # Filter by specific section (this overrides the tree section filter)
+        try:
+            filter_section_id = filter_param.replace('section_', '')
+            filter_section = Section.objects.get(id=ObjectId(filter_section_id))
+            # Override the section filter from tree
+            test_cases_query = TestCase.objects(is_deleted=False).filter(section=filter_section)
+        except (Section.DoesNotExist, Exception):
+            pass
+    elif filter_param.startswith('type_'):
+        # Filter by type (applies on top of section filter if any)
+        filter_type = filter_param.replace('type_', '')
+        test_cases_query = test_cases_query.filter(type=filter_type)
+    elif filter_param.startswith('priority_'):
+        # Filter by priority (applies on top of section filter if any)
+        filter_priority = filter_param.replace('priority_', '')
+        test_cases_query = test_cases_query.filter(priority=filter_priority)
+    
+    # Apply sorting
+    if sort_param == 'section':
+        # Sort by section name, then by created date
+        test_cases_list = list(test_cases_query)
+        test_cases_list.sort(key=lambda tc: (
+            tc.section.name if tc.section else '',
+            tc.created_at
+        ), reverse=True)
+        test_cases = test_cases_list
+    elif sort_param == 'title':
+        test_cases = list(test_cases_query.order_by('title'))
+    elif sort_param == 'date_newest':
+        test_cases = list(test_cases_query.order_by('-created_at'))
+    elif sort_param == 'date_oldest':
+        test_cases = list(test_cases_query.order_by('created_at'))
+    elif sort_param == 'type':
+        test_cases = list(test_cases_query.order_by('type', '-created_at'))
+    elif sort_param == 'priority':
+        # Priority order: Critical, High, Medium, Low
+        priority_order = {'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3}
+        test_cases_list = list(test_cases_query)
+        test_cases_list.sort(key=lambda tc: (
+            priority_order.get(tc.priority, 99),
+            tc.created_at
+        ))
+        test_cases = test_cases_list
+    else:
+        test_cases = list(test_cases_query.order_by('-created_at'))
     
     # Build hierarchical tree structure from sections that have test cases
     all_sections = list(Section.objects().order_by('name'))
@@ -71,15 +163,14 @@ def test_case_list(request):
                 has_subsections = len(subsections) > 0
                 has_direct_subsections = direct_subsections_count > 0
                 
-                # Include section if it has test cases, subsections in tree, or direct subsections in DB
-                # This ensures sections with subsections (even empty ones) are shown
-                if has_test_cases or has_subsections or has_direct_subsections:
-                    tree.append({
-                        'section': section,
-                        'test_cases': section_test_cases,
-                        'subsections': subsections,
-                        'has_cases': has_test_cases or has_subsections or has_direct_subsections,
-                    })
+                # ALWAYS include root sections - they should appear in the tree even if empty
+                # This ensures newly created sections are visible
+                tree.append({
+                    'section': section,
+                    'test_cases': section_test_cases,
+                    'subsections': subsections,
+                    'has_cases': has_test_cases or has_subsections or has_direct_subsections,
+                })
             elif not parent_is_none and section_has_parent and str(section.parent.id) == str(parent.id):
                 # Subsection (has parent matching current parent)
                 # Get test cases for this section
@@ -127,8 +218,14 @@ def test_case_list(request):
     
     # Get steps for selected test case if one is selected
     selected_test_case_steps = None
+    selected_test_case_history = None
     if selected_test_case:
         selected_test_case_steps = sorted(selected_test_case.steps, key=lambda x: x.step_number) if selected_test_case.steps else []
+        # Get change history for selected test case
+        selected_test_case_history = ChangeHistory.objects(
+            entity_type='test_case',
+            entity_id=str(selected_test_case.id)
+        ).order_by('-timestamp')[:50]  # Limit to last 50 changes
     
     # Get selected section object if section is selected
     selected_section_obj = None
@@ -138,17 +235,30 @@ def test_case_list(request):
         except (Section.DoesNotExist, Exception):
             pass
     
+    # Get unique types and priorities for filter dropdown
+    all_test_cases = TestCase.objects(is_deleted=False)
+    unique_types = sorted(set(tc.type for tc in all_test_cases if tc.type))
+    unique_priorities = sorted(set(tc.priority for tc in all_test_cases if tc.priority))
+    
     context = {
         'test_cases': test_cases,
         'sections': sections_with_cases,
+        'all_sections': all_sections,
+        'unique_types': unique_types,
+        'unique_priorities': unique_priorities,
         'selected_section': section_filter,
         'selected_section_obj': selected_section_obj,
         'selected_test_case': test_case_filter,
         'selected_test_case_obj': selected_test_case,
         'selected_test_case_steps': selected_test_case_steps,
+        'selected_test_case_history': selected_test_case_history,
         'section_tree': section_tree,
         'total_sections': total_sections,
         'total_cases': total_cases,
+        'current_sort': sort_param,
+        'current_filter': filter_param,
+        'user_can_edit': user_can_edit_sections(request.user),
+        'user_can_delete': user_can_delete_sections(request.user),
     }
     return render(request, 'testcases/test_case_list.html', context)
 
@@ -175,10 +285,10 @@ def test_case_add(request):
                 try:
                     section = Section.objects.get(id=ObjectId(section_id))
                 except (Section.DoesNotExist, Exception):
-                    section = Section(name='Default')
+                    section = Section(name='Default', created_by_id=request.user.id)
                     section.save()
             else:
-                section = Section(name='Default')
+                section = Section(name='Default', created_by_id=request.user.id)
                 section.save()
             
             # Create test case
@@ -190,6 +300,7 @@ def test_case_add(request):
                 estimate=form.cleaned_data.get('estimate', ''),
                 automation_type=form.cleaned_data.get('automation_type', 'None'),
                 labels=form.cleaned_data.get('labels', ''),
+                description=form.cleaned_data.get('description', ''),
                 preconditions=form.cleaned_data.get('preconditions', ''),
                 template='Test Case (Steps)',  # Always set to this
                 created_by_id=request.user.id,
@@ -226,6 +337,9 @@ def test_case_add(request):
             test_case.steps = test_steps
             test_case.save()
             
+            # Record change history
+            record_change('test_case', str(test_case.id), 'created', request.user.id, f'Created test case: {test_case.title}')
+            
             messages.success(request, f'Test case "{test_case.title}" created successfully!')
             
             # Check if "Add & Next" was clicked
@@ -257,9 +371,18 @@ def test_case_detail(request, pk):
     # Steps are embedded, so we can access them directly
     steps = sorted(test_case.steps, key=lambda x: x.step_number) if test_case.steps else []
     
+    # Get change history for this test case
+    change_history = ChangeHistory.objects(
+        entity_type='test_case',
+        entity_id=str(test_case.id)
+    ).order_by('-timestamp')[:50]  # Limit to last 50 changes
+    
     context = {
         'test_case': test_case,
         'steps': steps,
+        'user_can_edit': user_can_edit_sections(request.user),
+        'user_can_delete': user_can_delete_sections(request.user),
+        'change_history': change_history,
     }
     return render(request, 'testcases/test_case_detail.html', context)
 
@@ -267,6 +390,15 @@ def test_case_detail(request, pk):
 @login_required
 def test_case_edit(request, pk):
     """Edit an existing test case"""
+    # Check permissions
+    if not user_can_edit_sections(request.user):
+        messages.error(request, 'You do not have permission to edit test cases.')
+        try:
+            test_case = TestCase.objects.get(id=ObjectId(pk), is_deleted=False)
+            return redirect('testcases:test_case_detail', pk=str(test_case.id))
+        except (TestCase.DoesNotExist, Exception):
+            return redirect('testcases:test_case_list')
+    
     try:
         test_case = TestCase.objects.get(id=ObjectId(pk), is_deleted=False)
     except (TestCase.DoesNotExist, Exception):
@@ -285,7 +417,7 @@ def test_case_edit(request, pk):
                 try:
                     section = Section.objects.get(name=section_name)
                 except Section.DoesNotExist:
-                    section = Section(name=section_name)
+                    section = Section(name=section_name, created_by_id=request.user.id)
                     section.save()
             elif section_id:
                 try:
@@ -303,6 +435,7 @@ def test_case_edit(request, pk):
             test_case.estimate = form.cleaned_data.get('estimate', '')
             test_case.automation_type = form.cleaned_data.get('automation_type', 'None')
             test_case.labels = form.cleaned_data.get('labels', '')
+            test_case.description = form.cleaned_data.get('description', '')
             test_case.preconditions = form.cleaned_data.get('preconditions', '')
             
             # Handle test steps - steps are required
@@ -348,7 +481,11 @@ def test_case_edit(request, pk):
                 return render(request, 'testcases/test_case_edit.html', context)
             
             test_case.steps = test_steps
+            test_case.updated_by_id = request.user.id
             test_case.save()
+            
+            # Record change history
+            record_change('test_case', str(test_case.id), 'updated', request.user.id, f'Updated test case: {test_case.title}')
             
             messages.success(request, f'Test case "{test_case.title}" updated successfully!')
             return redirect('testcases:test_case_detail', pk=str(test_case.id))
@@ -362,6 +499,7 @@ def test_case_edit(request, pk):
             'estimate': test_case.estimate,
             'automation_type': test_case.automation_type,
             'labels': test_case.labels,
+            'description': getattr(test_case, 'description', ''),
             'preconditions': test_case.preconditions,
         })
     
@@ -379,14 +517,77 @@ def test_case_edit(request, pk):
 @require_http_methods(["POST"])
 def test_case_delete(request, pk):
     """Delete a test case (soft delete)"""
+    # Check permissions
+    if not user_can_delete_sections(request.user):
+        messages.error(request, 'You do not have permission to delete test cases.')
+        return redirect('testcases:test_case_list')
+    
     try:
         test_case = TestCase.objects.get(id=ObjectId(pk), is_deleted=False)
         test_case.is_deleted = True
+        test_case.updated_by_id = request.user.id
         test_case.save()
+        
+        # Record change history
+        record_change('test_case', str(test_case.id), 'deleted', request.user.id, f'Deleted test case: {test_case.title}')
+        
         messages.success(request, f'Test case "{test_case.title}" deleted successfully!')
     except (TestCase.DoesNotExist, Exception):
         messages.error(request, 'Test case not found.')
     
+    return redirect('testcases:test_case_list')
+
+
+@login_required
+@require_http_methods(["POST"])
+def section_add(request):
+    """Add a new root section (no parent)"""
+    section_name = request.POST.get('section_name', '').strip()
+    section_description = request.POST.get('section_description', '').strip()
+    
+    if section_name:
+        try:
+            # Check if section already exists at root level (no parent)
+            # Try both methods to check for existing root sections
+            try:
+                existing = Section.objects.get(name=section_name, parent__exists=False)
+                messages.warning(request, f'Section "{section_name}" already exists.')
+            except Section.DoesNotExist:
+                try:
+                    # Also try checking with parent=None
+                    existing = Section.objects.get(name=section_name, parent=None)
+                    messages.warning(request, f'Section "{section_name}" already exists.')
+                except Section.DoesNotExist:
+                    # Create new root section
+                    try:
+                        section = Section(
+                            name=section_name,
+                            parent=None,
+                            description=section_description or '',
+                            created_by_id=request.user.id
+                        )
+                        # Validate before saving
+                        section.clean()
+                        section.save()
+                        
+                        # Record change history
+                        record_change('section', str(section.id), 'created', request.user.id, f'Created section: {section_name}')
+                        
+                        # Verify it was saved
+                        saved_section = Section.objects.get(id=section.id)
+                        messages.success(request, f'Section "{section_name}" created successfully!')
+                    except Exception as e:
+                        import traceback
+                        error_details = traceback.format_exc()
+                        messages.error(request, f'Error creating section: {str(e)}')
+                        # Log the full error for debugging
+                        print(f"Error creating section: {error_details}")
+        except Exception as e:
+            messages.error(request, f'Error: {str(e)}')
+    else:
+        messages.error(request, 'Section name is required.')
+    
+    # Redirect back to test case list
     return redirect('testcases:test_case_list')
 
 
@@ -410,11 +611,16 @@ def section_add_subsection(request, section_id):
                         subsection = Section(
                             name=subsection_name,
                             parent=parent_section,
-                            description=subsection_description if subsection_description else ''
+                            description=subsection_description if subsection_description else '',
+                            created_by_id=request.user.id
                         )
                         # Validate before saving
                         subsection.clean()
                         subsection.save()
+                        
+                        # Record change history
+                        record_change('section', str(subsection.id), 'created', request.user.id, f'Created subsection: {subsection_name} under {parent_section.name}')
+                        
                         # Verify it was saved
                         saved_subsection = Section.objects.get(id=subsection.id)
                         messages.success(request, f'Subsection "{subsection_name}" created successfully under "{parent_section.name}"!')
@@ -439,8 +645,41 @@ def section_add_subsection(request, section_id):
 @login_required
 def section_manage(request):
     """Manage sections - list, edit, and delete sections"""
+    # Handle permission updates (admin only) - check before other POST handlers
+    if request.method == 'POST' and 'update_permissions' in request.POST:
+        if request.user.role != 3:  # Only admins
+            messages.error(request, 'Only administrators can manage permissions.')
+            return redirect('testcases:section_manage')
+        
+        user_id = request.POST.get('user_id')
+        can_edit = request.POST.get('can_edit') == 'on'
+        can_delete = request.POST.get('can_delete') == 'on'
+        
+        if user_id:
+            try:
+                # MongoEngine doesn't have get_or_create, so we need to do it manually
+                try:
+                    permission = SectionPermission.objects.get(user_id=int(user_id))
+                except SectionPermission.DoesNotExist:
+                    permission = SectionPermission(user_id=int(user_id))
+                
+                permission.can_edit = can_edit
+                permission.can_delete = can_delete
+                permission.save()
+                messages.success(request, f'Permissions updated successfully.')
+            except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                messages.error(request, f'Error updating permissions: {str(e)}')
+                print(f"Error updating permissions: {error_details}")
+        return redirect('testcases:section_manage')
+    
     # Handle bulk delete of sections
     if request.method == 'POST' and 'delete_sections' in request.POST:
+        # Check permissions
+        if not user_can_delete_sections(request.user):
+            messages.error(request, 'You do not have permission to delete sections.')
+            return redirect('testcases:section_manage')
         section_ids = request.POST.getlist('section_ids')
         deleted_count = 0
         
@@ -450,13 +689,18 @@ def section_manage(request):
             subsection_test_cases = TestCase.objects(section=subsection, is_deleted=False)
             for test_case in subsection_test_cases:
                 test_case.is_deleted = True
+                test_case.updated_by_id = request.user.id
                 test_case.save()
+                # Record change history
+                record_change('test_case', str(test_case.id), 'deleted', request.user.id, f'Deleted test case: {test_case.title} (via bulk section deletion)')
             
             # Recursively delete child subsections
             child_subsections = Section.objects(parent=subsection)
             for child in child_subsections:
                 delete_subsection_recursive(child)
             
+            # Record change history before deleting subsection
+            record_change('section', str(subsection.id), 'deleted', request.user.id, f'Deleted subsection: {subsection.name} (via bulk deletion)')
             # Delete the subsection itself
             subsection.delete()
         
@@ -469,13 +713,18 @@ def section_manage(request):
                 test_cases = TestCase.objects(section=section, is_deleted=False)
                 for test_case in test_cases:
                     test_case.is_deleted = True
+                    test_case.updated_by_id = request.user.id
                     test_case.save()
+                    # Record change history
+                    record_change('test_case', str(test_case.id), 'deleted', request.user.id, f'Deleted test case: {test_case.title} (via bulk section deletion)')
                 
                 # Delete all subsections recursively
                 subsections = Section.objects(parent=section)
                 for subsection in subsections:
                     delete_subsection_recursive(subsection)
                 
+                # Record change history before deleting section
+                record_change('section', str(section.id), 'deleted', request.user.id, f'Deleted section: {section_name} (via bulk deletion)')
                 # Delete the section itself
                 section.delete()
                 deleted_count += 1
@@ -496,7 +745,10 @@ def section_manage(request):
             try:
                 test_case = TestCase.objects.get(id=ObjectId(test_case_id), is_deleted=False)
                 test_case.is_deleted = True
+                test_case.updated_by_id = request.user.id
                 test_case.save()
+                # Record change history
+                record_change('test_case', str(test_case.id), 'deleted', request.user.id, f'Deleted test case: {test_case.title} (via bulk deletion)')
                 deleted_count += 1
             except (TestCase.DoesNotExist, Exception):
                 pass
@@ -535,9 +787,43 @@ def section_manage(request):
         # Add to all test cases list
         all_test_cases.extend(test_cases)
     
+    # Get all users for permission management (admin only)
+    # Only load this data if user is admin to prevent unnecessary queries
+    all_users = []
+    permissions_data = []
+    is_admin = request.user.role == 3
+    
+    if is_admin:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        all_users = list(User.objects.filter(is_active=True).order_by('username'))
+        
+        # Get permissions for all users (only for admins)
+        for user in all_users:
+            try:
+                permission = SectionPermission.objects.get(user_id=user.id)
+                permissions_data.append({
+                    'user': user,
+                    'permission': permission,
+                    'can_edit': permission.can_edit,
+                    'can_delete': permission.can_delete,
+                })
+            except SectionPermission.DoesNotExist:
+                permissions_data.append({
+                    'user': user,
+                    'permission': None,
+                    'can_edit': False,
+                    'can_delete': False,
+                })
+    
     context = {
         'sections': sections_data,
         'all_test_cases': all_test_cases,
+        'all_users': all_users,  # Empty list for non-admins
+        'permissions_data': permissions_data,  # Empty list for non-admins
+        'user_can_edit': user_can_edit_sections(request.user),
+        'user_can_delete': user_can_delete_sections(request.user),
+        'is_admin': is_admin,  # Explicitly set for clarity
     }
     return render(request, 'testcases/section_manage.html', context)
 
@@ -545,6 +831,11 @@ def section_manage(request):
 @login_required
 def section_edit(request, section_id):
     """Edit a section"""
+    # Check permissions
+    if not user_can_edit_sections(request.user):
+        messages.error(request, 'You do not have permission to edit sections.')
+        return redirect('testcases:section_manage')
+    
     try:
         section = Section.objects.get(id=ObjectId(section_id))
     except (Section.DoesNotExist, Exception):
@@ -567,7 +858,12 @@ def section_edit(request, section_id):
             
             section.name = name
             section.description = description if description else ''
+            section.updated_by_id = request.user.id
             section.save()
+            
+            # Record change history
+            record_change('section', str(section.id), 'updated', request.user.id, f'Updated section: {section.name}')
+            
             messages.success(request, f'Section "{section.name}" updated successfully!')
             return redirect('testcases:section_manage')
         else:
@@ -600,6 +896,11 @@ def section_edit(request, section_id):
 @require_http_methods(["POST"])
 def section_delete(request, section_id):
     """Delete a section and all its test cases and subsections"""
+    # Check permissions
+    if not user_can_delete_sections(request.user):
+        messages.error(request, 'You do not have permission to delete sections.')
+        return redirect('testcases:section_manage')
+    
     try:
         section = Section.objects.get(id=ObjectId(section_id))
     except (Section.DoesNotExist, Exception):
@@ -613,7 +914,10 @@ def section_delete(request, section_id):
     test_case_count = test_cases.count()
     for test_case in test_cases:
         test_case.is_deleted = True
+        test_case.updated_by_id = request.user.id
         test_case.save()
+        # Record change history
+        record_change('test_case', str(test_case.id), 'deleted', request.user.id, f'Deleted test case: {test_case.title} (via section deletion)')
     
     # Delete all subsections recursively
     def delete_subsection_recursive(subsection):
@@ -621,13 +925,18 @@ def section_delete(request, section_id):
         subsection_test_cases = TestCase.objects(section=subsection, is_deleted=False)
         for test_case in subsection_test_cases:
             test_case.is_deleted = True
+            test_case.updated_by_id = request.user.id
             test_case.save()
+            # Record change history
+            record_change('test_case', str(test_case.id), 'deleted', request.user.id, f'Deleted test case: {test_case.title} (via section deletion)')
         
         # Recursively delete child subsections
         child_subsections = Section.objects(parent=subsection)
         for child in child_subsections:
             delete_subsection_recursive(child)
         
+        # Record change history before deleting subsection
+        record_change('section', str(subsection.id), 'deleted', request.user.id, f'Deleted subsection: {subsection.name}')
         # Delete the subsection itself
         subsection.delete()
     
@@ -636,6 +945,8 @@ def section_delete(request, section_id):
     for subsection in subsections:
         delete_subsection_recursive(subsection)
     
+    # Record change history before deleting section
+    record_change('section', str(section.id), 'deleted', request.user.id, f'Deleted section: {section_name}')
     # Delete the section itself
     section.delete()
     

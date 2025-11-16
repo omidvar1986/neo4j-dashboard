@@ -134,15 +134,23 @@
                 <div class="d-flex align-items-center">
                     <span class="test-case-badge">{{ test_case.steps|length }}</span>
                     <h3 class="test-case-title mb-0">{{ test_case.title }}</h3>
+                    {% if user_can_edit %}
                     <a href="{% url 'testcases:test_case_edit' test_case.id|stringformat:"s" %}" class="btn btn-sm btn-link text-muted ms-2" title="Edit">
                         <i class="fas fa-pencil-alt"></i>
                     </a>
+                    {% endif %}
                 </div>
             </div>
             <div class="test-case-actions">
+                {% if user_can_edit %}
                 <a href="{% url 'testcases:test_case_edit' test_case.id|stringformat:"s" %}" class="btn btn-warning btn-sm">
                     <i class="fas fa-edit"></i> Edit
                 </a>
+                {% else %}
+                <button class="btn btn-warning btn-sm" disabled title="You do not have permission to edit test cases">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                {% endif %}
                 <a href="{% url 'testcases:test_case_list' %}" class="btn btn-secondary btn-sm">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
@@ -150,6 +158,14 @@
         </div>
         
         <div class="test-case-body">
+            <!-- Description -->
+            {% if test_case.description %}
+            <div class="preconditions-section">
+                <strong>Description:</strong>
+                <div>{{ test_case.description|linebreaks }}</div>
+            </div>
+            {% endif %}
+            
             <!-- Preconditions -->
             {% if test_case.preconditions %}
             <div class="preconditions-section">
@@ -222,10 +238,81 @@
             <div class="text-muted small">
                 Created by: {{ test_case.created_by.username|default:"Unknown" }} on {{ test_case.created_at|date:"F d, Y H:i" }}
                 {% if test_case.updated_at != test_case.created_at %}
-                    | Updated: {{ test_case.updated_at|date:"F d, Y H:i" }}
+                    {% if test_case.updated_by %}
+                        | Updated by: {{ test_case.updated_by.username|default:"Unknown" }} on {{ test_case.updated_at|date:"F d, Y H:i" }}
+                    {% else %}
+                        | Updated: {{ test_case.updated_at|date:"F d, Y H:i" }}
+                    {% endif %}
+                {% endif %}
+                {% if change_history %}
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-link p-0" style="color: var(--btn-primary-bg); text-decoration: none; font-size: 0.85rem;" onclick="toggleChangeHistory()">
+                            <i class="fas fa-history"></i> View Change History ({{ change_history|length }})
+                        </button>
+                    </div>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+
+<!-- Change History Section -->
+{% if change_history %}
+<div id="changeHistorySection" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 4px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 style="color: var(--text-color); margin: 0;">
+            <i class="fas fa-history"></i> Change History
+        </h6>
+        <button type="button" class="btn btn-sm btn-link p-0" style="color: var(--text-color);" onclick="toggleChangeHistory()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div style="max-height: 400px; overflow-y: auto;">
+        <table class="table table-sm" style="margin: 0;">
+            <thead>
+                <tr style="background: var(--input-bg);">
+                    <th style="color: var(--text-color); font-size: 0.85rem; padding: 0.5rem;">Action</th>
+                    <th style="color: var(--text-color); font-size: 0.85rem; padding: 0.5rem;">User</th>
+                    <th style="color: var(--text-color); font-size: 0.85rem; padding: 0.5rem;">Date & Time</th>
+                    <th style="color: var(--text-color); font-size: 0.85rem; padding: 0.5rem;">Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for change in change_history %}
+                <tr>
+                    <td style="color: var(--text-color); font-size: 0.85rem; padding: 0.5rem;">
+                        <span class="badge 
+                            {% if change.action == 'created' %}bg-success
+                            {% elif change.action == 'updated' %}bg-primary
+                            {% elif change.action == 'deleted' %}bg-danger
+                            {% else %}bg-secondary
+                            {% endif %}">
+                            {{ change.get_action_display }}
+                        </span>
+                    </td>
+                    <td style="color: var(--text-color); font-size: 0.85rem; padding: 0.5rem;">
+                        {{ change.user.username|default:"Unknown" }}
+                    </td>
+                    <td style="color: var(--text-color); font-size: 0.85rem; padding: 0.5rem;">
+                        {{ change.timestamp|date:"M d, Y H:i" }}
+                    </td>
+                    <td style="color: var(--text-color); font-size: 0.85rem; padding: 0.5rem;">
+                        <small>{{ change.description|default:"—" }}</small>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function toggleChangeHistory() {
+    const historySection = document.getElementById('changeHistorySection');
+    if (historySection) {
+        historySection.style.display = historySection.style.display === 'none' ? 'block' : 'none';
+    }
+}
+</script>
+{% endif %}
 {% endblock %}

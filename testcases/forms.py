@@ -77,6 +77,15 @@ class TestCaseForm(forms.Form):
         })
     )
     
+    description = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 4,
+            'placeholder': 'Describe what this test case does (e.g., "This test case verifies that the login functionality works correctly").',
+        })
+    )
+    
     preconditions = forms.CharField(
         required=True,
         widget=forms.Textarea(attrs={

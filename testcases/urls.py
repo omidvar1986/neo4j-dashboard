@@ -6,6 +6,7 @@ app_name = 'testcases'
 urlpatterns = [
     path('', views.test_case_list, name='test_case_list'),
     path('add/', views.test_case_add, name='test_case_add'),
+    path('sections/add/', views.section_add, name='section_add'),
     path('sections/manage/', views.section_manage, name='section_manage'),
     path('sections/<str:section_id>/edit/', views.section_edit, name='section_edit'),
     path('sections/<str:section_id>/delete/', views.section_delete, name='section_delete'),

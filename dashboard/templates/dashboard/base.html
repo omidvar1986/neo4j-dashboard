@@ -9,6 +9,8 @@
     {% csrf_token %}
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
     <style>
         :root[data-theme="light"] {
@@ -116,6 +118,30 @@
         .navbar a:hover { 
             background-color: rgba(255, 255, 255, 0.1);
             text-decoration: none;
+        }
+        
+        .admin-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--btn-primary-bg);
+            color: white !important;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .admin-link:hover {
+            background: var(--btn-primary-bg);
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+        }
+        
+        .admin-link i {
+            margin-right: 6px;
         }
 
         .theme-toggle {
@@ -517,8 +543,16 @@
                 <a href="{% url 'dashboard:home' %}">🏠 Dashboard</a>
             {% endif %}
         </div>
-        <div class="navbar-right" style="display: flex; align-items: center;">
+        <div class="navbar-right" style="display: flex; align-items: center; gap: 10px;">
             {% if user.is_authenticated %}
+                {% if user.can_access_admin_queries %}
+                    <a href="{% url 'dashboard:admin_user_management' %}" 
+                       class="admin-link" 
+                       title="User Management">
+                        <i class="fas fa-users-cog"></i>
+                        <span>User Management</span>
+                    </a>
+                {% endif %}
                 <span class="user-info">👤 {{ user.username }} ({{ user.role|yesno:"Admin,Node User,Query User" }})</span>
                 <form id="logout-form" action="{% url 'dashboard:logout' %}" method="post" style="display: inline-block; margin-right: 10px;">
                     {% csrf_token %}
@@ -549,18 +583,20 @@
         {% endif %}
 
         {% if request.resolver_match.url_name != 'home' and user.is_authenticated %}
-            <div class="back-to-home">
-                {% if request.resolver_match.url_name == 'neo4j_dashboard' %}
-                    <!-- On Neo4j project page, show "Back to Home" -->
-                    <a href="{% url 'dashboard:home' %}">← Back to Home</a>
-                {% elif request.resolver_match.url_name == 'predefined_queries' or request.resolver_match.url_name == 'explore_layers' or request.resolver_match.url_name == 'add_nodes' or request.resolver_match.url_name == 'manual_queries' or request.resolver_match.url_name == 'admin_queries' or request.resolver_match.url_name == 'admin_user_management' or request.resolver_match.url_name == 'graph_view' or request.resolver_match.url_name == 'test_impact_analysis' or request.resolver_match.url_name == 'test_analysis' or request.resolver_match.url_name == 'manage_nodes' or request.resolver_match.url_name == 'define_relations' or request.resolver_match.url_name == 'confirm_relationships' or request.resolver_match.url_name == 'get_existing_nodes' %}
-                    <!-- On Neo4j feature pages, show "Back to Project" -->
-                    <a href="{% url 'dashboard:neo4j_dashboard' %}">← Back to Project</a>
-                {% else %}
-                    <!-- On other pages, show "Back to Home" -->
-                    <a href="{% url 'dashboard:home' %}">← Back to Home</a>
-                {% endif %}
-            </div>
+            {% if request.resolver_match.app_name != 'testcases' %}
+                <div class="back-to-home">
+                    {% if request.resolver_match.url_name == 'neo4j_dashboard' %}
+                        <!-- On Neo4j project page, show "Back to Home" -->
+                        <a href="{% url 'dashboard:home' %}">← Back to Home</a>
+                    {% elif request.resolver_match.url_name == 'predefined_queries' or request.resolver_match.url_name == 'explore_layers' or request.resolver_match.url_name == 'add_nodes' or request.resolver_match.url_name == 'manual_queries' or request.resolver_match.url_name == 'admin_queries' or request.resolver_match.url_name == 'admin_user_management' or request.resolver_match.url_name == 'graph_view' or request.resolver_match.url_name == 'test_impact_analysis' or request.resolver_match.url_name == 'test_analysis' or request.resolver_match.url_name == 'manage_nodes' or request.resolver_match.url_name == 'define_relations' or request.resolver_match.url_name == 'confirm_relationships' or request.resolver_match.url_name == 'get_existing_nodes' %}
+                        <!-- On Neo4j feature pages, show "Back to Project" -->
+                        <a href="{% url 'dashboard:neo4j_dashboard' %}">← Back to Project</a>
+                    {% else %}
+                        <!-- On other pages, show "Back to Home" -->
+                        <a href="{% url 'dashboard:home' %}">← Back to Home</a>
+                    {% endif %}
+                </div>
+            {% endif %}
         {% endif %}
         {% block content %}
         {% endblock %}

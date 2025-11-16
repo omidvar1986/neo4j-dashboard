@@ -23,32 +23,69 @@
         {% endfor %}
     {% endif %}
 
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs mb-4" id="manageTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="sections-tab" data-bs-toggle="tab" data-bs-target="#sections" type="button" role="tab">
+                <i class="fas fa-folder"></i> Sections
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="testcases-tab" data-bs-toggle="tab" data-bs-target="#testcases" type="button" role="tab">
+                <i class="fas fa-clipboard-list"></i> Test Cases
+            </button>
+        </li>
+        {% if is_admin %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="permissions-tab" data-bs-toggle="tab" data-bs-target="#permissions" type="button" role="tab">
+                <i class="fas fa-user-shield"></i> Permissions
+            </button>
+        </li>
+        {% endif %}
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="manageTabsContent">
+        <!-- Sections Tab -->
+        <div class="tab-pane fade show active" id="sections" role="tabpanel">
     <!-- Sections Management -->
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">All Sections</h5>
             {% if sections %}
-                <button type="button" class="btn btn-sm btn-danger" onclick="deleteSelectedSections()">
-                    <i class="fas fa-trash"></i> Delete Selected
-                </button>
+                {% if user_can_delete %}
+                    <button type="button" class="btn btn-sm btn-danger" onclick="deleteSelectedSections()">
+                        <i class="fas fa-trash"></i> Delete Selected
+                    </button>
+                {% else %}
+                    <button type="button" class="btn btn-sm btn-danger" disabled title="You do not have permission to delete sections">
+                        <i class="fas fa-trash"></i> Delete Selected
+                    </button>
+                {% endif %}
             {% endif %}
         </div>
         <div class="card-body">
             {% if sections %}
-                <form method="post" id="bulkDeleteSectionsForm">
+                <form method="post" id="bulkDeleteSectionsForm" onsubmit="if (!userCanDelete) { alert('You do not have permission to delete sections.'); return false; } return true;">
                     {% csrf_token %}
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 50px;">
-                                        <input type="checkbox" id="selectAllSections" onchange="toggleAllSections(this)">
+                                        {% if user_can_delete %}
+                                            <input type="checkbox" id="selectAllSections" onchange="toggleAllSections(this)">
+                                        {% else %}
+                                            <input type="checkbox" id="selectAllSections" disabled title="You do not have permission to delete sections">
+                                        {% endif %}
                                     </th>
                                     <th>Name</th>
                                     <th>Parent Section</th>
                                     <th>Test Cases</th>
                                     <th>Subsections</th>
                                     <th>Description</th>
+                                    <th>Created By</th>
+                                    <th>Updated By</th>
                                     <th style="width: 150px;">Actions</th>
                                 </tr>
                             </thead>
@@ -56,10 +93,19 @@
                                 {% for item in sections %}
                                     <tr>
                                         <td>
-                                            <input type="checkbox" 
-                                                   name="section_ids" 
-                                                   value="{{ item.section.id|stringformat:"s" }}" 
-                                                   class="section-checkbox">
+                                            {% if user_can_delete %}
+                                                <input type="checkbox" 
+                                                       name="section_ids" 
+                                                       value="{{ item.section.id|stringformat:"s" }}" 
+                                                       class="section-checkbox">
+                                            {% else %}
+                                                <input type="checkbox" 
+                                                       name="section_ids" 
+                                                       value="{{ item.section.id|stringformat:"s" }}" 
+                                                       class="section-checkbox"
+                                                       disabled
+                                                       title="You do not have permission to delete sections">
+                                            {% endif %}
                                         </td>
                                         <td>
                                             <i class="fas fa-folder text-primary me-2"></i>
@@ -82,11 +128,42 @@
                                             <small style="color: var(--text-color); opacity: 0.8;">{{ item.section.description|truncatewords:10|default:"—" }}</small>
                                         </td>
                                         <td>
+                                            <small style="color: var(--text-color); opacity: 0.8;">
+                                                {% if item.section.created_by %}
+                                                    {{ item.section.created_by.username|default:"Unknown" }}<br>
+                                                    <span style="font-size: 0.75rem;">{{ item.section.created_at|date:"M d, Y H:i" }}</span>
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <small style="color: var(--text-color); opacity: 0.8;">
+                                                {% if item.section.updated_at != item.section.created_at %}
+                                                    {% if item.section.updated_by %}
+                                                        {{ item.section.updated_by.username|default:"Unknown" }}<br>
+                                                        <span style="font-size: 0.75rem;">{{ item.section.updated_at|date:"M d, Y H:i" }}</span>
+                                                    {% else %}
+                                                        {{ item.section.updated_at|date:"M d, Y H:i" }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </small>
+                                        </td>
+                                        <td>
                                             <div class="btn-group btn-group-sm" role="group">
+                                                {% if user_can_edit %}
                                                 <a href="{% url 'testcases:section_edit' item.section.id|stringformat:"s" %}" 
                                                    class="btn btn-warning" title="Edit">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
+                                                {% else %}
+                                                <button class="btn btn-warning" disabled title="You do not have permission to edit sections">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                {% endif %}
+                                                {% if user_can_delete %}
                                                 <form method="post" 
                                                       action="{% url 'testcases:section_delete' item.section.id|stringformat:"s" %}" 
                                                       class="d-inline"
@@ -98,6 +175,11 @@
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 </form>
+                                                {% else %}
+                                                <button class="btn btn-danger" disabled title="You do not have permission to delete sections">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
                                             </div>
                                         </td>
                                     </tr>
@@ -116,33 +198,49 @@
         </div>
     </div>
 
+        </div>
+        <!-- End Sections Tab -->
+
+        <!-- Test Cases Tab -->
+        <div class="tab-pane fade" id="testcases" role="tabpanel">
     <!-- Test Cases Management -->
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">All Test Cases</h5>
             {% if all_test_cases %}
-                <button type="button" class="btn btn-sm btn-danger" onclick="deleteSelectedTestCases()">
-                    <i class="fas fa-trash"></i> Delete Selected
-                </button>
+                {% if user_can_delete %}
+                    <button type="button" class="btn btn-sm btn-danger" onclick="deleteSelectedTestCases()">
+                        <i class="fas fa-trash"></i> Delete Selected
+                    </button>
+                {% else %}
+                    <button type="button" class="btn btn-sm btn-danger" disabled title="You do not have permission to delete test cases">
+                        <i class="fas fa-trash"></i> Delete Selected
+                    </button>
+                {% endif %}
             {% endif %}
         </div>
         <div class="card-body">
             {% if all_test_cases %}
-                <form method="post" id="bulkDeleteForm">
+                <form method="post" id="bulkDeleteForm" onsubmit="if (!userCanDelete) { alert('You do not have permission to delete test cases.'); return false; } return true;">
                     {% csrf_token %}
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 50px;">
-                                        <input type="checkbox" id="selectAllTestCases" onchange="toggleAllTestCases(this)">
+                                        {% if user_can_delete %}
+                                            <input type="checkbox" id="selectAllTestCases" onchange="toggleAllTestCases(this)">
+                                        {% else %}
+                                            <input type="checkbox" id="selectAllTestCases" disabled title="You do not have permission to delete test cases">
+                                        {% endif %}
                                     </th>
                                     <th>ID</th>
                                     <th>Title</th>
                                     <th>Section</th>
                                     <th>Type</th>
                                     <th>Priority</th>
-                                    <th>Created</th>
+                                    <th>Created By</th>
+                                    <th>Updated By</th>
                                     <th style="width: 100px;">Actions</th>
                                 </tr>
                             </thead>
@@ -150,10 +248,19 @@
                                 {% for test_case in all_test_cases %}
                                     <tr>
                                         <td>
-                                            <input type="checkbox" 
-                                                   name="test_case_ids" 
-                                                   value="{{ test_case.id|stringformat:"s" }}" 
-                                                   class="test-case-checkbox">
+                                            {% if user_can_delete %}
+                                                <input type="checkbox" 
+                                                       name="test_case_ids" 
+                                                       value="{{ test_case.id|stringformat:"s" }}" 
+                                                       class="test-case-checkbox">
+                                            {% else %}
+                                                <input type="checkbox" 
+                                                       name="test_case_ids" 
+                                                       value="{{ test_case.id|stringformat:"s" }}" 
+                                                       class="test-case-checkbox"
+                                                       disabled
+                                                       title="You do not have permission to delete test cases">
+                                            {% endif %}
                                         </td>
                                         <td>
                                             <strong>C{{ test_case.id|stringformat:"s"|slice:":8" }}</strong>
@@ -176,14 +283,42 @@
                                             </span>
                                         </td>
                                         <td>
-                                            <small style="color: var(--text-color); opacity: 0.8;">{{ test_case.created_at|date:"M d, Y" }}</small>
+                                            <small style="color: var(--text-color); opacity: 0.8;">
+                                                {% if test_case.created_by %}
+                                                    {{ test_case.created_by.username|default:"Unknown" }}<br>
+                                                    <span style="font-size: 0.75rem;">{{ test_case.created_at|date:"M d, Y H:i" }}</span>
+                                                {% else %}
+                                                    {{ test_case.created_at|date:"M d, Y H:i" }}
+                                                {% endif %}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <small style="color: var(--text-color); opacity: 0.8;">
+                                                {% if test_case.updated_at != test_case.created_at %}
+                                                    {% if test_case.updated_by %}
+                                                        {{ test_case.updated_by.username|default:"Unknown" }}<br>
+                                                        <span style="font-size: 0.75rem;">{{ test_case.updated_at|date:"M d, Y H:i" }}</span>
+                                                    {% else %}
+                                                        {{ test_case.updated_at|date:"M d, Y H:i" }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </small>
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm" role="group">
+                                                {% if user_can_edit %}
                                                 <a href="{% url 'testcases:test_case_edit' test_case.id|stringformat:"s" %}" 
                                                    class="btn btn-warning" title="Edit">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
+                                                {% else %}
+                                                <button class="btn btn-warning" disabled title="You do not have permission to edit test cases">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                {% endif %}
+                                                {% if user_can_delete %}
                                                 <form method="post" 
                                                       action="{% url 'testcases:test_case_delete' test_case.id|stringformat:"s" %}" 
                                                       class="d-inline"
@@ -193,6 +328,11 @@
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 </form>
+                                                {% else %}
+                                                <button class="btn btn-danger" disabled title="You do not have permission to delete test cases">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
                                             </div>
                                         </td>
                                     </tr>
@@ -210,6 +350,108 @@
             {% endif %}
         </div>
     </div>
+        </div>
+        <!-- End Test Cases Tab -->
+
+        <!-- Permissions Tab (Admin Only) -->
+        {% if is_admin %}
+        <div class="tab-pane fade" id="permissions" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-shield"></i> Section Permissions Management
+                    </h5>
+                    <small class="text-muted">Assign edit and delete permissions to users. Only admins can manage permissions.</small>
+                </div>
+                <div class="card-body">
+                    {% if all_users %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Role</th>
+                                        <th>Can Edit Sections</th>
+                                        <th>Can Delete Sections</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for perm_data in permissions_data %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ perm_data.user.username }}</strong>
+                                            {% if perm_data.user.email %}
+                                                <br><small class="text-muted">{{ perm_data.user.email }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge 
+                                                {% if perm_data.user.role == 3 %}bg-danger
+                                                {% elif perm_data.user.role == 2 %}bg-warning
+                                                {% else %}bg-info
+                                                {% endif %}">
+                                                {{ perm_data.user.get_role_display|default:"Query User" }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if perm_data.user.role == 3 %}
+                                                <span class="badge bg-success">Admin (Always)</span>
+                                            {% else %}
+                                                <span class="badge {% if perm_data.can_edit %}bg-success{% else %}bg-secondary{% endif %}">
+                                                    {% if perm_data.can_edit %}Yes{% else %}No{% endif %}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if perm_data.user.role == 3 %}
+                                                <span class="badge bg-success">Admin (Always)</span>
+                                            {% else %}
+                                                <span class="badge {% if perm_data.can_delete %}bg-success{% else %}bg-secondary{% endif %}">
+                                                    {% if perm_data.can_delete %}Yes{% else %}No{% endif %}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if perm_data.user.role != 3 %}
+                                            <form method="post" class="d-inline">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="update_permissions" value="1">
+                                                <input type="hidden" name="user_id" value="{{ perm_data.user.id }}">
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" name="can_edit" id="edit_{{ perm_data.user.id }}" {% if perm_data.can_edit %}checked{% endif %}>
+                                                    <label class="form-check-label" for="edit_{{ perm_data.user.id }}">Edit</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" name="can_delete" id="delete_{{ perm_data.user.id }}" {% if perm_data.can_delete %}checked{% endif %}>
+                                                    <label class="form-check-label" for="delete_{{ perm_data.user.id }}">Delete</label>
+                                                </div>
+                                                <button type="submit" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-save"></i> Update
+                                                </button>
+                                            </form>
+                                            {% else %}
+                                            <span class="text-muted">Admin users have all permissions</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-users fa-3x mb-3" style="color: var(--text-color); opacity: 0.6;"></i>
+                            <p style="color: var(--text-color); opacity: 0.8;">No users found.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <!-- End Permissions Tab -->
+        {% endif %}
+    </div>
+    <!-- End Tab Content -->
 </div>
 
 <script>
@@ -223,7 +465,16 @@
         checkboxes.forEach(cb => cb.checked = checkbox.checked);
     }
     
+    // Permission flags from server
+    const userCanDelete = {{ user_can_delete|yesno:"true,false" }};
+    
     function deleteSelectedSections() {
+        // Check permissions
+        if (!userCanDelete) {
+            alert('You do not have permission to delete sections.');
+            return;
+        }
+        
         const selected = document.querySelectorAll('.section-checkbox:checked');
         if (selected.length === 0) {
             alert('Please select at least one section to delete.');
@@ -236,6 +487,12 @@
     }
     
     function deleteSelectedTestCases() {
+        // Check permissions
+        if (!userCanDelete) {
+            alert('You do not have permission to delete test cases.');
+            return;
+        }
+        
         const selected = document.querySelectorAll('.test-case-checkbox:checked');
         if (selected.length === 0) {
             alert('Please select at least one test case to delete.');

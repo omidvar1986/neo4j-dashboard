@@ -61,6 +61,12 @@ class user(AbstractBaseUser, PermissionsMixin):
 
     role = models.IntegerField(choices=ROLE_CHOICES, default=1)
     is_approved = models.BooleanField(default=False, help_text="Designates whether the user has been approved by an admin.")
+    
+    # Project access permissions
+    can_access_neo4j = models.BooleanField(default=True, help_text="Can access Neo4j Dashboard project")
+    can_access_api_tools = models.BooleanField(default=True, help_text="Can access API Tools project")
+    can_access_wiremock = models.BooleanField(default=True, help_text="Can access Wiremock project")
+    can_access_test_cases = models.BooleanField(default=True, help_text="Can access Test Cases project")
 
     objects = CustomUserManager()
 
@@ -108,6 +114,30 @@ class user(AbstractBaseUser, PermissionsMixin):
     
     def can_access_admin_queries(self):
         return self.role == 3
+    
+    # Project access methods
+    def can_access_project(self, project_name):
+        """Check if user can access a specific project."""
+        project_map = {
+            'neo4j': self.can_access_neo4j,
+            'api_tools': self.can_access_api_tools,
+            'wiremock': self.can_access_wiremock,
+            'test_cases': self.can_access_test_cases,
+        }
+        return project_map.get(project_name.lower(), False)
+    
+    def get_accessible_projects(self):
+        """Get list of project names the user can access."""
+        projects = []
+        if self.can_access_neo4j:
+            projects.append('neo4j')
+        if self.can_access_api_tools:
+            projects.append('api_tools')
+        if self.can_access_wiremock:
+            projects.append('wiremock')
+        if self.can_access_test_cases:
+            projects.append('test_cases')
+        return projects
 
 class AdminQuery(models.Model):
     title = models.CharField(max_length=200, verbose_name="Title")

@@ -347,11 +347,12 @@
 {% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="test-case-page">
     <!-- Left Sidebar - Tree View -->
     <div class="test-case-sidebar">
-        <a href="{% url 'testcases:test_case_add' %}" class="btn add-test-case-sidebar-btn">
-            <i class="fas fa-plus"></i> Add Test Case
+        <a href="#" class="btn add-test-case-sidebar-btn" onclick="addSection(); return false;">
+            <i class="fas fa-plus"></i> Add Section
         </a>
         
         {% if section_tree %}
@@ -387,11 +388,43 @@
                 <i class="fas fa-clipboard-check text-primary"></i> Test Cases
             </h2>
             <div class="d-flex gap-2 align-items-center">
-                <select class="form-select form-select-sm" style="width: auto;" onchange="window.location.href='?sort=' + this.value">
-                    <option>Sort: Section</option>
+                <select class="form-select form-select-sm" style="width: auto; min-width: 150px;" id="sort-select" onchange="updateSortFilter()">
+                    <option value="section" {% if current_sort == 'section' %}selected{% endif %}>Sort: Section</option>
+                    <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Sort: Title</option>
+                    <option value="date_newest" {% if current_sort == 'date_newest' %}selected{% endif %}>Sort: Date (Newest)</option>
+                    <option value="date_oldest" {% if current_sort == 'date_oldest' %}selected{% endif %}>Sort: Date (Oldest)</option>
+                    <option value="type" {% if current_sort == 'type' %}selected{% endif %}>Sort: Type</option>
+                    <option value="priority" {% if current_sort == 'priority' %}selected{% endif %}>Sort: Priority</option>
                 </select>
-                <select class="form-select form-select-sm" style="width: auto;" onchange="window.location.href='?filter=' + this.value">
-                    <option>Filter: None</option>
+                <select class="form-select form-select-sm" style="width: auto; min-width: 150px;" id="filter-select" onchange="updateSortFilter()">
+                    <option value="all" {% if current_filter == 'all' %}selected{% endif %}>Filter: All</option>
+                    {% if all_sections %}
+                        <optgroup label="By Section">
+                            {% for section in all_sections %}
+                                <option value="section_{{ section.id|stringformat:"s" }}" {% if current_filter == "section_"|add:section.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ section.name }}
+                                </option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endif %}
+                    {% if unique_types %}
+                        <optgroup label="By Type">
+                            {% for type in unique_types %}
+                                <option value="type_{{ type }}" {% if current_filter == "type_"|add:type %}selected{% endif %}>
+                                    {{ type }}
+                                </option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endif %}
+                    {% if unique_priorities %}
+                        <optgroup label="By Priority">
+                            {% for priority in unique_priorities %}
+                                <option value="priority_{{ priority }}" {% if current_filter == "priority_"|add:priority %}selected{% endif %}>
+                                    {{ priority }}
+                                </option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endif %}
                 </select>
                 <a href="{% url 'testcases:section_manage' %}" class="btn btn-outline-secondary btn-sm" title="Manage Sections">
                     <i class="fas fa-cog"></i> Manage Sections
@@ -418,8 +451,11 @@
             <div class="test-case-table mb-4">
                 <div class="section-header-expanded" style="background: var(--table-header-bg); padding: 1rem; border-radius: 8px 8px 0 0; border-bottom: 2px solid var(--border-color);">
                     <div class="d-flex align-items-center justify-content-between">
-                        <div>
+                        <div class="flex-grow-1">
                             <h4 class="mb-1">{{ selected_section_obj.name }}</h4>
+                            {% if selected_section_obj.description %}
+                                <p class="mb-2" style="color: var(--text-color); opacity: 0.85; font-size: 0.9rem;">{{ selected_section_obj.description|linebreaks }}</p>
+                            {% endif %}
                             <small style="color: var(--text-color); opacity: 0.8;">{{ test_cases|length }} test case{{ test_cases|length|pluralize }}</small>
                         </div>
                         <div>
@@ -545,15 +581,27 @@
                                                     </td>
                                                     <td>{{ test_case.steps|length }} step{{ test_case.steps|length|pluralize }}</td>
                                                     <td onclick="event.stopPropagation();">
+                                                        {% if user_can_edit %}
                                                         <a href="{% url 'testcases:test_case_edit' test_case.id|stringformat:"s" %}" class="btn btn-sm btn-warning" title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
+                                                        {% else %}
+                                                        <button class="btn btn-sm btn-warning" disabled title="You do not have permission to edit test cases">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        {% endif %}
+                                                        {% if user_can_delete %}
                                                         <form method="post" action="{% url 'testcases:test_case_delete' test_case.id|stringformat:"s" %}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this test case?');">
                                                             {% csrf_token %}
                                                             <button type="submit" class="btn btn-sm btn-danger" title="Delete">
                                                                 <i class="fas fa-trash"></i>
                                                             </button>
                                                         </form>
+                                                        {% else %}
+                                                        <button class="btn btn-sm btn-danger" disabled title="You do not have permission to delete test cases">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                        {% endif %}
                                                     </td>
                                                 </tr>
                                             {% endfor %}
@@ -580,6 +628,46 @@
 </div>
 
 <script>
+    // Update sort and filter while preserving section/test_case parameters
+    function updateSortFilter() {
+        const sortSelect = document.getElementById('sort-select');
+        const filterSelect = document.getElementById('filter-select');
+        const sortValue = sortSelect ? sortSelect.value : '';
+        const filterValue = filterSelect ? filterSelect.value : '';
+        
+        // Get current URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const section = urlParams.get('section');
+        const testCase = urlParams.get('test_case');
+        
+        // Build new URL with preserved parameters
+        const newParams = new URLSearchParams();
+        
+        // Preserve section if it exists
+        if (section) {
+            newParams.set('section', section);
+        }
+        
+        // Preserve test_case if it exists
+        if (testCase) {
+            newParams.set('test_case', testCase);
+        }
+        
+        // Add sort parameter
+        if (sortValue) {
+            newParams.set('sort', sortValue);
+        }
+        
+        // Add filter parameter
+        if (filterValue && filterValue !== 'all') {
+            newParams.set('filter', filterValue);
+        }
+        
+        // Navigate to new URL
+        const newUrl = window.location.pathname + (newParams.toString() ? '?' + newParams.toString() : '');
+        window.location.href = newUrl;
+    }
+    
     // Toggle section collapse/expand
     function toggleSection(sectionId) {
         const section = document.getElementById(sectionId);
@@ -738,6 +826,61 @@
         }
     });
     
+    // Function to add section (root level) - shows modal
+    function addSection() {
+        // Show modal
+        document.getElementById('addSectionModal').style.display = 'block';
+        // Clear form
+        document.getElementById('section-name-input').value = '';
+        document.getElementById('section-description-input').value = '';
+    }
+    
+    // Function to close Add Section modal
+    function closeAddSectionModal() {
+        document.getElementById('addSectionModal').style.display = 'none';
+    }
+    
+    // Handle Add Section form submission
+    function submitAddSection() {
+        const name = document.getElementById('section-name-input').value.trim();
+        const description = document.getElementById('section-description-input').value.trim();
+        
+        if (!name) {
+            alert('Section name is required.');
+            return;
+        }
+        
+        // Create and submit form
+        const submitForm = document.createElement('form');
+        submitForm.method = 'POST';
+        submitForm.action = `/testcases/sections/add/`;
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken.value;
+            submitForm.appendChild(csrfInput);
+        }
+        
+        const nameInput = document.createElement('input');
+        nameInput.type = 'hidden';
+        nameInput.name = 'section_name';
+        nameInput.value = name;
+        submitForm.appendChild(nameInput);
+        
+        // Always send description, even if empty
+        const descInput = document.createElement('input');
+        descInput.type = 'hidden';
+        descInput.name = 'section_description';
+        descInput.value = description;
+        submitForm.appendChild(descInput);
+        
+        document.body.appendChild(submitForm);
+        submitForm.submit();
+    }
+    
     // Function to add subsection - shows modal
     function addSubsection(sectionId) {
         // Store section ID for form submission
@@ -756,9 +899,13 @@
     
     // Close modal when clicking outside
     window.onclick = function(event) {
-        const modal = document.getElementById('addSubsectionModal');
-        if (event.target == modal) {
-            modal.style.display = 'none';
+        const addSectionModal = document.getElementById('addSectionModal');
+        const addSubsectionModal = document.getElementById('addSubsectionModal');
+        if (event.target == addSectionModal) {
+            addSectionModal.style.display = 'none';
+        }
+        if (event.target == addSubsectionModal) {
+            addSubsectionModal.style.display = 'none';
         }
     }
     
@@ -806,6 +953,49 @@
         submitForm.submit();
     }
 </script>
+
+<!-- Add Section Modal (Root Level) -->
+<div id="addSectionModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content-add-section">
+        <div class="modal-header-add-section">
+            <h3>Add Section</h3>
+            <span class="modal-close" onclick="closeAddSectionModal()">&times;</span>
+        </div>
+        <div class="modal-body-add-section">
+            <form id="add-section-form">
+                <div class="form-group-add-section">
+                    <label for="section-name-input">Name <span style="color: red;">*</span></label>
+                    <input type="text" id="section-name-input" class="form-control-add-section" placeholder="Ex: Save Dialog Tests, Contact Form or Performance Tests" required>
+                </div>
+                
+                <div class="form-group-add-section">
+                    <label for="section-description-input">Description</label>
+                    <div class="description-toolbar">
+                        <i class="fas fa-table" title="Table"></i>
+                        <i class="fas fa-image" title="Image"></i>
+                        <i class="fas fa-question-circle" title="Help"></i>
+                    </div>
+                    <textarea id="section-description-input" class="form-control-add-section" rows="4" placeholder="An optional description for this section (e.g. to explain its content or purpose)."></textarea>
+                </div>
+                
+                <div class="file-attachment-area">
+                    <div class="file-drop-zone">
+                        <i class="fas fa-plus-circle fa-3x"></i>
+                        <p>Drop files here to attach, or click on "+" to browse</p>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer-add-section">
+            <button type="button" class="btn-add-section" onclick="submitAddSection()">
+                <i class="fas fa-check"></i> Add Section
+            </button>
+            <button type="button" class="btn-cancel-section" onclick="closeAddSectionModal()">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- Add Subsection Modal -->
 <div id="addSubsectionModal" class="modal-overlay" style="display: none;">

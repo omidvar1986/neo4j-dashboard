@@ -365,11 +365,8 @@ def login_view(request):
             if user.is_approved:
                 login(request, user)
                 messages.success(request, f"Welcome, {user.username}!")
-                # Redirect admin users to the user management page
-                if user.can_access_admin_queries(): # Check if user has admin role (Role 3)
-                    return redirect('dashboard:admin_user_management')
-                else:
-                    return redirect('dashboard:home')
+                # Redirect all users to the home page
+                return redirect('dashboard:home')
             else:
                 messages.error(request, 'Your account is not yet approved. Please wait for admin approval.')
         else:
@@ -1939,6 +1936,14 @@ def admin_user_management(request):
                             messages.error(request, f'Invalid role {new_role}.')
                      except ValueError:
                          messages.error(request, f'Invalid role value.')
+            elif action == 'set_project_access':
+                # Handle project access updates
+                target_user.can_access_neo4j = 'can_access_neo4j' in request.POST.getlist('project_access')
+                target_user.can_access_api_tools = 'can_access_api_tools' in request.POST.getlist('project_access')
+                target_user.can_access_wiremock = 'can_access_wiremock' in request.POST.getlist('project_access')
+                target_user.can_access_test_cases = 'can_access_test_cases' in request.POST.getlist('project_access')
+                target_user.save()
+                messages.success(request, f'Project access for user {target_user.username} updated.')
             elif action == 'delete': # Handle delete action
                  if not target_user.is_superuser: # Only allow deleting non-superusers from this view
                      target_user.delete()
@@ -1962,6 +1967,10 @@ def admin_user_management(request):
 @login_required
 def neo4j_dashboard(request):
     """Render the Neo4j dashboard page with all Neo4j-related features."""
+    if not request.user.can_access_neo4j:
+        messages.error(request, 'You do not have permission to access the Neo4j Dashboard project.')
+        return redirect('dashboard:home')
+    
     logger.debug("Entering Neo4j dashboard view")
     
     context = {
@@ -1975,6 +1984,10 @@ def neo4j_dashboard(request):
 @login_required
 def api_tools(request):
     """Render the API Tools dashboard page."""
+    if not request.user.can_access_api_tools:
+        messages.error(request, 'You do not have permission to access the API Tools project.')
+        return redirect('dashboard:home')
+    
     # Get authentication status for display
     user_info = request.session.get('authenticated_user_info')
     
@@ -4306,6 +4319,9 @@ def get_data_records_info(request):
 @login_required
 def wiremock_dashboard(request):
     """Wiremock dashboard page"""
+    if not request.user.can_access_wiremock:
+        messages.error(request, 'You do not have permission to access the Wiremock project.')
+        return redirect('dashboard:home')
     try:
         config = WireMockEnv.get_wiremock_config()
         

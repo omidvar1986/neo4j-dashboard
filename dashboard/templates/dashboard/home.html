@@ -151,6 +151,7 @@
         <!-- Project Cards -->
         <div class="row">
             <!-- Neo4j Project Card -->
+            {% if user.can_access_neo4j %}
             <div class="col-lg-6 col-xl-4 mb-4">
                 <div class="card project-card">
                     <div class="card-body">
@@ -169,8 +170,10 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             <!-- API Tools Project Card -->
+            {% if user.can_access_api_tools %}
             <div class="col-lg-6 col-xl-4 mb-4">
                 <div class="card project-card">
                     <div class="card-body">
@@ -187,8 +190,10 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             <!-- Wiremock Project Card -->
+            {% if user.can_access_wiremock %}
             <div class="col-lg-6 col-xl-4 mb-4">
                 <div class="card project-card">
                     <div class="card-body">
@@ -206,8 +211,10 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             <!-- Test Cases Project Card -->
+            {% if user.can_access_test_cases %}
             <div class="col-lg-6 col-xl-4 mb-4">
                 <div class="card project-card">
                     <div class="card-body">
@@ -225,6 +232,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
 
         <!-- Quick Stats Section -->
@@ -245,7 +253,7 @@
                     </div>
                     <div class="col-md-3">
                         <div class="stats-card">
-                            <h4 class="mb-0">4</h4>
+                            <h4 class="mb-0">{{ user.get_accessible_projects|length }}</h4>
                             <small>Active Projects</small>
                         </div>
                     </div>
