@@ -31,6 +31,57 @@
         box-shadow: 0 2px 10px var(--shadow);
         transition: background-color 0.3s ease, border-color 0.3s ease;
     }
+
+    .filter-toolbar {
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        box-shadow: 0 5px 20px var(--shadow);
+        background: var(--card-bg);
+        transition: border-color 0.3s ease, background-color 0.3s ease;
+    }
+
+    .filter-heading h2 {
+        font-size: 1.5rem;
+        color: var(--text-color);
+        margin: 0;
+    }
+
+    .filter-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .filter-control {
+        min-width: 160px;
+    }
+
+    .filter-control label {
+        font-size: 0.85rem;
+        color: var(--text-color);
+        opacity: 0.75;
+        margin-bottom: 0.25rem;
+        display: inline-block;
+    }
+
+    .input-with-icon {
+        position: relative;
+    }
+
+    .input-with-icon i {
+        position: absolute;
+        left: 0.6rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-color);
+        opacity: 0.6;
+        font-size: 0.85rem;
+    }
+
+    .input-with-icon select {
+        padding-left: 1.75rem;
+    }
     .tree-header {
         font-weight: bold;
         margin-bottom: 1rem;
@@ -71,6 +122,22 @@
     .tree-item.active:hover .tree-item-content {
         background-color: var(--tree-active);
         opacity: 0.9;
+    }
+    
+    /* Search match highlighting */
+    .tree-item.search-match .tree-item-content {
+        background-color: rgba(255, 193, 7, 0.15) !important;
+        border-left: 3px solid #ffc107;
+        padding-left: calc(0.5rem - 3px);
+    }
+    
+    .tree-item.search-match:hover .tree-item-content {
+        background-color: rgba(255, 193, 7, 0.25) !important;
+    }
+    
+    .tree-item.search-match.active .tree-item-content {
+        background-color: var(--tree-active) !important;
+        border-left: 3px solid #ffc107;
     }
     
     .tree-expand-icon {
@@ -289,6 +356,37 @@
         box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
         color: white;
     }
+    
+    /* Search Bar Styles */
+    .search-input:focus {
+        outline: none;
+        border-color: var(--btn-primary-bg);
+        box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+    }
+    
+    .search-input:hover {
+        border-color: var(--btn-primary-bg);
+    }
+    
+    .search-clear-btn:hover {
+        opacity: 1 !important;
+        color: var(--btn-primary-bg) !important;
+    }
+    
+    .search-container {
+        animation: fadeInDown 0.3s ease;
+    }
+    
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
     .section-header {
         background: var(--table-header-bg);
         padding: 1rem;
@@ -355,80 +453,164 @@
             <i class="fas fa-plus"></i> Add Section
         </a>
         
-        {% if section_tree %}
-            <div class="tree-header" style="cursor: pointer;" onclick="toggleTreeSection('tree-navigation');">
-                <span>Test Cases</span>
-                <i class="fas fa-chevron-down" id="tree-header-icon" style="color: var(--text-color); opacity: 0.7;"></i>
-            </div>
-            
-            <div id="tree-navigation" class="tree-navigation" style="display: block;">
+        <!-- Search Bar -->
+        <div class="search-container mb-3" style="position: relative;">
+            <form method="get" action="{% url 'testcases:test_case_list' %}" id="search-form" style="position: relative;" onsubmit="return false;">
+                {% if selected_section %}
+                    <input type="hidden" name="section" value="{{ selected_section }}">
+                {% endif %}
+                {% if selected_test_case %}
+                    <input type="hidden" name="test_case" value="{{ selected_test_case.id|stringformat:"s" }}">
+                {% endif %}
+                {% if current_sort %}
+                    <input type="hidden" name="sort" value="{{ current_sort }}">
+                {% endif %}
+                {% if current_filter and current_filter != 'all' %}
+                    <input type="hidden" name="filter" value="{{ current_filter }}">
+                {% endif %}
+                <div class="search-input-wrapper" style="position: relative; display: flex; align-items: center;">
+                    <i class="fas fa-search search-icon" style="position: absolute; left: 0.75rem; color: var(--text-color); opacity: 0.6; z-index: 2; pointer-events: none; font-size: 0.85rem;"></i>
+                    <input 
+                        type="text" 
+                        name="search" 
+                        id="search-input"
+                        class="form-control search-input" 
+                        placeholder="Search..." 
+                        value="{{ search_query }}"
+                        style="padding-left: 2rem; padding-right: 2.25rem; height: 38px; border-radius: 20px; border: 2px solid var(--card-border); background: var(--input-bg); color: var(--input-text); font-size: 0.85rem; transition: all 0.3s ease;"
+                        onkeyup="handleSearchInput(event)"
+                        onkeydown="handleSearchKeyDown(event)"
+                    >
+                    {% if search_query %}
+                    <button 
+                        type="button" 
+                        class="btn btn-link search-clear-btn" 
+                        onclick="clearSearch()"
+                        style="position: absolute; right: 0.25rem; padding: 0.25rem 0.4rem; color: var(--text-color); opacity: 0.6; z-index: 2; border: none; background: none; text-decoration: none; font-size: 0.85rem;"
+                        title="Clear search"
+                    >
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+        
+        <div class="tree-header" style="cursor: pointer;" onclick="toggleTreeSection('tree-navigation');">
+            <span>Test Cases</span>
+            <i class="fas fa-chevron-down" id="tree-header-icon" style="color: var(--text-color); opacity: 0.7;"></i>
+        </div>
+        
+        <div id="tree-navigation" class="tree-navigation" style="display: block;">
+            {% if section_tree %}
                 {% for item in section_tree %}
-                    {% include 'testcases/tree_item.html' with item=item level=0 %}
+                    {% include 'testcases/tree_item.html' with item=item level=0 search_query=search_query %}
                 {% empty %}
-                    <div class="p-2" style="color: var(--text-color); opacity: 0.8;">No sections with test cases yet.</div>
+                    <div class="p-2" style="color: var(--text-color); opacity: 0.8;">
+                        {% if search_query %}
+                            No results found for "{{ search_query }}".
+                        {% else %}
+                            No sections with test cases yet.
+                        {% endif %}
+                    </div>
                 {% endfor %}
-            </div>
-            
+            {% else %}
+                <div class="p-2" style="color: var(--text-color); opacity: 0.8;">
+                    {% if search_query %}
+                        No results found for "{{ search_query }}".
+                    {% else %}
+                        No sections with test cases yet.
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+        
+        {% if section_tree %}
             <div class="tree-summary">
                 <i class="fas fa-info-circle"></i>
                 Contains <strong>{{ total_sections }}</strong> section{{ total_sections|pluralize }} and <strong>{{ total_cases }}</strong> case{{ total_cases|pluralize }}.
-            </div>
-        {% else %}
-            <div class="text-center mt-4" style="color: var(--text-color); opacity: 0.8;">
-                <i class="fas fa-folder-open fa-2x mb-2"></i>
-                <p>No test cases yet. Create test cases to build the navigation tree.</p>
             </div>
         {% endif %}
     </div>
 
     <!-- Main Content Area -->
     <div class="test-case-main">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="mb-0">
-                <i class="fas fa-clipboard-check text-primary"></i> Test Cases
-            </h2>
-            <div class="d-flex gap-2 align-items-center">
-                <select class="form-select form-select-sm" style="width: auto; min-width: 150px;" id="sort-select" onchange="updateSortFilter()">
-                    <option value="section" {% if current_sort == 'section' %}selected{% endif %}>Sort: Section</option>
-                    <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Sort: Title</option>
-                    <option value="date_newest" {% if current_sort == 'date_newest' %}selected{% endif %}>Sort: Date (Newest)</option>
-                    <option value="date_oldest" {% if current_sort == 'date_oldest' %}selected{% endif %}>Sort: Date (Oldest)</option>
-                    <option value="type" {% if current_sort == 'type' %}selected{% endif %}>Sort: Type</option>
-                    <option value="priority" {% if current_sort == 'priority' %}selected{% endif %}>Sort: Priority</option>
-                </select>
-                <select class="form-select form-select-sm" style="width: auto; min-width: 150px;" id="filter-select" onchange="updateSortFilter()">
-                    <option value="all" {% if current_filter == 'all' %}selected{% endif %}>Filter: All</option>
-                    {% if all_sections %}
-                        <optgroup label="By Section">
-                            {% for section in all_sections %}
-                                <option value="section_{{ section.id|stringformat:"s" }}" {% if current_filter == "section_"|add:section.id|stringformat:"s" %}selected{% endif %}>
-                                    {{ section.name }}
-                                </option>
-                            {% endfor %}
-                        </optgroup>
-                    {% endif %}
-                    {% if unique_types %}
-                        <optgroup label="By Type">
-                            {% for type in unique_types %}
-                                <option value="type_{{ type }}" {% if current_filter == "type_"|add:type %}selected{% endif %}>
-                                    {{ type }}
-                                </option>
-                            {% endfor %}
-                        </optgroup>
-                    {% endif %}
-                    {% if unique_priorities %}
-                        <optgroup label="By Priority">
-                            {% for priority in unique_priorities %}
-                                <option value="priority_{{ priority }}" {% if current_filter == "priority_"|add:priority %}selected{% endif %}>
-                                    {{ priority }}
-                                </option>
-                            {% endfor %}
-                        </optgroup>
-                    {% endif %}
-                </select>
-                <a href="{% url 'testcases:section_manage' %}" class="btn btn-outline-secondary btn-sm" title="Manage Sections">
-                    <i class="fas fa-cog"></i> Manage Sections
-                </a>
+        <div class="filter-toolbar card mb-4">
+            <div class="card-body">
+                <!-- Title on top left -->
+                <div class="d-flex justify-content-start mb-3">
+                    <h2 class="mb-0">
+                        <i class="fas fa-clipboard-check text-primary"></i> Test Cases
+                        {% if search_query %}
+                            <span class="badge bg-primary ms-2" style="font-size: 0.75rem; font-weight: normal;">
+                                <i class="fas fa-filter"></i> Searching: "{{ search_query }}"
+                            </span>
+                        {% endif %}
+                    </h2>
+                </div>
+                <!-- Filter controls below title -->
+                <div class="filter-controls d-flex flex-wrap align-items-end gap-3">
+                    <div class="filter-control">
+                        <label class="form-label">Sort</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-sort-amount-down"></i>
+                            <select class="form-select form-select-sm" id="sort-select" onchange="updateSortFilter()">
+                                <option value="section" {% if current_sort == 'section' %}selected{% endif %}>Section</option>
+                                <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Title</option>
+                                <option value="date_newest" {% if current_sort == 'date_newest' %}selected{% endif %}>Date (Newest)</option>
+                                <option value="date_oldest" {% if current_sort == 'date_oldest' %}selected{% endif %}>Date (Oldest)</option>
+                                <option value="type" {% if current_sort == 'type' %}selected{% endif %}>Type</option>
+                                <option value="priority" {% if current_sort == 'priority' %}selected{% endif %}>Priority</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filter-control">
+                        <label class="form-label">Section</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-sitemap"></i>
+                            <select class="form-select form-select-sm" id="section-select" onchange="updateSortFilter()">
+                                <option value="">All Sections</option>
+                                {% if all_sections %}
+                                    {% for section in all_sections %}
+                                        <option value="{{ section.id|stringformat:"s" }}" {% if selected_section == section.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ section.name }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filter-control">
+                        <label class="form-label">Filter</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-filter"></i>
+                            <select class="form-select form-select-sm" id="filter-select" onchange="updateSortFilter()">
+                                <option value="all" {% if current_filter == 'all' %}selected{% endif %}>All</option>
+                                {% if unique_types %}
+                                    <optgroup label="By Type">
+                                        {% for type in unique_types %}
+                                            <option value="type_{{ type }}" {% if current_filter == "type_"|add:type %}selected{% endif %}>
+                                                {{ type }}
+                                            </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                {% endif %}
+                                {% if unique_priorities %}
+                                    <optgroup label="By Priority">
+                                        {% for priority in unique_priorities %}
+                                            <option value="priority_{{ priority }}" {% if current_filter == "priority_"|add:priority %}selected{% endif %}>
+                                                {{ priority }}
+                                            </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                    <a href="{% url 'testcases:section_manage' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-cog"></i> Manage Sections
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -511,26 +693,6 @@
         {% else %}
                 <!-- Default View - All Test Cases -->
                 <!-- Filters - Only show if test cases exist -->
-                {% if test_cases %}
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <form method="get" class="row g-3">
-                            <div class="col-md-4">
-                                <label for="section" class="form-label">Filter by Section:</label>
-                                <select name="section" id="section" class="form-select" onchange="this.form.submit()">
-                                    <option value="">All Sections</option>
-                                    {% for section in sections %}
-                                        <option value="{{ section.id|stringformat:"s" }}" {% if selected_section == section.id|stringformat:"s" %}selected{% endif %}>
-                                            {{ section.name }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-                {% endif %}
-
                 <!-- Test Cases List -->
                 <div class="test-case-table">
                     {% if test_cases %}
@@ -619,7 +781,15 @@
                     {% else %}
                         <div class="text-center p-5">
                             <i class="fas fa-clipboard-list fa-3x mb-3" style="color: var(--text-color); opacity: 0.6;"></i>
-                            <p style="color: var(--text-color); opacity: 0.8;">No test cases found. <a href="{% url 'testcases:test_case_add' %}" style="color: var(--btn-primary-bg);">Create your first test case</a></p>
+                            {% if search_query %}
+                                <p style="color: var(--text-color); opacity: 0.8;">
+                                    No test cases found matching "<strong>{{ search_query }}</strong>". 
+                                    <a href="javascript:void(0);" onclick="clearSearch();" style="color: var(--btn-primary-bg);">Clear search</a> or 
+                                    <a href="{% url 'testcases:test_case_add' %}" style="color: var(--btn-primary-bg);">create a new test case</a>.
+                                </p>
+                            {% else %}
+                                <p style="color: var(--text-color); opacity: 0.8;">No test cases found. <a href="{% url 'testcases:test_case_add' %}" style="color: var(--btn-primary-bg);">Create your first test case</a></p>
+                            {% endif %}
                         </div>
                     {% endif %}
                 </div>
@@ -628,24 +798,92 @@
 </div>
 
 <script>
-    // Update sort and filter while preserving section/test_case parameters
+    // Search functionality
+    let searchTimeout;
+    let isSubmitting = false;
+    
+    function handleSearchKeyDown(event) {
+        // Prevent form submission on Enter key
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            clearTimeout(searchTimeout);
+            submitSearch();
+            return false;
+        }
+    }
+    
+    function handleSearchInput(event) {
+        // Don't do anything if we're currently submitting
+        if (isSubmitting) {
+            return;
+        }
+        
+        // Clear previous timeout
+        clearTimeout(searchTimeout);
+        
+        // Get current value
+        const searchInput = document.getElementById('search-input');
+        const searchValue = searchInput.value;
+        
+        // Debounce the search (wait 1000ms after user stops typing)
+        searchTimeout = setTimeout(() => {
+            // Check if value is still the same (user stopped typing)
+            if (searchInput.value === searchValue && !isSubmitting) {
+                submitSearch();
+            }
+        }, 1000);
+    }
+    
+    function submitSearch() {
+        if (isSubmitting) {
+            return;
+        }
+        isSubmitting = true;
+        const form = document.getElementById('search-form');
+        // Submit the form
+        form.submit();
+    }
+    
+    // Reset submitting flag when page loads (in case of back button)
+    window.addEventListener('load', function() {
+        isSubmitting = false;
+    });
+    
+    function clearSearch() {
+        const searchInput = document.getElementById('search-input');
+        searchInput.value = '';
+        // Remove search parameter from URL and submit
+        const url = new URL(window.location.href);
+        url.searchParams.delete('search');
+        window.location.href = url.toString();
+    }
+    
+    // Update sort and filter while preserving section/test_case/search parameters
     function updateSortFilter() {
         const sortSelect = document.getElementById('sort-select');
         const filterSelect = document.getElementById('filter-select');
+        const sectionSelect = document.getElementById('section-select');
         const sortValue = sortSelect ? sortSelect.value : '';
         const filterValue = filterSelect ? filterSelect.value : '';
+        const sectionValue = sectionSelect ? sectionSelect.value : '';
         
         // Get current URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const section = urlParams.get('section');
         const testCase = urlParams.get('test_case');
         
         // Build new URL with preserved parameters
         const newParams = new URLSearchParams();
         
-        // Preserve section if it exists
-        if (section) {
-            newParams.set('section', section);
+        // Set section filter
+        if (sectionSelect) {
+            if (sectionValue) {
+                newParams.set('section', sectionValue);
+            }
+        } else {
+            const section = urlParams.get('section');
+            if (section) {
+                newParams.set('section', section);
+            }
         }
         
         // Preserve test_case if it exists
@@ -661,6 +899,12 @@
         // Add filter parameter
         if (filterValue && filterValue !== 'all') {
             newParams.set('filter', filterValue);
+        }
+        
+        // Preserve search parameter
+        const searchInput = document.getElementById('search-input');
+        if (searchInput && searchInput.value.trim()) {
+            newParams.set('search', searchInput.value.trim());
         }
         
         // Navigate to new URL
@@ -977,13 +1221,6 @@
                     </div>
                     <textarea id="section-description-input" class="form-control-add-section" rows="4" placeholder="An optional description for this section (e.g. to explain its content or purpose)."></textarea>
                 </div>
-                
-                <div class="file-attachment-area">
-                    <div class="file-drop-zone">
-                        <i class="fas fa-plus-circle fa-3x"></i>
-                        <p>Drop files here to attach, or click on "+" to browse</p>
-                    </div>
-                </div>
             </form>
         </div>
         <div class="modal-footer-add-section">
@@ -1019,13 +1256,6 @@
                         <i class="fas fa-question-circle" title="Help"></i>
                     </div>
                     <textarea id="subsection-description-input" class="form-control-add-section" rows="4" placeholder="An optional description for this section (e.g. to explain its content or purpose)."></textarea>
-                </div>
-                
-                <div class="file-attachment-area">
-                    <div class="file-drop-zone">
-                        <i class="fas fa-plus-circle fa-3x"></i>
-                        <p>Drop files here to attach, or click on "+" to browse</p>
-                    </div>
                 </div>
             </form>
         </div>

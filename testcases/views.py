@@ -57,6 +57,7 @@ def test_case_list(request):
     test_case_filter = request.GET.get('test_case')
     sort_param = request.GET.get('sort', 'section')  # Default sort by section
     filter_param = request.GET.get('filter', 'all')  # Default filter: all
+    search_query = request.GET.get('search', '').strip()  # Search query
     
     # If a specific test case is selected, get it for detail view
     selected_test_case = None
@@ -68,6 +69,41 @@ def test_case_list(request):
     
     # Query test cases
     test_cases_query = TestCase.objects(is_deleted=False)
+    
+    # Apply search filter if provided
+    matching_section_ids_for_cases = set()
+    if search_query:
+        # First, find all sections that match the search
+        all_sections_for_search = list(Section.objects().order_by('name'))
+        for section in all_sections_for_search:
+            if (search_query.lower() in section.name.lower() or 
+                (section.description and search_query.lower() in section.description.lower())):
+                matching_section_ids_for_cases.add(str(section.id))
+        
+        # Search in title, description, preconditions, AND include test cases from matching sections
+        # Filter by title, description, preconditions containing search query OR section matches
+        if matching_section_ids_for_cases:
+            test_cases_query = test_cases_query.filter(
+                __raw__={
+                    '$or': [
+                        {'title': {'$regex': search_query, '$options': 'i'}},
+                        {'description': {'$regex': search_query, '$options': 'i'}},
+                        {'preconditions': {'$regex': search_query, '$options': 'i'}},
+                        {'section': {'$in': [ObjectId(sid) for sid in matching_section_ids_for_cases]}},
+                    ]
+                }
+            )
+        else:
+            # No matching sections, only search in test case fields
+            test_cases_query = test_cases_query.filter(
+                __raw__={
+                    '$or': [
+                        {'title': {'$regex': search_query, '$options': 'i'}},
+                        {'description': {'$regex': search_query, '$options': 'i'}},
+                        {'preconditions': {'$regex': search_query, '$options': 'i'}},
+                    ]
+                }
+            )
     
     # If a test case is selected, don't show the list - only show detail
     if selected_test_case:
@@ -137,6 +173,55 @@ def test_case_list(request):
     # Build hierarchical tree structure from sections that have test cases
     all_sections = list(Section.objects().order_by('name'))
     
+    # Filter sections by search query if provided
+    if search_query:
+        # Find sections that match search OR have test cases that match
+        matching_section_ids = set()
+        # First, find sections that match by name/description
+        for section in all_sections:
+            if (search_query.lower() in section.name.lower() or 
+                (section.description and search_query.lower() in section.description.lower())):
+                matching_section_ids.add(str(section.id))
+                # Also include all parent sections up to root
+                current = section.parent
+                while current:
+                    matching_section_ids.add(str(current.id))
+                    current = current.parent
+                # Also include all child sections
+                def add_children(section_obj):
+                    children = Section.objects(parent=section_obj)
+                    for child in children:
+                        matching_section_ids.add(str(child.id))
+                        add_children(child)  # Recursively add grandchildren
+                add_children(section)
+        
+        # Also find sections that have matching test cases
+        matching_test_cases = TestCase.objects(
+            is_deleted=False,
+            __raw__={
+                '$or': [
+                    {'title': {'$regex': search_query, '$options': 'i'}},
+                    {'description': {'$regex': search_query, '$options': 'i'}},
+                    {'preconditions': {'$regex': search_query, '$options': 'i'}},
+                ]
+            }
+        )
+        for test_case in matching_test_cases:
+            if test_case.section:
+                matching_section_ids.add(str(test_case.section.id))
+                # Include parent sections
+                current = test_case.section.parent
+                while current:
+                    matching_section_ids.add(str(current.id))
+                    current = current.parent
+        
+        # Filter sections to only include matching ones or their parents
+        if matching_section_ids:
+            all_sections = [s for s in all_sections if str(s.id) in matching_section_ids]
+        else:
+            # If no sections match, show empty list
+            all_sections = []
+    
     # Build tree structure
     def build_section_tree(sections, parent=None):
         """Build hierarchical tree of sections"""
@@ -152,7 +237,28 @@ def test_case_list(request):
             if parent_is_none and not section_has_parent:
                 # Root level section (no parent)
                 # Get test cases for this section
-                section_test_cases = list(TestCase.objects(section=section, is_deleted=False).order_by('id'))
+                if search_query:
+                    # Filter test cases by search query
+                    section_test_cases_query = TestCase.objects(section=section, is_deleted=False)
+                    # Check if section matches search
+                    section_matches = (search_query.lower() in section.name.lower() or 
+                                      (section.description and search_query.lower() in section.description.lower()))
+                    if section_matches:
+                        # If section matches, show all test cases in it
+                        section_test_cases = list(section_test_cases_query.order_by('id'))
+                    else:
+                        # If section doesn't match, only show matching test cases
+                        section_test_cases = list(section_test_cases_query.filter(
+                            __raw__={
+                                '$or': [
+                                    {'title': {'$regex': search_query, '$options': 'i'}},
+                                    {'description': {'$regex': search_query, '$options': 'i'}},
+                                    {'preconditions': {'$regex': search_query, '$options': 'i'}},
+                                ]
+                            }
+                        ).order_by('id'))
+                else:
+                    section_test_cases = list(TestCase.objects(section=section, is_deleted=False).order_by('id'))
                 
                 # Check if this section has any subsections in the database
                 direct_subsections_count = Section.objects(parent=section).count()
@@ -165,16 +271,40 @@ def test_case_list(request):
                 
                 # ALWAYS include root sections - they should appear in the tree even if empty
                 # This ensures newly created sections are visible
+                section_matches_search = search_query and (search_query.lower() in section.name.lower() or 
+                                                          (section.description and search_query.lower() in section.description.lower()))
                 tree.append({
                     'section': section,
                     'test_cases': section_test_cases,
                     'subsections': subsections,
                     'has_cases': has_test_cases or has_subsections or has_direct_subsections,
+                    'matches_search': section_matches_search if search_query else False,
                 })
             elif not parent_is_none and section_has_parent and str(section.parent.id) == str(parent.id):
                 # Subsection (has parent matching current parent)
                 # Get test cases for this section
-                section_test_cases = list(TestCase.objects(section=section, is_deleted=False).order_by('id'))
+                if search_query:
+                    # Filter test cases by search query
+                    section_test_cases_query = TestCase.objects(section=section, is_deleted=False)
+                    # Check if section matches search
+                    section_matches = (search_query.lower() in section.name.lower() or 
+                                      (section.description and search_query.lower() in section.description.lower()))
+                    if section_matches:
+                        # If section matches, show all test cases in it
+                        section_test_cases = list(section_test_cases_query.order_by('id'))
+                    else:
+                        # If section doesn't match, only show matching test cases
+                        section_test_cases = list(section_test_cases_query.filter(
+                            __raw__={
+                                '$or': [
+                                    {'title': {'$regex': search_query, '$options': 'i'}},
+                                    {'description': {'$regex': search_query, '$options': 'i'}},
+                                    {'preconditions': {'$regex': search_query, '$options': 'i'}},
+                                ]
+                            }
+                        ).order_by('id'))
+                else:
+                    section_test_cases = list(TestCase.objects(section=section, is_deleted=False).order_by('id'))
                 
                 # Check if this section has any subsections in the database
                 direct_subsections_count = Section.objects(parent=section).count()
@@ -187,11 +317,14 @@ def test_case_list(request):
                 
                 # ALWAYS include subsections - they should appear in the tree even if empty
                 # This ensures newly created subsections are visible
+                section_matches_search = search_query and (search_query.lower() in section.name.lower() or 
+                                                          (section.description and search_query.lower() in section.description.lower()))
                 tree.append({
                     'section': section,
                     'test_cases': section_test_cases,
                     'subsections': subsections,
                     'has_cases': has_test_cases or has_subsections or has_direct_subsections,
+                    'matches_search': section_matches_search if search_query else False,
                 })
         return tree
     
@@ -257,6 +390,7 @@ def test_case_list(request):
         'total_cases': total_cases,
         'current_sort': sort_param,
         'current_filter': filter_param,
+        'search_query': search_query,
         'user_can_edit': user_can_edit_sections(request.user),
         'user_can_delete': user_can_delete_sections(request.user),
     }
