@@ -9,7 +9,7 @@
         <h2>
             <i class="fas fa-folder-open text-primary"></i> Manage Sections
         </h2>
-        <a href="{% url 'testcases:test_case_list' %}" class="btn btn-secondary">
+        <a href="{% url 'testcases:test_case_list' project_id=project.id %}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back to Test Cases
         </a>
     </div>
@@ -154,7 +154,7 @@
                                         <td>
                                             <div class="btn-group btn-group-sm" role="group">
                                                 {% if user_can_edit %}
-                                                <a href="{% url 'testcases:section_edit' item.section.id|stringformat:"s" %}" 
+                                                <a href="{% url 'testcases:section_edit' project_id=project.id section_id=item.section.id|stringformat:"s" %}" 
                                                    class="btn btn-warning" title="Edit">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
@@ -165,7 +165,7 @@
                                                 {% endif %}
                                                 {% if user_can_delete %}
                                                 <form method="post" 
-                                                      action="{% url 'testcases:section_delete' item.section.id|stringformat:"s" %}" 
+                                                      action="{% url 'testcases:section_delete' project_id=project.id section_id=item.section.id|stringformat:"s" %}" 
                                                       class="d-inline"
                                                       onsubmit="return confirm('Are you sure you want to delete section \"{{ item.section.name }}\"? This will also delete all test cases ({{ item.test_case_count }}) and subsections ({{ item.subsection_count }}) within this section. This action cannot be undone.');">
                                                     {% csrf_token %}
@@ -309,7 +309,7 @@
                                         <td>
                                             <div class="btn-group btn-group-sm" role="group">
                                                 {% if user_can_edit %}
-                                                <a href="{% url 'testcases:test_case_edit' test_case.id|stringformat:"s" %}" 
+                                                <a href="{% url 'testcases:test_case_edit' project_id=project.id pk=test_case.id|stringformat:"s" %}" 
                                                    class="btn btn-warning" title="Edit">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
@@ -320,7 +320,7 @@
                                                 {% endif %}
                                                 {% if user_can_delete %}
                                                 <form method="post" 
-                                                      action="{% url 'testcases:test_case_delete' test_case.id|stringformat:"s" %}" 
+                                                      action="{% url 'testcases:test_case_delete' project_id=project.id pk=test_case.id|stringformat:"s" %}" 
                                                       class="d-inline"
                                                       onsubmit="return confirm('Are you sure you want to delete test case \"{{ test_case.title|truncatewords:5 }}\"?');">
                                                     {% csrf_token %}

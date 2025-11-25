@@ -141,7 +141,7 @@
                     <button type="submit" class="btn btn-success">
                         <i class="fas fa-save"></i> Save Changes
                     </button>
-                    <a href="{% url 'testcases:test_case_detail' test_case.id|stringformat:"s" %}" class="btn btn-secondary">
+                    <a href="{% url 'testcases:test_case_detail' project_id=project.id pk=test_case.id|stringformat:"s" %}" class="btn btn-secondary">
                         <i class="fas fa-times"></i> Cancel
                     </a>
                 </div>

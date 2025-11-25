@@ -1,0 +1,45 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Edit Project{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 2rem auto; padding: 2rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--card-border);">
+    <h1 style="margin-bottom: 2rem; color: var(--text-color);">Edit Project</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 1.5rem;">
+            <label for="name" style="display: block; margin-bottom: 0.5rem; color: var(--text-color); font-weight: 500;">Project Name *</label>
+            <input type="text" id="name" name="name" required value="{{ project.name }}"
+                   style="width: 100%; padding: 0.75rem; border: 1px solid var(--card-border); border-radius: 6px; background: var(--input-bg); color: var(--text-color);">
+        </div>
+        
+        <div style="margin-bottom: 1.5rem;">
+            <label for="description" style="display: block; margin-bottom: 0.5rem; color: var(--text-color); font-weight: 500;">Description</label>
+            <textarea id="description" name="description" rows="4"
+                      style="width: 100%; padding: 0.75rem; border: 1px solid var(--card-border); border-radius: 6px; background: var(--input-bg); color: var(--text-color);">{{ project.description }}</textarea>
+        </div>
+        
+        <div style="margin-bottom: 1.5rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-color);">
+                <input type="checkbox" name="is_active" {% if project.is_active %}checked{% endif %}>
+                <span>Active</span>
+            </label>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+            <a href="{% url 'testcases:project_dashboard' %}" 
+               style="padding: 0.75rem 1.5rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 6px; color: var(--text-color); text-decoration: none; display: inline-block;">
+                Cancel
+            </a>
+            <button type="submit" 
+                    style="padding: 0.75rem 1.5rem; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer;">
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

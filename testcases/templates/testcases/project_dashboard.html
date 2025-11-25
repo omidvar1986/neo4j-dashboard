@@ -1,0 +1,246 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Test Cases - Projects{% endblock %}
+
+{% block extra_css %}
+<style>
+    .project-dashboard {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--card-border);
+    }
+    
+    .dashboard-header h1 {
+        font-size: 2rem;
+        color: var(--text-color);
+        margin: 0;
+    }
+    
+    .dashboard-actions {
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .btn-create-project {
+        background: #007bff;
+        color: white !important;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s;
+        box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+        white-space: nowrap;
+    }
+    
+    .btn-create-project:hover {
+        background: #0056b3;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+        color: white !important;
+    }
+    
+    .btn-create-project:visited {
+        color: white !important;
+    }
+    
+    .btn-create-project i {
+        font-size: 0.9rem;
+    }
+    
+    .projects-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 1.5rem;
+        margin-top: 2rem;
+    }
+    
+    .project-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+    }
+    
+    .project-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px var(--shadow);
+    }
+    
+    .project-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .project-card-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-color);
+        margin: 0;
+        flex: 1;
+    }
+    
+    .project-card-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-icon {
+        background: transparent;
+        border: 1px solid var(--card-border);
+        border-radius: 4px;
+        padding: 0.5rem;
+        cursor: pointer;
+        color: var(--text-color);
+        transition: background-color 0.2s;
+    }
+    
+    .btn-icon:hover {
+        background: var(--hover-bg);
+    }
+    
+    .project-card-description {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        min-height: 2.5rem;
+    }
+    
+    .project-card-links {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .project-link {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: color 0.2s;
+    }
+    
+    .project-link:hover {
+        color: var(--primary-hover);
+        text-decoration: underline;
+    }
+    
+    .project-card-stats {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--card-border);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-secondary);
+    }
+    
+    .empty-state h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: var(--text-color);
+    }
+    
+    .empty-state p {
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="project-dashboard">
+    <div class="dashboard-header">
+        <h1>Dashboard</h1>
+        <div class="dashboard-actions">
+            {% if user.role == 3 %}
+            <a href="{% url 'testcases:project_create' %}" class="btn-create-project">
+                <span style="margin-right: 0.5rem;">+</span> Create Project
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    {% if projects %}
+        <div class="projects-grid">
+            {% for project_data in projects %}
+                <div class="project-card" onclick="window.location.href='{% url 'testcases:test_case_list' project_id=project_data.project.id %}'">
+                    <div class="project-card-header">
+                        <h3 class="project-card-title">{{ project_data.project.name }}</h3>
+                        <div class="project-card-actions" onclick="event.stopPropagation();">
+                            {% if user.role == 3 %}
+                            <a href="{% url 'testcases:project_edit' project_id=project_data.project.id %}" class="btn-icon" title="Edit Project">
+                                ✏️
+                            </a>
+                            <form method="post" action="{% url 'testcases:project_delete' project_id=project_data.project.id %}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this project? This will delete all test cases and sections in this project.');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-icon" title="Delete Project">🗑️</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if project_data.project.description %}
+                    <div class="project-card-description">
+                        {{ project_data.project.description }}
+                    </div>
+                    {% else %}
+                    <div class="project-card-description" style="color: var(--text-secondary); font-style: italic;">
+                        No description
+                    </div>
+                    {% endif %}
+                    
+                    <div class="project-card-links">
+                        <a href="{% url 'testcases:test_case_list' project_id=project_data.project.id %}" class="project-link" onclick="event.stopPropagation();">Test Cases</a>
+                        <a href="{% url 'testcases:test_run_list' project_id=project_data.project.id %}" class="project-link" onclick="event.stopPropagation();">Test Runs & Results</a>
+                        <a href="{% url 'testcases:section_manage' project_id=project_data.project.id %}" class="project-link" onclick="event.stopPropagation();">Sections</a>
+                        <a href="{% url 'testcases:test_case_import' project_id=project_data.project.id %}" class="project-link" onclick="event.stopPropagation();">Import</a>
+                    </div>
+                    
+                    <div class="project-card-stats">
+                        Contains {{ project_data.test_case_count }} test case{{ project_data.test_case_count|pluralize }} 
+                        and {{ project_data.section_count }} section{{ project_data.section_count|pluralize }}.
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <h2>No Projects Yet</h2>
+            <p>Create your first project to start organizing your test cases.</p>
+            {% if user.role == 3 %}
+            <a href="{% url 'testcases:project_create' %}" class="btn-create-project">
+                <span style="margin-right: 0.5rem;">+</span> Create Your First Project
+            </a>
+            {% else %}
+            <p style="color: var(--text-secondary); font-style: italic; margin-top: 1rem;">
+                Please contact an administrator to create a project for your team.
+            </p>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+

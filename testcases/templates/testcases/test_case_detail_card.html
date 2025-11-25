@@ -40,6 +40,9 @@
     }
 </style>
 <script>
+    // Store project ID for use in JavaScript (defined at top level)
+    const projectId = '{{ project.id|stringformat:"s" }}';
+    
     // Function to add subsection - shows modal
     function addSubsection(sectionId) {
         // Store section ID for form submission
@@ -82,7 +85,7 @@
         // Create and submit form
         const submitForm = document.createElement('form');
         submitForm.method = 'POST';
-        submitForm.action = `/testcases/section/${sectionId}/add-subsection/`;
+        submitForm.action = `/testcases/projects/${projectId}/section/${sectionId}/add-subsection/`;
         
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (csrfToken) {
@@ -122,7 +125,7 @@
                 <nav aria-label="breadcrumb" class="mt-2">
                     <ol class="breadcrumb mb-0" style="background: transparent; padding: 0; font-size: 0.875rem;">
                         <li class="breadcrumb-item">
-                            <a href="{% url 'testcases:test_case_list' %}?section={{ selected_test_case_obj.section.id|stringformat:"s" }}" style="color: var(--btn-primary-bg); text-decoration: none;">
+                            <a href="{% url 'testcases:test_case_list' project_id=project.id %}?section={{ selected_test_case_obj.section.id|stringformat:"s" }}" style="color: var(--btn-primary-bg); text-decoration: none;">
                                 {{ selected_test_case_obj.section.name }}
                             </a>
                         </li>
@@ -132,7 +135,7 @@
             </div>
             <div class="test-case-actions" style="display: flex; gap: 0.5rem; align-items: center;">
                 {% if user_can_edit %}
-                <a href="{% url 'testcases:test_case_edit' selected_test_case_obj.id|stringformat:"s" %}" class="btn btn-warning btn-sm">
+                <a href="{% url 'testcases:test_case_edit' project_id=project.id pk=selected_test_case_obj.id|stringformat:"s" %}" class="btn btn-warning btn-sm">
                     <i class="fas fa-edit"></i> Edit
                 </a>
                 {% else %}
@@ -140,7 +143,7 @@
                     <i class="fas fa-edit"></i> Edit
                 </button>
                 {% endif %}
-                <a href="{% url 'testcases:test_case_list' %}?section={{ selected_test_case_obj.section.id|stringformat:"s" }}" class="btn btn-secondary btn-sm">
+                <a href="{% url 'testcases:test_case_list' project_id=project.id %}?section={{ selected_test_case_obj.section.id|stringformat:"s" }}" class="btn btn-secondary btn-sm">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
             </div>
@@ -230,7 +233,7 @@
     
     <div class="test-case-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color); background: var(--card-bg); display: flex; justify-content: space-between; align-items: center;">
         <div class="footer-links">
-            <a href="{% url 'testcases:test_case_add' %}?section={{ selected_test_case_obj.section.id|stringformat:"s" }}" style="color: var(--btn-primary-bg); text-decoration: none; margin-right: 1rem;">
+            <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ selected_test_case_obj.section.id|stringformat:"s" }}" style="color: var(--btn-primary-bg); text-decoration: none; margin-right: 1rem;">
                 <i class="fas fa-plus"></i> Add Case
             </a>
             <a href="#" style="color: var(--btn-primary-bg); text-decoration: none;" onclick="addSubsection('{{ selected_test_case_obj.section.id|stringformat:"s" }}'); return false;" title="Add subsection to {{ selected_test_case_obj.section.name }}">

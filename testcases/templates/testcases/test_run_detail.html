@@ -1,0 +1,408 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}{{ test_run.name }} - Test Run{% endblock %}
+
+{% block extra_css %}
+<style>
+    .test-run-detail-page {
+        padding: 1rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--card-border);
+    }
+    
+    .page-header h1 {
+        font-size: 1.75rem;
+        color: var(--text-color);
+        margin: 0;
+    }
+    
+    .header-actions {
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .summary-section {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        display: flex;
+        gap: 3rem;
+        align-items: center;
+    }
+    
+    .summary-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--text-color);
+    }
+    
+    .summary-stats {
+        flex: 1;
+    }
+    
+    .stat-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .stat-label {
+        width: 100px;
+        font-weight: 500;
+    }
+    
+    .stat-value {
+        flex: 1;
+    }
+    
+    .stat-value.passed { color: #28a745; }
+    .stat-value.blocked { color: #6c757d; }
+    .stat-value.retest { color: #ffc107; }
+    .stat-value.failed { color: #dc3545; }
+    
+    .summary-percent {
+        text-align: right;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .filters-section {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .filter-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .filter-item select {
+        padding: 0.5rem;
+        border: 1px solid var(--card-border);
+        border-radius: 4px;
+        background: var(--input-bg);
+        color: var(--text-color);
+    }
+    
+    .test-cases-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .test-cases-table thead {
+        background: var(--input-bg);
+    }
+    
+    .test-cases-table th,
+    .test-cases-table td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid var(--card-border);
+    }
+    
+    .test-cases-table th {
+        font-weight: 600;
+    }
+    
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .status-badge.untested { background: #e9ecef; color: #495057; }
+    .status-badge.passed { background: #d4edda; color: #155724; }
+    .status-badge.failed { background: #f8d7da; color: #721c24; }
+    .status-badge.blocked { background: #d6d8db; color: #383d41; }
+    .status-badge.retest { background: #fff3cd; color: #856404; }
+    
+    .status-select {
+        padding: 0.25rem;
+        border: 1px solid var(--card-border);
+        border-radius: 4px;
+        background: var(--input-bg);
+        color: var(--text-color);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-color);
+        opacity: 0.7;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="test-run-detail-page">
+    <div class="page-header">
+        <h1>{{ test_run.name }}</h1>
+        <div class="header-actions">
+            <a href="{% url 'testcases:test_run_edit' project_id=project.id|stringformat:"s" test_run_id=test_run.id|stringformat:"s" %}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <a href="{% url 'testcases:test_run_list' project_id=project.id|stringformat:"s" %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="summary-section">
+        <div class="summary-circle">
+            {{ summary.passed_percent }}%
+        </div>
+        <div class="summary-stats">
+            <div class="stat-row">
+                <span class="stat-label">0 Passed</span>
+                <span class="stat-value passed">{{ summary.passed }} Passed</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">0 Blocked</span>
+                <span class="stat-value blocked">{{ summary.blocked }} Blocked</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">0 Retest</span>
+                <span class="stat-value retest">{{ summary.retest }} Retest</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">0 Failed</span>
+                <span class="stat-value failed">{{ summary.failed }} Failed</span>
+            </div>
+        </div>
+        <div class="summary-percent">
+            <div>{{ summary.passed_percent }}% passed</div>
+            <div style="font-size: 0.875rem; font-weight: normal; margin-top: 0.5rem;">
+                {% if summary.total > 0 %}
+                    {{ summary.untested }}/{{ summary.total }} untested ({% widthratio summary.untested summary.total 100 %}%)
+                {% else %}
+                    0/0 untested (0%)
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="filters-section">
+        <div class="filter-item">
+            <label>Sort:</label>
+            <select>
+                <option>Section</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label>Filter:</label>
+            <select name="assigned_to" onchange="applyFilters()">
+                <option value="">Assigned To: All</option>
+                {% for user in users %}
+                <option value="{{ user.id }}" {% if assigned_filter == user.id|stringformat:"s" %}selected{% endif %}>Assigned To: {{ user.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-item">
+            <select name="status" onchange="applyFilters()">
+                <option value="">Status: All</option>
+                <option value="untested" {% if status_filter == 'untested' %}selected{% endif %}>Status: Untested</option>
+                <option value="passed" {% if status_filter == 'passed' %}selected{% endif %}>Status: Passed</option>
+                <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Status: Failed</option>
+                <option value="blocked" {% if status_filter == 'blocked' %}selected{% endif %}>Status: Blocked</option>
+                <option value="retest" {% if status_filter == 'retest' %}selected{% endif %}>Status: Retest</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <select name="section" onchange="applyFilters()">
+                <option value="">Section: All</option>
+                {% for section in sections %}
+                <option value="{{ section.id }}" {% if section_filter == section.id|stringformat:"s" %}selected{% endif %}>Section: {{ section.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    
+    {% if test_cases_data %}
+    <table class="test-cases-table">
+        <thead>
+            <tr>
+                <th><input type="checkbox"></th>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Assigned To</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in test_cases_data %}
+            {% with test_case=item.test_case result=item.result %}
+            <tr>
+                <td><input type="checkbox" value="{{ test_case.id }}"></td>
+                <td>C{{ test_case.id|stringformat:"s"|slice:":8" }}</td>
+                <td>{{ test_case.title }}</td>
+                <td>
+                    <select class="status-select" onchange="updateResult('{{ test_case.id }}', this.value)">
+                        <option value="untested" {% if not result or result.status == 'untested' %}selected{% endif %}>Untested</option>
+                        <option value="passed" {% if result and result.status == 'passed' %}selected{% endif %}>Passed</option>
+                        <option value="failed" {% if result and result.status == 'failed' %}selected{% endif %}>Failed</option>
+                        <option value="blocked" {% if result and result.status == 'blocked' %}selected{% endif %}>Blocked</option>
+                        <option value="retest" {% if result and result.status == 'retest' %}selected{% endif %}>Retest</option>
+                    </select>
+                </td>
+                <td>
+                    {% if result and result.assigned_to %}
+                        {{ result.assigned_to.username }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% endwith %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No tests found.</p>
+        <p style="font-size: 0.875rem; margin-top: 0.5rem;">You can select a different group or change the filters.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function applyFilters() {
+        const assignedTo = document.querySelector('select[name="assigned_to"]').value;
+        const status = document.querySelector('select[name="status"]').value;
+        const section = document.querySelector('select[name="section"]').value;
+        
+        const params = new URLSearchParams();
+        if (assignedTo) params.append('assigned_to', assignedTo);
+        if (status) params.append('status', status);
+        if (section) params.append('section', section);
+        
+        window.location.href = window.location.pathname + '?' + params.toString();
+    }
+    
+    function updateResult(testCaseId, status) {
+        console.log('[TEST_RUN_DETAIL] updateResult called:', { testCaseId, status });
+        fetch('{% url "testcases:test_run_update_result" project_id=project.id|stringformat:"s" test_run_id=test_run.id|stringformat:"s" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `test_case_id=${testCaseId}&status=${status}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('[TEST_RUN_DETAIL] Update result response:', data);
+            if (data.success) {
+                // Reload page to update summary
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('[TEST_RUN_DETAIL] Error updating result:', error);
+            alert('Error updating test result. Please try again.');
+        });
+    }
+    
+    // Debug logging for test run detail page
+    console.log('[TEST_RUN_DETAIL] ========== PAGE LOADED ==========');
+    console.log('[TEST_RUN_DETAIL] Test run ID:', '{{ test_run.id|stringformat:"s" }}');
+    console.log('[TEST_RUN_DETAIL] Project ID:', '{{ project.id|stringformat:"s" }}');
+    console.log('[TEST_RUN_DETAIL] Inclusion type:', '{{ test_run.inclusion_type }}');
+    console.log('[TEST_RUN_DETAIL] Summary data:', {
+        total: {{ summary.total }},
+        passed: {{ summary.passed }},
+        failed: {{ summary.failed }},
+        blocked: {{ summary.blocked }},
+        retest: {{ summary.retest }},
+        untested: {{ summary.untested }},
+        passed_percent: {{ summary.passed_percent }}
+    });
+    console.log('[TEST_RUN_DETAIL] Test cases data count:', {% if test_cases_data %}{{ test_cases_data|length }}{% else %}0{% endif %});
+    console.log('[TEST_RUN_DETAIL] Results count in test_run:', {{ test_run.results|length }});
+
+    {% if test_cases_data %}
+        console.log('[TEST_RUN_DETAIL] Test cases found:');
+        {% for item in test_cases_data %}
+        console.log('  - Test case:', '{{ item.test_case.id|stringformat:"s" }}', '-', '{{ item.test_case.title|escapejs }}', 
+                    'Status:', '{{ item.result.status|default:"untested" }}');
+        {% endfor %}
+    {% else %}
+        console.warn('[TEST_RUN_DETAIL] ⚠️ No test cases data available!');
+        console.log('[TEST_RUN_DETAIL] Checking if test cases exist in project...');
+    {% endif %}
+
+    // Check if we can fetch test cases via AJAX
+    function checkTestCases() {
+        console.log('[TEST_RUN_DETAIL] Checking test cases via AJAX...');
+        fetch('{% url "testcases:test_run_select_cases" project_id=project.id|stringformat:"s" %}')
+            .then(response => {
+                console.log('[TEST_RUN_DETAIL] AJAX response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('[TEST_RUN_DETAIL] Available test cases in project:', data);
+                let totalCases = 0;
+                if (data.sections) {
+                    data.sections.forEach(section => {
+                        if (section.test_cases) {
+                            totalCases += section.test_cases.length;
+                            console.log(`[TEST_RUN_DETAIL] Section "${section.name}" has ${section.test_cases.length} test cases`);
+                        }
+                    });
+                }
+                console.log('[TEST_RUN_DETAIL] ✅ Total test cases in project:', totalCases);
+                if (totalCases === 0) {
+                    console.warn('[TEST_RUN_DETAIL] ⚠️ No test cases exist in this project!');
+                }
+            })
+            .catch(error => {
+                console.error('[TEST_RUN_DETAIL] ❌ Error fetching test cases:', error);
+            });
+    }
+
+    // Run check on page load
+    checkTestCases();
+</script>
+{% endblock %}
+

@@ -455,7 +455,7 @@
         
         <!-- Search Bar -->
         <div class="search-container mb-3" style="position: relative;">
-            <form method="get" action="{% url 'testcases:test_case_list' %}" id="search-form" style="position: relative;" onsubmit="return false;">
+            <form method="get" action="{% url 'testcases:test_case_list' project_id=project.id %}" id="search-form" style="position: relative;" onsubmit="return false;">
                 {% if selected_section %}
                     <input type="hidden" name="section" value="{{ selected_section }}">
                 {% endif %}
@@ -538,15 +538,29 @@
         <div class="filter-toolbar card mb-4">
             <div class="card-body">
                 <!-- Title on top left -->
-                <div class="d-flex justify-content-start mb-3">
-                    <h2 class="mb-0">
-                        <i class="fas fa-clipboard-check text-primary"></i> Test Cases
-                        {% if search_query %}
-                            <span class="badge bg-primary ms-2" style="font-size: 0.75rem; font-weight: normal;">
-                                <i class="fas fa-filter"></i> Searching: "{{ search_query }}"
-                            </span>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <h2 class="mb-0">
+                            <i class="fas fa-clipboard-check text-primary"></i> Test Cases
+                            {% if search_query %}
+                                <span class="badge bg-primary ms-2" style="font-size: 0.75rem; font-weight: normal;">
+                                    <i class="fas fa-filter"></i> Searching: "{{ search_query }}"
+                                </span>
+                            {% endif %}
+                        </h2>
+                        {% if selected_section_obj %}
+                        <div class="d-flex align-items-center gap-2" style="font-size: 0.9rem;">
+                            <a href="{% url 'testcases:project_dashboard' %}" class="btn btn-sm btn-outline-secondary" title="Return to Projects Dashboard">
+                                <i class="fas fa-home"></i> Projects
+                            </a>
+                        </div>
                         {% endif %}
-                    </h2>
+                    </div>
+                    <div>
+                        <a href="{% url 'testcases:project_dashboard' %}" class="btn btn-sm btn-outline-primary" title="Switch to another project">
+                            <i class="fas fa-exchange-alt"></i> Switch Project
+                        </a>
+                    </div>
                 </div>
                 <!-- Filter controls below title -->
                 <div class="filter-controls d-flex flex-wrap align-items-end gap-3">
@@ -607,9 +621,34 @@
                             </select>
                         </div>
                     </div>
-                    <a href="{% url 'testcases:section_manage' %}" class="btn btn-outline-secondary btn-sm">
+                    <a href="{% url 'testcases:section_manage' project_id=project.id %}" class="btn btn-outline-secondary btn-sm">
                         <i class="fas fa-cog"></i> Manage Sections
                     </a>
+                    <div class="btn-group">
+                        <a href="{% url 'testcases:test_run_list' project_id=project.id %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-play-circle"></i> Test Runs & Results
+                        </a>
+                    </div>
+                    {% if user_can_edit %}
+                    <div class="btn-group">
+                        <a href="{% url 'testcases:test_case_import' project_id=project.id %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-file-import"></i> Import
+                        </a>
+                    </div>
+                    {% endif %}
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-file-export"></i> Export
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'testcases:test_case_export' project_id=project.id %}?format=excel">
+                                <i class="fas fa-file-excel"></i> Export to Excel
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'testcases:test_case_export' project_id=project.id %}?format=csv">
+                                <i class="fas fa-file-csv"></i> Export to CSV
+                            </a></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -634,6 +673,15 @@
                 <div class="section-header-expanded" style="background: var(--table-header-bg); padding: 1rem; border-radius: 8px 8px 0 0; border-bottom: 2px solid var(--border-color);">
                     <div class="d-flex align-items-center justify-content-between">
                         <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <a href="{% url 'testcases:project_dashboard' %}" class="btn btn-sm btn-outline-secondary" title="Return to Projects">
+                                    <i class="fas fa-arrow-left"></i> Projects
+                                </a>
+                                <span style="color: var(--text-color); opacity: 0.5;">/</span>
+                                <a href="{% url 'testcases:test_case_list' project_id=project.id %}" class="btn btn-sm btn-outline-secondary" title="View All Test Cases">
+                                    {{ project.name }}
+                                </a>
+                            </div>
                             <h4 class="mb-1">{{ selected_section_obj.name }}</h4>
                             {% if selected_section_obj.description %}
                                 <p class="mb-2" style="color: var(--text-color); opacity: 0.85; font-size: 0.9rem;">{{ selected_section_obj.description|linebreaks }}</p>
@@ -641,7 +689,7 @@
                             <small style="color: var(--text-color); opacity: 0.8;">{{ test_cases|length }} test case{{ test_cases|length|pluralize }}</small>
                         </div>
                         <div>
-                            <a href="{% url 'testcases:test_case_add' %}?section={{ selected_section_obj.id|stringformat:"s" }}" class="btn btn-sm btn-primary">
+                            <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ selected_section_obj.id|stringformat:"s" }}" class="btn btn-sm btn-primary">
                                 <i class="fas fa-plus"></i> Add Case
                             </a>
                         </div>
@@ -678,7 +726,7 @@
                         </table>
                     </div>
                     <div class="p-2 border-top" style="background: var(--table-bg); border-radius: 0 0 8px 8px;">
-                        <a href="{% url 'testcases:test_case_add' %}?section={{ selected_section_obj.id|stringformat:"s" }}" class="text-decoration-none me-3">
+                        <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ selected_section_obj.id|stringformat:"s" }}" class="text-decoration-none me-3">
                             Add Case
                         </a>
                         <a href="#" class="text-decoration-none" onclick="addSubsection('{{ selected_section_obj.id|stringformat:"s" }}'); return false;">Add Subsection</a>
@@ -686,8 +734,45 @@
                 {% else %}
                     <div class="text-center p-5" style="background: var(--table-bg); border-radius: 0 0 8px 8px;">
                         <i class="fas fa-clipboard-list fa-3x mb-3" style="color: var(--text-color); opacity: 0.6;"></i>
-                        <p style="color: var(--text-color); opacity: 0.8;">No test cases in this section. <a href="{% url 'testcases:test_case_add' %}?section={{ selected_section_obj.id|stringformat:"s" }}" style="color: var(--btn-primary-bg);">Create your first test case</a></p>
+                        <p style="color: var(--text-color); opacity: 0.8;">No test cases in this section. <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ selected_section_obj.id|stringformat:"s" }}" style="color: var(--btn-primary-bg);">Create your first test case</a></p>
+                        <p style="color: var(--text-color); opacity: 0.8; margin-top: 0.5rem;">or <a href="#" style="color: var(--btn-primary-bg);" onclick="addSubsection('{{ selected_section_obj.id|stringformat:"s" }}'); return false;">create a subsection</a></p>
                     </div>
+                {% endif %}
+                
+                {% if selected_section_subsections %}
+                <div class="subsections-container mt-4" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden;">
+                    <div class="p-3" style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);">
+                        <h5 class="mb-0" style="color: var(--text-color); font-size: 1rem;">
+                            <i class="fas fa-folder-open me-2"></i>Subsections ({{ selected_section_subsections|length }})
+                        </h5>
+                    </div>
+                    <div class="subsections-list">
+                        {% for subsection_data in selected_section_subsections %}
+                            <div class="subsection-item" style="padding: 1rem; {% if not forloop.last %}border-bottom: 1px solid var(--border-color);{% endif %} cursor: pointer; transition: background-color 0.2s;" 
+                                 onmouseover="this.style.background='var(--hover-bg)';" 
+                                 onmouseout="this.style.background='var(--card-bg)';"
+                                 onclick="window.location.href='?section={{ subsection_data.subsection.id|stringformat:"s" }}'">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-folder me-2" style="color: var(--text-color); opacity: 0.7;"></i>
+                                            <strong style="color: var(--text-color);">{{ subsection_data.subsection.name }}</strong>
+                                        </div>
+                                        {% if subsection_data.subsection.description %}
+                                            <p class="mb-0 mt-1" style="color: var(--text-color); opacity: 0.7; font-size: 0.875rem; margin-left: 1.75rem;">{{ subsection_data.subsection.description|truncatewords:15 }}</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="badge" style="background: var(--card-border); color: var(--text-color);">
+                                            {{ subsection_data.test_case_count }} case{{ subsection_data.test_case_count|pluralize }}
+                                        </span>
+                                        <i class="fas fa-chevron-right" style="color: var(--text-color); opacity: 0.5;"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
                 {% endif %}
             </div>
         {% else %}
@@ -744,7 +829,7 @@
                                                     <td>{{ test_case.steps|length }} step{{ test_case.steps|length|pluralize }}</td>
                                                     <td onclick="event.stopPropagation();">
                                                         {% if user_can_edit %}
-                                                        <a href="{% url 'testcases:test_case_edit' test_case.id|stringformat:"s" %}" class="btn btn-sm btn-warning" title="Edit">
+                                                        <a href="{% url 'testcases:test_case_edit' project_id=project.id pk=test_case.id|stringformat:"s" %}" class="btn btn-sm btn-warning" title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
                                                         {% else %}
@@ -753,7 +838,7 @@
                                                         </button>
                                                         {% endif %}
                                                         {% if user_can_delete %}
-                                                        <form method="post" action="{% url 'testcases:test_case_delete' test_case.id|stringformat:"s" %}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this test case?');">
+                                                        <form method="post" action="{% url 'testcases:test_case_delete' project_id=project.id pk=test_case.id|stringformat:"s" %}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this test case?');">
                                                             {% csrf_token %}
                                                             <button type="submit" class="btn btn-sm btn-danger" title="Delete">
                                                                 <i class="fas fa-trash"></i>
@@ -771,7 +856,7 @@
                                     </table>
                                 </div>
                                 <div class="p-2 border-top">
-                                    <a href="{% url 'testcases:test_case_add' %}?section={{ section_group.grouper.id|stringformat:"s" }}" class="text-decoration-none me-3">
+                                    <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ section_group.grouper.id|stringformat:"s" }}" class="text-decoration-none me-3">
                                         Add Case
                                     </a>
                                     <a href="#" class="text-decoration-none" onclick="addSubsection('{{ section_group.grouper.id|stringformat:"s" }}'); return false;">Add Subsection</a>
@@ -785,10 +870,10 @@
                                 <p style="color: var(--text-color); opacity: 0.8;">
                                     No test cases found matching "<strong>{{ search_query }}</strong>". 
                                     <a href="javascript:void(0);" onclick="clearSearch();" style="color: var(--btn-primary-bg);">Clear search</a> or 
-                                    <a href="{% url 'testcases:test_case_add' %}" style="color: var(--btn-primary-bg);">create a new test case</a>.
+                                    <a href="{% url 'testcases:test_case_add' project_id=project.id %}" style="color: var(--btn-primary-bg);">create a new test case</a>.
                                 </p>
                             {% else %}
-                                <p style="color: var(--text-color); opacity: 0.8;">No test cases found. <a href="{% url 'testcases:test_case_add' %}" style="color: var(--btn-primary-bg);">Create your first test case</a></p>
+                                <p style="color: var(--text-color); opacity: 0.8;">No test cases found. <a href="{% url 'testcases:test_case_add' project_id=project.id %}" style="color: var(--btn-primary-bg);">Create your first test case</a></p>
                             {% endif %}
                         </div>
                     {% endif %}
@@ -1084,6 +1169,9 @@
         document.getElementById('addSectionModal').style.display = 'none';
     }
     
+    // Store project ID for use in JavaScript
+    const projectId = '{{ project.id|stringformat:"s" }}';
+    
     // Handle Add Section form submission
     function submitAddSection() {
         const name = document.getElementById('section-name-input').value.trim();
@@ -1097,7 +1185,7 @@
         // Create and submit form
         const submitForm = document.createElement('form');
         submitForm.method = 'POST';
-        submitForm.action = `/testcases/sections/add/`;
+        submitForm.action = `/testcases/projects/${projectId}/sections/add/`;
         
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (csrfToken) {
@@ -1168,7 +1256,7 @@
         // Create and submit form
         const submitForm = document.createElement('form');
         submitForm.method = 'POST';
-        submitForm.action = `/testcases/section/${sectionId}/add-subsection/`;
+        submitForm.action = `/testcases/projects/${projectId}/section/${sectionId}/add-subsection/`;
         
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (csrfToken) {

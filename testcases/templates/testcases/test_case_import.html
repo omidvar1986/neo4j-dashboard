@@ -1,0 +1,282 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Import Test Cases{% endblock %}
+
+{% block extra_css %}
+<style>
+    .import-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        box-shadow: 0 2px 10px var(--shadow);
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+    
+    .import-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--border-color);
+        transition: border-color 0.3s ease;
+    }
+    
+    .import-header h2 {
+        color: var(--text-color);
+        margin: 0;
+        transition: color 0.3s ease;
+    }
+    
+    .file-upload-area {
+        border: 2px dashed var(--border-color);
+        border-radius: 8px;
+        padding: 3rem;
+        text-align: center;
+        background: var(--input-bg);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+    }
+    
+    .file-upload-area:hover {
+        border-color: var(--btn-primary-bg);
+        background: var(--tree-hover);
+    }
+    
+    .file-upload-area.dragover {
+        border-color: var(--btn-primary-bg);
+        background: rgba(79, 172, 254, 0.1);
+    }
+    
+    .file-upload-area i {
+        font-size: 3rem;
+        color: var(--btn-primary-bg);
+        margin-bottom: 1rem;
+    }
+    
+    .file-upload-area p {
+        color: var(--text-color);
+        margin: 0.5rem 0;
+        transition: color 0.3s ease;
+    }
+    
+    .file-input {
+        display: none;
+    }
+    
+    .file-info {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        display: none;
+    }
+    
+    .file-info.show {
+        display: block;
+    }
+    
+    .file-info i {
+        color: var(--btn-primary-bg);
+        margin-right: 0.5rem;
+    }
+    
+    .import-instructions {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+    
+    .import-instructions h3 {
+        color: var(--text-color);
+        margin-top: 0;
+        margin-bottom: 1rem;
+        transition: color 0.3s ease;
+    }
+    
+    .import-instructions ul {
+        color: var(--text-color);
+        opacity: 0.9;
+        padding-left: 1.5rem;
+        transition: color 0.3s ease, opacity 0.3s ease;
+    }
+    
+    .import-instructions li {
+        margin-bottom: 0.5rem;
+    }
+    
+    .btn-import {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 4px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-import:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+    }
+    
+    .btn-import:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 4px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+        color: white;
+        text-decoration: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="import-container">
+    <div class="import-header">
+        <h2><i class="fas fa-file-import"></i> Import Test Cases</h2>
+    </div>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="import-instructions">
+        <h3><i class="fas fa-info-circle"></i> Import Instructions</h3>
+        <ul>
+            <li>Supported formats: CSV (.csv) and Excel (.xlsx)</li>
+            <li>The file should have the following columns: ID, Title, Section, Type, Priority, Estimate, Automation Type, Labels, Description, Preconditions, Step 1-5, Expected Result 1-5</li>
+            <li>Section can be a single name or hierarchical path separated by " > " (e.g., "Trade > Pool > Extract")</li>
+            <li>At least one test step with expected result is required for each test case</li>
+            <li>If a section doesn't exist, it will be created automatically</li>
+            <li>Test cases with duplicate titles in the same section will be skipped</li>
+        </ul>
+    </div>
+    
+    <form method="post" enctype="multipart/form-data" id="import-form">
+        {% csrf_token %}
+        <div class="file-upload-area" id="file-upload-area" onclick="document.getElementById('file-input').click()">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <p><strong>Click to select a file</strong> or drag and drop</p>
+            <p style="font-size: 0.9rem; opacity: 0.8;">CSV or Excel files only</p>
+        </div>
+        <input type="file" id="file-input" name="file" class="file-input" accept=".csv,.xlsx,.xls" required>
+        <div class="file-info" id="file-info">
+            <i class="fas fa-file"></i>
+            <span id="file-name"></span>
+            <button type="button" class="btn btn-sm btn-link" onclick="clearFile()" style="margin-left: 1rem; color: var(--btn-primary-bg);">
+                <i class="fas fa-times"></i> Remove
+            </button>
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <a href="{% url 'testcases:test_case_list' project_id=project.id %}" class="btn-cancel">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+            <button type="submit" class="btn-import" id="import-btn" disabled>
+                <i class="fas fa-upload"></i> Import Test Cases
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const fileInput = document.getElementById('file-input');
+    const fileUploadArea = document.getElementById('file-upload-area');
+    const fileInfo = document.getElementById('file-info');
+    const fileName = document.getElementById('file-name');
+    const importBtn = document.getElementById('import-btn');
+    
+    // Handle file selection
+    fileInput.addEventListener('change', function(e) {
+        handleFileSelect(e.target.files[0]);
+    });
+    
+    // Handle drag and drop
+    fileUploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        fileUploadArea.classList.add('dragover');
+    });
+    
+    fileUploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        fileUploadArea.classList.remove('dragover');
+    });
+    
+    fileUploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        fileUploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.name.toLowerCase().endsWith('.csv') || 
+                file.name.toLowerCase().endsWith('.xlsx') || 
+                file.name.toLowerCase().endsWith('.xls')) {
+                fileInput.files = files;
+                handleFileSelect(file);
+            } else {
+                alert('Please select a CSV or Excel file.');
+            }
+        }
+    });
+    
+    function handleFileSelect(file) {
+        if (file) {
+            fileName.textContent = file.name;
+            fileInfo.classList.add('show');
+            importBtn.disabled = false;
+        }
+    }
+    
+    function clearFile() {
+        fileInput.value = '';
+        fileInfo.classList.remove('show');
+        importBtn.disabled = true;
+    }
+    
+    // Form submission confirmation
+    document.getElementById('import-form').addEventListener('submit', function(e) {
+        if (!fileInput.files.length) {
+            e.preventDefault();
+            alert('Please select a file to import.');
+            return false;
+        }
+        
+        const confirmed = confirm('Are you sure you want to import test cases from this file?');
+        if (!confirmed) {
+            e.preventDefault();
+            return false;
+        }
+    });
+</script>
+{% endblock %}
+

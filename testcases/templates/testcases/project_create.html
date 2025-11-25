@@ -1,0 +1,42 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Create Project{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 2rem auto; padding: 2rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--card-border);">
+    <h1 style="margin-bottom: 2rem; color: var(--text-color);">Create New Project</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 1.5rem;">
+            <label for="name" style="display: block; margin-bottom: 0.5rem; color: var(--text-color); font-weight: 500;">Project Name *</label>
+            <input type="text" id="name" name="name" required 
+                   style="width: 100%; padding: 0.75rem; border: 1px solid var(--card-border); border-radius: 6px; background: var(--input-bg); color: var(--text-color);"
+                   placeholder="e.g., Nobi-Android, Nobi-Back, Nobitex">
+        </div>
+        
+        <div style="margin-bottom: 1.5rem;">
+            <label for="description" style="display: block; margin-bottom: 0.5rem; color: var(--text-color); font-weight: 500;">Description</label>
+            <textarea id="description" name="description" rows="4"
+                      style="width: 100%; padding: 0.75rem; border: 1px solid var(--card-border); border-radius: 6px; background: var(--input-bg); color: var(--text-color);"
+                      placeholder="Optional description of the project"></textarea>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+            <a href="{% url 'testcases:project_dashboard' %}" 
+               style="padding: 0.75rem 1.5rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; color: #495057; text-decoration: none; display: inline-block; transition: all 0.2s;">
+                Cancel
+            </a>
+            <button type="submit" 
+                    style="padding: 0.75rem 1.5rem; background: #007bff; color: white !important; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 1rem; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3); min-width: 140px;"
+                    onmouseover="this.style.background='#0056b3'; this.style.boxShadow='0 4px 8px rgba(0, 123, 255, 0.4)';"
+                    onmouseout="this.style.background='#007bff'; this.style.boxShadow='0 2px 4px rgba(0, 123, 255, 0.3)';">
+                Create Project
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
