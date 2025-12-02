@@ -5,13 +5,17 @@ from django.http import JsonResponse, Http404, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.urls import reverse
 from bson import ObjectId
+from bson.errors import InvalidId
 import csv
+import html
 import io
+import json
 import re
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
-from .models import TestCase, TestStep, Section, SectionPermission, ChangeHistory, Project, TestRun, TestRunResult
+from .models import TestCase, TestStep, Section, SectionPermission, ChangeHistory, Project, TestRun, TestRunResult, ensure_section_indexes
 from .forms import TestCaseForm
 
 
@@ -60,6 +64,189 @@ def record_change(entity_type, entity_id, action, user_id, description=''):
         print(f"Error recording change history: {str(e)}")
 
 
+class TestCaseImportService:
+    """Batch helper for importing test cases from spreadsheets/XML."""
+
+    def __init__(self, project, user, batch_size=200):
+        self.project = project
+        self.user = user
+        self.batch_size = batch_size
+        self.pending_cases = []
+        self.pending_history = []
+        self.section_cache = {}
+        self.existing_case_keys = set()
+        self.stats = {
+            'rows_processed': 0,
+            'cases_created': 0,
+            'steps_created': 0,
+            'duplicates_skipped': 0,
+            'invalid_rows': 0,
+            'sections_created': 0,
+            'errors': [],
+        }
+        # Preload sections for quick lookup
+        for section in Section.objects(project=self.project):
+            self.section_cache[self._section_key(section.parent, section.name)] = section
+        # Preload existing cases (section_id + title) to avoid dereferencing missing sections
+        existing_cases = TestCase.objects(project=self.project).only('section', 'title').no_dereference()
+        for existing in existing_cases:
+            section_id = getattr(existing, 'section_id', None)
+            if section_id:
+                self.existing_case_keys.add((str(section_id), self._normalize(existing.title)))
+
+    @staticmethod
+    def _normalize(value):
+        return (value or '').strip().lower()
+
+    def _section_key(self, parent, name):
+        parent_id = str(parent.id) if parent else 'root'
+        return (parent_id, self._normalize(name))
+
+    def _case_key(self, section, title):
+        return (str(section.id), self._normalize(title))
+
+    def _create_section(self, parent, name):
+        section = Section(
+            project=self.project,
+            name=name.strip(),
+            parent=parent,
+            created_by_id=self.user.id
+        )
+        section.save()
+        self.section_cache[self._section_key(parent, name)] = section
+        self.stats['sections_created'] += 1
+        return section
+
+    def get_or_create_section_by_path(self, section_path):
+        names = [s.strip() for s in section_path.split('>') if s and s.strip()]
+        parent_section = None
+        for section_name in names:
+            key = self._section_key(parent_section, section_name)
+            section = self.section_cache.get(key)
+            if not section:
+                query = Section.objects(project=self.project, name=section_name)
+                query = query.filter(parent=parent_section) if parent_section else query.filter(parent__exists=False)
+                section = query.first()
+                if not section:
+                    section = self._create_section(parent_section, section_name)
+                else:
+                    self.section_cache[key] = section
+            parent_section = section
+        return parent_section
+
+    def queue_test_case(self, test_case):
+        if not test_case.section or not test_case.title:
+            self.stats['invalid_rows'] += 1
+            return False
+        case_key = self._case_key(test_case.section, test_case.title)
+        if case_key in self.existing_case_keys:
+            self.stats['duplicates_skipped'] += 1
+            return False
+        test_case.id = ObjectId()
+        test_case.created_by_id = self.user.id
+        test_case.updated_by_id = self.user.id
+        test_case.created_at = datetime.utcnow()
+        test_case.updated_at = datetime.utcnow()
+        self.existing_case_keys.add(case_key)
+        self.pending_cases.append(test_case)
+        self.pending_history.append(ChangeHistory(
+            entity_type='test_case',
+            entity_id=str(test_case.id),
+            action='created',
+            user_id=self.user.id,
+            description=f'Imported test case: {test_case.title}'
+        ))
+        if test_case.steps:
+            self.stats['steps_created'] += len(test_case.steps)
+        if len(self.pending_cases) >= self.batch_size:
+            self.flush()
+        return True
+
+    def flush(self):
+        if not self.pending_cases:
+            return
+        try:
+            TestCase.objects.insert(self.pending_cases, load_bulk=False)
+            if self.pending_history:
+                ChangeHistory.objects.insert(self.pending_history, load_bulk=False)
+            self.stats['cases_created'] += len(self.pending_cases)
+        except Exception as exc:
+            self.stats['errors'].append(str(exc))
+            # Fall back to per-document save to salvage work
+            for case in self.pending_cases:
+                try:
+                    case.save()
+                    ChangeHistory(
+                        entity_type='test_case',
+                        entity_id=str(case.id),
+                        action='created',
+                        user_id=self.user.id,
+                        description=f'Imported test case: {case.title}'
+                    ).save()
+                    self.stats['cases_created'] += 1
+                except Exception as inner_exc:
+                    self.stats['errors'].append(str(inner_exc))
+        finally:
+            self.pending_cases = []
+            self.pending_history = []
+
+    def finalize(self):
+        self.flush()
+        return self.stats
+
+
+def resolve_test_case(project, identifier, include_deleted=False):
+    """Resolve either a full ObjectId or a friendly ID (e.g. C6922e056) to a real TestCase."""
+    identifier = (identifier or '').strip()
+    if not identifier or not project:
+        return None
+    
+    # Normalized filters that apply to every lookup
+    base_filters = {'project': project}
+    if not include_deleted:
+        base_filters['is_deleted'] = False
+    
+    # Try to extract a full 24-char ObjectId (ignore any surrounding text like "ID: <oid>")
+    full_oid_match = re.search(r'([0-9a-fA-F]{24})', identifier)
+    if full_oid_match:
+        try:
+            return TestCase.objects.get(
+                id=ObjectId(full_oid_match.group(1)),
+                **base_filters,
+            )
+        except (InvalidId, TestCase.DoesNotExist):
+            # Fall through to friendly lookup
+            pass
+    
+    # Support friendly IDs shown in UI (prefix C + first 8 hex chars, possibly followed by extra text)
+    friendly_source = identifier.lower()
+    if friendly_source.startswith('c'):
+        friendly_source = friendly_source[1:]
+    
+    friendly_match = re.search(r'([0-9a-f]{8,24})', friendly_source)
+    if not friendly_match:
+        return None
+    
+    friendly = friendly_match.group(1)
+    low_hex = friendly.ljust(24, '0')
+    high_hex = friendly.ljust(24, 'f')
+    
+    try:
+        low_id = ObjectId(low_hex)
+        high_id = ObjectId(high_hex)
+    except InvalidId:
+        return None
+    
+    raw_filters = {
+        '_id': {'$gte': low_id, '$lte': high_id},
+        'project': project.id,
+    }
+    if not include_deleted:
+        raw_filters['is_deleted'] = False
+    
+    return TestCase.objects(__raw__=raw_filters).first()
+
+
 @login_required
 def test_case_list(request, project_id=None):
     """List all test cases for a specific project, optionally filtered by section or test case."""
@@ -103,10 +290,9 @@ def test_case_list(request, project_id=None):
     # If a specific test case is selected, get it for detail view
     selected_test_case = None
     if test_case_filter:
-        try:
-            selected_test_case = TestCase.objects.get(id=ObjectId(test_case_filter), project=project, is_deleted=False)
-        except (TestCase.DoesNotExist, Exception):
-            pass
+        selected_test_case = resolve_test_case(project, test_case_filter)
+        if not selected_test_case:
+            messages.error(request, f'Test case "{test_case_filter}" not found in this project.')
     
     # Query test cases - filter by project
     test_cases_query = TestCase.objects(project=project, is_deleted=False)
@@ -601,9 +787,8 @@ def test_case_detail(request, project_id, pk):
         messages.error(request, 'Project not found.')
         return redirect('testcases:project_dashboard')
     
-    try:
-        test_case = TestCase.objects.get(id=ObjectId(pk), project=project, is_deleted=False)
-    except (TestCase.DoesNotExist, Exception):
+    test_case = resolve_test_case(project, pk)
+    if not test_case:
         raise Http404("Test case not found")
     
     # Steps are embedded, so we can access them directly
@@ -643,14 +828,13 @@ def test_case_edit(request, project_id, pk):
     if not user_can_edit_sections(request.user):
         messages.error(request, 'You do not have permission to edit test cases.')
         try:
-            test_case = TestCase.objects.get(id=ObjectId(pk), project=project, is_deleted=False)
+            test_case = resolve_test_case(project, pk)
             return redirect('testcases:test_case_detail', project_id=str(project.id), pk=str(test_case.id))
-        except (TestCase.DoesNotExist, Exception):
+        except Exception:
             return redirect('testcases:test_case_list', project_id=str(project.id))
     
-    try:
-        test_case = TestCase.objects.get(id=ObjectId(pk), project=project, is_deleted=False)
-    except (TestCase.DoesNotExist, Exception):
+    test_case = resolve_test_case(project, pk)
+    if not test_case:
         raise Http404("Test case not found")
     
     if request.method == 'POST':
@@ -784,8 +968,8 @@ def test_case_delete(request, project_id, pk):
         messages.error(request, 'You do not have permission to delete test cases.')
         return redirect('testcases:test_case_list', project_id=str(project.id))
     
-    try:
-        test_case = TestCase.objects.get(id=ObjectId(pk), project=project, is_deleted=False)
+    test_case = resolve_test_case(project, pk)
+    if test_case:
         test_case.is_deleted = True
         test_case.updated_by_id = request.user.id
         test_case.save()
@@ -794,7 +978,7 @@ def test_case_delete(request, project_id, pk):
         record_change('test_case', str(test_case.id), 'deleted', request.user.id, f'Deleted test case: {test_case.title}')
         
         messages.success(request, f'Test case "{test_case.title}" deleted successfully!')
-    except (TestCase.DoesNotExist, Exception):
+    else:
         messages.error(request, 'Test case not found.')
     
     return redirect('testcases:test_case_list', project_id=str(project.id))
@@ -1453,6 +1637,15 @@ def test_case_import(request, project_id):
             messages.error(request, 'Please select a file to import.')
             return redirect('testcases:test_case_list', project_id=str(project.id))
         
+        # Ensure indexes are correct before importing sections
+        try:
+            ensure_section_indexes()
+        except Exception as index_error:
+            messages.error(request, f'Failed to prepare section indexes: {index_error}')
+            return redirect('testcases:test_case_list', project_id=str(project.id))
+        
+        importer = TestCaseImportService(project, request.user)
+        
         uploaded_file = request.FILES['file']
         file_name = uploaded_file.name.lower()
         
@@ -1467,6 +1660,7 @@ def test_case_import(request, project_id):
                 csv_reader = csv.DictReader(io.StringIO(decoded_file))
                 
                 for row_num, row in enumerate(csv_reader, start=2):
+                    importer.stats['rows_processed'] += 1
                     try:
                         # Get or create section - try multiple column name variations
                         # Priority: Section Hie (Section Hierarchy) > Section > Section Des > Suite
@@ -1485,42 +1679,7 @@ def test_case_import(request, project_id):
                             if not section_path:
                                 section_path = 'Imported'  # Default section name
                         
-                        # Parse section path (format: "Parent > Child > Subchild")
-                        section_names = [s.strip() for s in section_path.split('>')]
-                        parent_section = None
-                        
-                        for section_name in section_names:
-                            if not section_name:
-                                continue
-                            
-                            # Try to find existing section
-                            if parent_section:
-                                try:
-                                    section = Section.objects.get(project=project, name=section_name, parent=parent_section)
-                                except Section.DoesNotExist:
-                                    section = Section(
-                                        project=project,
-                                        name=section_name,
-                                        parent=parent_section,
-                                        created_by_id=request.user.id
-                                    )
-                                    section.save()
-                            else:
-                                try:
-                                    section = Section.objects.get(project=project, name=section_name, parent__exists=False)
-                                except Section.DoesNotExist:
-                                    try:
-                                        section = Section.objects.get(project=project, name=section_name, parent=None)
-                                    except Section.DoesNotExist:
-                                        section = Section(
-                                            project=project,
-                                            name=section_name,
-                                            parent=None,
-                                            created_by_id=request.user.id
-                                        )
-                                        section.save()
-                            
-                            parent_section = section
+                        parent_section = importer.get_or_create_section_by_path(section_path)
                         
                         if not parent_section:
                             error_count += 1
@@ -1531,13 +1690,6 @@ def test_case_import(request, project_id):
                         title = row.get('Title', '').strip()
                         if not title:
                             # Skip empty rows (no title means it's likely an empty row or header)
-                            continue
-                        
-                        # Check if test case already exists (by title and section) - within this project
-                        existing = TestCase.objects(project=project, title=title, section=parent_section, is_deleted=False).first()
-                        if existing:
-                            error_count += 1
-                            errors.append(f"Row {row_num}: Test case with title '{title}' already exists in section '{section_path}'")
                             continue
                         
                         # Get field values with fallbacks for different column names
@@ -1571,7 +1723,6 @@ def test_case_import(request, project_id):
                             description=description_value,
                             preconditions=preconditions_value,
                             template='Test Case (Steps)',
-                            created_by_id=request.user.id,
                             is_deleted=False
                         )
                         
@@ -1743,12 +1894,9 @@ def test_case_import(request, project_id):
                             continue
                         
                         test_case.steps = steps
-                        test_case.save()
                         
-                        # Record change history
-                        record_change('test_case', str(test_case.id), 'created', request.user.id, f'Imported test case: {test_case.title}')
-                        
-                        imported_count += 1
+                        if importer.queue_test_case(test_case):
+                            imported_count += 1
                         
                     except Exception as e:
                         error_count += 1
@@ -1813,6 +1961,7 @@ def test_case_import(request, project_id):
                 # Second pass: Process each test case (grouped by ID)
                 # IMPORTANT: Only create ONE test case per ID group, collecting steps from ALL rows
                 for test_id, id_rows in rows_by_id.items():
+                    importer.stats['rows_processed'] += 1
                     try:
                         # Find the main row (first row with a title AND other metadata)
                         # This is the row that defines the test case
@@ -1868,41 +2017,7 @@ def test_case_import(request, project_id):
                             if not section_path:
                                 section_path = 'Imported'  # Default section name
                         
-                        # Parse section path
-                        section_names = [s.strip() for s in section_path.split('>')]
-                        parent_section = None
-                        
-                        for section_name in section_names:
-                            if not section_name:
-                                continue
-                            
-                            if parent_section:
-                                try:
-                                    section = Section.objects.get(project=project, name=section_name, parent=parent_section)
-                                except Section.DoesNotExist:
-                                    section = Section(
-                                        project=project,
-                                        name=section_name,
-                                        parent=parent_section,
-                                        created_by_id=request.user.id
-                                    )
-                                    section.save()
-                            else:
-                                try:
-                                    section = Section.objects.get(project=project, name=section_name, parent__exists=False)
-                                except Section.DoesNotExist:
-                                    try:
-                                        section = Section.objects.get(project=project, name=section_name, parent=None)
-                                    except Section.DoesNotExist:
-                                        section = Section(
-                                            project=project,
-                                            name=section_name,
-                                            parent=None,
-                                            created_by_id=request.user.id
-                                        )
-                                        section.save()
-                            
-                            parent_section = section
+                        parent_section = importer.get_or_create_section_by_path(section_path)
                         
                         if not parent_section:
                             error_count += 1
@@ -1913,13 +2028,6 @@ def test_case_import(request, project_id):
                         title = str(row_dict.get('Title', '')).strip()
                         if not title:
                             # Skip empty rows (no title means it's likely an empty row or header)
-                            continue
-                        
-                        # Check if test case already exists
-                        existing = TestCase.objects(title=title, section=parent_section, is_deleted=False).first()
-                        if existing:
-                            error_count += 1
-                            errors.append(f"Row {row_num}: Test case with title '{title}' already exists in section '{section_path}'")
                             continue
                         
                         # Get field values with fallbacks for different column names
@@ -1959,7 +2067,6 @@ def test_case_import(request, project_id):
                             description=description_value,
                             preconditions=preconditions_value,
                             template='Test Case (Steps)',
-                            created_by_id=request.user.id,
                             is_deleted=False
                         )
                         
@@ -2197,31 +2304,128 @@ def test_case_import(request, project_id):
                             continue
                         
                         test_case.steps = steps
-                        test_case.save()
                         
-                        # Record change history
-                        record_change('test_case', str(test_case.id), 'created', request.user.id, f'Imported test case: {test_case.title}')
-                        
-                        imported_count += 1
+                        if importer.queue_test_case(test_case):
+                            imported_count += 1
                         
                     except Exception as e:
                         error_count += 1
                         errors.append(f"Row {row_num}: {str(e)}")
             
             else:
-                messages.error(request, 'Unsupported file format. Please upload a CSV or Excel (.xlsx) file.')
-                return redirect('testcases:test_case_list', project_id=str(project.id))
-            
-            # Show results
-            if imported_count > 0:
-                messages.success(request, f'Successfully imported {imported_count} test case(s).')
-            if error_count > 0:
-                error_message = f'Failed to import {error_count} test case(s).'
-                if len(errors) <= 10:
-                    error_message += ' Errors: ' + '; '.join(errors)
+                # Attempt XML import
+                try:
+                    uploaded_file.seek(0)
+                except Exception:
+                    pass
+                try:
+                    xml_root = ET.parse(uploaded_file).getroot()
+                except Exception as xml_error:
+                    messages.error(request, f'Unsupported file format or XML parse error: {xml_error}')
+                    return redirect('testcases:test_case_list', project_id=str(project.id))
+                
+                def clean_text(value):
+                    return html.unescape((value or '').strip())
+                
+                def parse_xml_steps(case_elem):
+                    steps = []
+                    steps_container = case_elem.find('.//steps_separated')
+                    if steps_container is not None:
+                        for idx, step_elem in enumerate(steps_container.findall('step'), start=1):
+                            desc = clean_text(step_elem.findtext('content', ''))
+                            expected = clean_text(step_elem.findtext('expected', ''))
+                            if desc:
+                                steps.append(TestStep(
+                                    step_number=idx,
+                                    description=desc[:500],
+                                    expected_result=(expected or 'See description')[:500]
+                                ))
+                    return steps
+                
+                def process_section(section_elem, path_parts):
+                    section_name = clean_text(section_elem.findtext('name', ''))
+                    if not section_name:
+                        return
+                    current_path = '>'.join(path_parts + [section_name])
+                    parent_section = importer.get_or_create_section_by_path(current_path)
+                    
+                    cases_elem = section_elem.find('cases')
+                    if cases_elem is not None:
+                        for case_elem in cases_elem.findall('case'):
+                            importer.stats['rows_processed'] += 1
+                            title = clean_text(case_elem.findtext('title', ''))
+                            if not title:
+                                continue
+                            description_value = clean_text(case_elem.findtext('description', ''))
+                            type_value = clean_text(case_elem.findtext('type', '')) or 'Other'
+                            priority_value = clean_text(case_elem.findtext('priority', '')) or 'Medium'
+                            estimate_value = clean_text(case_elem.findtext('estimate', ''))
+                            automation_type_value = clean_text(case_elem.findtext('.//automation_type/value', '')) or 'None'
+                            preconditions_value = clean_text(case_elem.findtext('.//preconds', ''))
+                            
+                            steps = parse_xml_steps(case_elem)
+                            if not steps:
+                                if description_value:
+                                    steps = [TestStep(step_number=1, description=description_value[:500], expected_result='See description')]
+                                else:
+                                    error_count += 1
+                                    errors.append(f"XML Case '{title}': Missing steps")
+                                    continue
+                            
+                            test_case = TestCase(
+                                project=project,
+                                title=title,
+                                section=parent_section,
+                                type=type_value,
+                                priority=priority_value,
+                                estimate=estimate_value,
+                                automation_type=automation_type_value,
+                                labels='',
+                                description=description_value,
+                                preconditions=preconditions_value,
+                                template='Test Case (Steps)',
+                                is_deleted=False,
+                                steps=steps
+                            )
+                            
+                            if importer.queue_test_case(test_case):
+                                imported_count += 1
+                    
+                    subsections = section_elem.find('sections')
+                    if subsections is not None:
+                        for child in subsections.findall('section'):
+                            process_section(child, path_parts + [section_name])
+                
+                suite_sections = xml_root.find('sections')
+                if suite_sections is not None:
+                    for top_section in suite_sections.findall('section'):
+                        process_section(top_section, [])
                 else:
-                    error_message += f' First 10 errors: ' + '; '.join(errors[:10])
-                messages.warning(request, error_message)
+                    errors.append('XML file missing <sections> root.')
+
+            stats = importer.finalize()
+            imported_count = stats['cases_created']
+            total_rows = stats['rows_processed']
+            duplicates = stats['duplicates_skipped']
+            new_sections = stats['sections_created']
+            total_steps = stats['steps_created']
+            
+            if imported_count > 0:
+                info_parts = [
+                    f'{imported_count} test case(s)',
+                    f'{total_rows} row(s) processed',
+                    f'{total_steps} step(s) captured'
+                ]
+                if new_sections:
+                    info_parts.append(f'{new_sections} section(s) created')
+                if duplicates:
+                    info_parts.append(f'{duplicates} duplicate(s) skipped')
+                messages.success(request, 'Import complete: ' + ', '.join(info_parts) + '.')
+            combined_errors = errors + stats['errors']
+            if error_count or combined_errors:
+                total_issues = error_count + len(stats['errors'])
+                preview = combined_errors[:5]
+                messages.warning(request, f'Encountered {total_issues} issue(s) during import: {", ".join(preview)}')
             
         except Exception as e:
             messages.error(request, f'Error importing file: {str(e)}')
@@ -2473,16 +2677,17 @@ def test_run_add(request, project_id):
         inclusion_type = request.POST.get('inclusion_type', 'all').strip()
         
         # Get test case IDs - handle both array and comma-separated string
+        test_case_ids = []
+        raw_id_sources = []
         test_case_ids_input = request.POST.get('test_case_ids', '').strip()
-        test_case_ids_list = request.POST.getlist('test_case_ids[]')
-        
-        # If we have a comma-separated string, split it
         if test_case_ids_input:
-            test_case_ids = [id.strip() for id in test_case_ids_input.split(',') if id.strip()]
-        elif test_case_ids_list:
-            test_case_ids = [id.strip() for id in test_case_ids_list if id.strip()]
-        else:
-            test_case_ids = []
+            raw_id_sources.append(test_case_ids_input)
+        raw_id_sources.extend(filter(None, request.POST.getlist('test_case_ids[]')))
+        for source in raw_id_sources:
+            for tc_id in source.split(','):
+                tc_id = tc_id.strip()
+                if tc_id:
+                    test_case_ids.append(tc_id)
         
         # Validate required fields
         if not name:
@@ -2703,12 +2908,32 @@ def test_run_detail(request, project_id, test_run_id):
         messages.warning(request, f'Error loading test cases: {str(e)}')
         test_cases = []
     
-    # If no test cases found, try to update results (maybe test cases were added after test run creation)
-    if not test_cases and test_run.inclusion_type == 'all':
+    # Ensure the results list stays in sync with the current set of test cases.
+    if (not test_run.is_closed) and test_cases:
+        expected_ids = {str(tc.id) for tc in test_cases}
+        result_ids = {str(r.test_case.id) for r in test_run.results}
+        if expected_ids != result_ids:
+            logger.info(f"[TEST_RUN_DETAIL] Results/test-case mismatch detected. Syncing results...")
+            print(f"[TEST_RUN_DETAIL] Results/test-case mismatch detected. Syncing results...")
+            try:
+                test_run.update_results_for_test_cases()
+                test_run.reload()
+                synced_cases = test_run.get_test_cases()
+                if hasattr(synced_cases, '__iter__') and not isinstance(synced_cases, (list, tuple)):
+                    synced_cases = list(synced_cases)
+                test_cases = synced_cases
+                logger.info(f"[TEST_RUN_DETAIL] Sync complete. Results now: {len(test_run.results)}")
+                print(f"[TEST_RUN_DETAIL] Sync complete. Results now: {len(test_run.results)}")
+                messages.info(request, 'Newly imported or removed test cases were synced into this test run.')
+            except Exception as sync_error:
+                logger.error(f"[TEST_RUN_DETAIL] Error auto-syncing test cases for run {test_run.id}: {sync_error}")
+                print(f"[TEST_RUN_DETAIL] ERROR auto-syncing: {sync_error}")
+    
+    # If still empty (e.g., brand-new run in empty project) attempt a refresh for 'all' inclusion runs
+    if not test_cases and test_run.inclusion_type == 'all' and not test_run.is_closed:
         logger.info(f"[TEST_RUN_DETAIL] No test cases found, trying to refresh results")
         print(f"[TEST_RUN_DETAIL] No test cases found, trying to refresh results")
         try:
-            # Try to refresh the test cases connection
             test_run.update_results_for_test_cases()
             test_cases = test_run.get_test_cases()
             if hasattr(test_cases, '__iter__') and not isinstance(test_cases, (list, tuple)):
@@ -2841,7 +3066,13 @@ def test_run_edit(request, project_id, test_run_id):
         start_date_str = request.POST.get('start_date', '').strip()
         end_date_str = request.POST.get('end_date', '').strip()
         inclusion_type = request.POST.get('inclusion_type', 'all').strip()
-        test_case_ids = request.POST.getlist('test_case_ids[]')
+        test_case_ids = []
+        raw_sources = request.POST.getlist('test_case_ids[]')
+        for source in raw_sources:
+            for tc_id in (source or '').split(','):
+                tc_id = tc_id.strip()
+                if tc_id:
+                    test_case_ids.append(tc_id)
         
         # Validate required fields
         if not name:
@@ -2909,6 +3140,8 @@ def test_run_edit(request, project_id, test_run_id):
         'project': project,
         'test_run': test_run,
         'users': users,
+        'selected_case_ids_str': ','.join(test_run.test_case_ids or []),
+        'selected_case_ids_json': json.dumps(test_run.test_case_ids or []),
     }
     return render(request, 'testcases/test_run_edit.html', context)
 
@@ -3047,9 +3280,8 @@ def test_run_update_result(request, project_id, test_run_id):
         
         if not result:
             # Create new result
-            try:
-                test_case = TestCase.objects.get(id=ObjectId(test_case_id), project=project)
-            except (TestCase.DoesNotExist, Exception):
+            test_case = resolve_test_case(project, test_case_id, include_deleted=True)
+            if not test_case:
                 return JsonResponse({'error': 'Test case not found'}, status=404)
             
             result = TestRunResult(

@@ -1,8 +1,60 @@
 {% load static %}
+<!-- Prism.js for syntax highlighting -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
 <style>
     .test-case-card {
         color: var(--text-color);
         transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    }
+    
+    /* Code block styling */
+    .code-block-wrapper {
+        margin: 0.5rem 0;
+        position: relative;
+    }
+    
+    .code-block-wrapper pre {
+        margin: 0;
+        padding: 1rem;
+        background: var(--code-bg, #282c34);
+        border-radius: 4px;
+        overflow-x: auto;
+        border-left: 3px solid var(--btn-primary-bg);
+    }
+    
+    .code-block-wrapper code {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    
+    [data-theme="dark"] .code-block-wrapper pre {
+        background: #1e1e1e;
+    }
+    
+    [data-theme="light"] .code-block-wrapper pre {
+        background: #f4f4f4;
+        border: 1px solid #ddd;
+    }
+    
+    /* Inline code styling */
+    .inline-code {
+        background: var(--code-inline-bg, rgba(0, 0, 0, 0.05));
+        padding: 0.2em 0.4em;
+        border-radius: 3px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.9em;
+    }
+    
+    [data-theme="dark"] .inline-code {
+        background: rgba(255, 255, 255, 0.1);
     }
     
     .test-case-header,
@@ -212,13 +264,13 @@
                         <div class="step-details ms-4" style="margin-left: 2rem;">
                             <div class="mb-2">
                                 <strong>Description:</strong>
-                                <div class="mt-1" style="background: var(--input-bg); color: var(--input-text); padding: 0.75rem; border-radius: 4px; border-left: 3px solid var(--btn-primary-bg);">
+                                <div class="mt-1 step-description-content" style="background: var(--input-bg); color: var(--input-text); padding: 0.75rem; border-radius: 4px; border-left: 3px solid var(--btn-primary-bg);">
                                     {{ step.description|linebreaks }}
                                 </div>
                             </div>
                             <div>
                                 <strong>Expected Result:</strong>
-                                <div class="mt-1" style="background: var(--input-bg); color: var(--input-text); padding: 0.75rem; border-radius: 4px; border-left: 3px solid #28a745;">
+                                <div class="mt-1 step-expected-result-content" style="background: var(--input-bg); color: var(--input-text); padding: 0.75rem; border-radius: 4px; border-left: 3px solid #28a745;">
                                     {{ step.expected_result|linebreaks }}
                                 </div>
                             </div>
@@ -316,6 +368,196 @@ function toggleChangeHistory() {
     if (historySection) {
         historySection.style.display = historySection.style.display === 'none' ? 'block' : 'none';
     }
+}
+
+// Function to process code blocks in text
+function processCodeBlocks(element) {
+    if (!element) return;
+    
+    // Get the innerHTML and work with it
+    let html = element.innerHTML;
+    
+    // Decode HTML entities (like &#96; for backticks)
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    let text = tempDiv.textContent || tempDiv.innerText || '';
+    
+    // Debug: Check if we have backticks
+    if (text.includes('```') || html.includes('```') || html.includes('&#96;&#96;&#96;')) {
+        console.log('Found potential code blocks in:', text.substring(0, 100));
+    }
+    
+    // If we can't get text, try decoding entities manually
+    if (!text || text.length === 0) {
+        text = html
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&#96;/g, '`')
+            .replace(/&#39;/g, "'")
+            .replace(/&quot;/g, '"')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<[^>]+>/g, ''); // Remove remaining HTML tags
+    } else {
+        // Convert <br> tags to newlines in the original HTML for processing
+        html = html.replace(/<br\s*\/?>/gi, '\n');
+    }
+    
+    // Also check for HTML-encoded backticks (&#96;) and decode them in text
+    text = text.replace(/&#96;/g, '`');
+    
+    // Pattern to match code blocks: ```language\ncode\n``` or ```language code```
+    // Also handle cases where backticks might be HTML-encoded
+    // Match both ``` and &#96;&#96;&#96;
+    const codeBlockPattern = /(?:```|&#96;&#96;&#96;)(\w+)?\s*\n?([\s\S]*?)(?:```|&#96;&#96;&#96;)/g;
+    
+    // Check if we have code blocks in the text
+    const matches = [];
+    let match;
+    while ((match = codeBlockPattern.exec(text)) !== null) {
+        matches.push({
+            fullMatch: match[0],
+            language: match[1] || '',
+            code: match[2].trim(),
+            index: match.index
+        });
+    }
+    
+    // If no code blocks found, just process inline code
+    if (matches.length === 0) {
+        // Process inline code: `code` (but not inside code blocks)
+        const inlineCodePattern = /`([^`\n]+)`/g;
+        html = html.replace(inlineCodePattern, '<code class="inline-code">$1</code>');
+        element.innerHTML = html;
+        return;
+    }
+    
+    // Process code blocks
+    let result = '';
+    let lastIndex = 0;
+    
+    for (const codeMatch of matches) {
+        // Add text before the code block
+        if (codeMatch.index > lastIndex) {
+            const beforeText = text.substring(lastIndex, codeMatch.index);
+            // Escape HTML and convert newlines to <br>
+            let beforeHtml = beforeText
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
+            // Process inline code in the text before
+            beforeHtml = beforeHtml.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>');
+            result += beforeHtml;
+        }
+        
+        // Process the code block
+        let code = codeMatch.code;
+        let language = codeMatch.language;
+        
+        // Detect language if not specified
+        if (!language) {
+            // Try to detect JSON
+            try {
+                // Clean JSON - remove surrounding quotes if present
+                let jsonCode = code.trim();
+                if ((jsonCode.startsWith('"') && jsonCode.endsWith('"')) || 
+                    (jsonCode.startsWith("'") && jsonCode.endsWith("'"))) {
+                    jsonCode = jsonCode.slice(1, -1);
+                }
+                // Unescape quotes
+                jsonCode = jsonCode.replace(/\\"/g, '"').replace(/\\'/g, "'");
+                JSON.parse(jsonCode);
+                language = 'json';
+            } catch (e) {
+                // Try to detect other languages
+                if (code.includes('curl') || code.includes('--header') || code.includes('--data') || code.includes('--location')) {
+                    language = 'bash';
+                } else if (code.includes('function') || code.includes('const ') || code.includes('let ') || code.includes('var ')) {
+                    language = 'javascript';
+                } else if (code.includes('def ') || code.includes('import ') || code.includes('from ')) {
+                    language = 'python';
+                } else if (code.includes('<?php') || code.includes('<?=')) {
+                    language = 'php';
+                } else if (code.match(/\b(SELECT|INSERT|UPDATE|DELETE|CREATE)\b/i)) {
+                    language = 'sql';
+                } else {
+                    language = 'plaintext';
+                }
+            }
+        }
+        
+        // Escape HTML in code
+        const escapedCode = code
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        
+        result += `<div class="code-block-wrapper"><pre class="language-${language}"><code class="language-${language}">${escapedCode}</code></pre></div>`;
+        
+        lastIndex = codeMatch.index + codeMatch.fullMatch.length;
+    }
+    
+    // Add remaining text after last code block
+    if (lastIndex < text.length) {
+        const afterText = text.substring(lastIndex);
+        let afterHtml = afterText
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '<br>');
+        // Process inline code
+        afterHtml = afterHtml.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>');
+        result += afterHtml;
+    }
+    
+    element.innerHTML = result;
+    
+    // Apply Prism highlighting to all code blocks
+    if (typeof Prism !== 'undefined') {
+        element.querySelectorAll('pre code').forEach((block) => {
+            Prism.highlightElement(block);
+        });
+    }
+}
+
+// Process all step descriptions and expected results when page loads
+function initializeCodeHighlighting() {
+    // Wait for Prism to be available
+    if (typeof Prism === 'undefined') {
+        setTimeout(initializeCodeHighlighting, 100);
+        return;
+    }
+    
+    // Process all step descriptions and expected results
+    document.querySelectorAll('.step-description-content, .step-expected-result-content').forEach(function(element) {
+        try {
+            processCodeBlocks(element);
+        } catch (e) {
+            console.error('Error processing code blocks:', e);
+        }
+    });
+    
+    // Also process description and preconditions sections
+    document.querySelectorAll('.preconditions-section div').forEach(function(element) {
+        if (element.textContent && element.textContent.includes('```')) {
+            try {
+                processCodeBlocks(element);
+            } catch (e) {
+                console.error('Error processing preconditions:', e);
+            }
+        }
+    });
+}
+
+// Run when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeCodeHighlighting);
+} else {
+    // DOM is already ready
+    initializeCodeHighlighting();
 }
 </script>
 {% endif %}

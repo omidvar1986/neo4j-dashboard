@@ -243,6 +243,12 @@
                             <div class="test-run-meta">
                                 By {{ test_run.created_by.username|default:"Unknown" }} on {{ test_run.created_at|date:"n/j/Y" }}
                                 <a href="{% url 'testcases:test_run_edit' project_id=project.id|stringformat:"s" test_run_id=test_run.id|stringformat:"s" %}" style="margin-left: 1rem; color: #007bff; text-decoration: none;" onclick="event.stopPropagation();">Edit</a>
+                                <form method="post" action="{% url 'testcases:test_run_delete' project_id=project.id|stringformat:"s" test_run_id=test_run.id|stringformat:"s" %}" style="display: inline;" onclick="event.stopPropagation();" onsubmit="return confirm('Delete test run &quot;{{ test_run.name }}&quot;?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-link btn-sm text-danger" style="padding: 0 0.25rem; text-decoration: none;">
+                                        Delete
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>

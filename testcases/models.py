@@ -2,6 +2,7 @@ from mongoengine import Document, EmbeddedDocument, fields
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from datetime import datetime
+from pymongo.errors import OperationFailure
 
 User = get_user_model()
 
@@ -169,7 +170,15 @@ class Section(Document):
 
     meta = {
         'collection': 'sections',
-        'indexes': [('project', 'name', 'parent')],  # Compound index for unique name per parent per project
+        'indexes': [
+            {
+                'fields': ['project', 'parent', 'name'],
+                'unique': True,
+                'name': 'project_parent_name_unique'
+            },
+            # Leave unnamed so MongoDB reuses existing project_1 index if present
+            {'fields': ['project']}
+        ],
         'ordering': ['name']
     }
     
@@ -198,7 +207,7 @@ class Section(Document):
         self.updated_at = datetime.utcnow()
         self.clean()  # Validate before saving
         return super().save(*args, **kwargs)
-    
+
     @property
     def created_by(self):
         """Get the user who created this section"""
@@ -219,6 +228,48 @@ class Section(Document):
                 return None
         return None
 
+
+def ensure_section_indexes():
+    """Ensure MongoDB indexes for sections are project-scoped (drop legacy global unique)."""
+    collection = Section._get_collection()
+    indexes = collection.index_information()
+    compound_key = [('project', 1), ('parent', 1), ('name', 1)]
+    
+    # Drop legacy global unique index on name if it exists
+    legacy_index_name = None
+    for name, info in indexes.items():
+        if info.get('key') == [('name', 1)] and info.get('unique'):
+            legacy_index_name = name
+            break
+    
+    if legacy_index_name:
+        try:
+            collection.drop_index(legacy_index_name)
+        except Exception:
+            pass
+    
+    # Drop conflicting compound indexes that reuse the same key but have different names/options
+    for name, info in indexes.items():
+        if info.get('key') == compound_key and (
+            info.get('name') != 'project_parent_name_unique' or not info.get('unique')
+        ):
+            try:
+                collection.drop_index(name)
+            except Exception:
+                pass
+    
+    # Ensure the new compound unique index exists
+    try:
+        collection.create_index(
+            compound_key,
+            unique=True,
+            name='project_parent_name_unique',
+            background=True,
+        )
+    except OperationFailure as exc:
+        # If another process recreated the same index concurrently, ignore the error
+        if exc.code != 85:
+            raise
 
 class TestStep(EmbeddedDocument):
     """Individual test steps for a test case"""
