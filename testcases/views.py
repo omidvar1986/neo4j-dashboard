@@ -2322,8 +2322,8 @@ def test_case_import(request, project_id):
                     xml_root = ET.parse(uploaded_file).getroot()
                 except Exception as xml_error:
                     messages.error(request, f'Unsupported file format or XML parse error: {xml_error}')
-                    return redirect('testcases:test_case_list', project_id=str(project.id))
-                
+                return redirect('testcases:test_case_list', project_id=str(project.id))
+            
                 def clean_text(value):
                     return html.unescape((value or '').strip())
                 
@@ -3205,15 +3205,20 @@ def test_run_select_cases(request, project_id):
     if not project:
         return JsonResponse({'error': 'Project not found'}, status=404)
     
-    # Get all sections with their test cases
-    sections = Section.objects(project=project).order_by('name')
+    # Get all sections with their test cases, building hierarchical structure
+    all_sections = Section.objects(project=project).order_by('name')
     
-    sections_data = []
-    for section in sections:
+    # Build a map of sections
+    section_map = {}
+    root_sections = []
+    
+    # First pass: create section data structures
+    for section in all_sections:
         test_cases = TestCase.objects(section=section, project=project, is_deleted=False).order_by('title')
-        sections_data.append({
+        section_data = {
             'id': str(section.id),
             'name': section.name,
+            'parent_id': str(section.parent.id) if section.parent else None,
             'test_cases': [
                 {
                     'id': str(tc.id),
@@ -3223,7 +3228,29 @@ def test_run_select_cases(request, project_id):
                 }
                 for tc in test_cases
             ],
-        })
+            'children': []
+        }
+        section_map[str(section.id)] = section_data
+    
+    # Second pass: build tree structure
+    sections_data = []
+    for section in all_sections:
+        section_data = section_map[str(section.id)]
+        if section.parent:
+            parent_id = str(section.parent.id)
+            if parent_id in section_map:
+                section_map[parent_id]['children'].append(section_data)
+        else:
+            sections_data.append(section_data)
+    
+    # Sort sections and their children recursively
+    def sort_sections(sections_list):
+        sections_list.sort(key=lambda x: x['name'].lower())
+        for section in sections_list:
+            if section['children']:
+                sort_sections(section['children'])
+    
+    sort_sections(sections_data)
     
     return JsonResponse({'sections': sections_data})
 
@@ -3267,6 +3294,7 @@ def test_run_update_result(request, project_id, test_run_id):
         status = request.POST.get('status')
         comment = request.POST.get('comment', '').strip()
         assigned_to_id = request.POST.get('assigned_to_id', '').strip()
+        step_number = request.POST.get('step_number')  # Optional: for step-level results
         
         if not test_case_id or not status:
             return JsonResponse({'error': 'Missing required fields'}, status=400)
@@ -3288,7 +3316,8 @@ def test_run_update_result(request, project_id, test_run_id):
                 test_case=test_case,
                 status=status,
                 comment=comment,
-                assigned_to_id=int(assigned_to_id) if assigned_to_id else None
+                assigned_to_id=int(assigned_to_id) if assigned_to_id else None,
+                step_results={}
             )
             test_run.results.append(result)
         else:
@@ -3298,6 +3327,53 @@ def test_run_update_result(request, project_id, test_run_id):
             if assigned_to_id:
                 result.assigned_to_id = int(assigned_to_id)
             result.updated_at = datetime.utcnow()
+        
+        # Store step-level result if step_number is provided
+        if step_number:
+            if not result.step_results:
+                result.step_results = {}
+            result.step_results[str(step_number)] = status
+            
+            # Determine overall test case status based on step results
+            test_case = result.test_case
+            if test_case and test_case.steps:
+                total_steps = len(test_case.steps)
+                step_results = result.step_results or {}
+                
+                # Count step statuses
+                passed_steps = sum(1 for s in step_results.values() if s == 'passed')
+                failed_steps = sum(1 for s in step_results.values() if s == 'failed')
+                blocked_steps = sum(1 for s in step_results.values() if s == 'blocked')
+                retest_steps = sum(1 for s in step_results.values() if s == 'retest')
+                steps_with_results = len(step_results)  # Number of steps that have been evaluated
+                
+                # Determine overall status based on step results
+                # Priority: failed > blocked > retest > passed (only if all steps passed)
+                if failed_steps > 0:
+                    result.status = 'failed'
+                elif blocked_steps > 0:
+                    result.status = 'blocked'
+                elif retest_steps > 0:
+                    result.status = 'retest'
+                elif passed_steps == total_steps and steps_with_results == total_steps:
+                    # Only mark as passed if ALL steps have results AND all are passed
+                    result.status = 'passed'
+                elif passed_steps > 0 and steps_with_results < total_steps:
+                    # Some steps passed but not all steps have results yet - set to retest
+                    result.status = 'retest'
+                elif passed_steps > 0 and steps_with_results == total_steps:
+                    # All steps have results but not all passed - should not happen if logic is correct
+                    # But if it does, set to retest
+                    result.status = 'retest'
+                else:
+                    # No steps passed or no results yet - keep as untested or current status
+                    if result.status == 'untested' and steps_with_results > 0:
+                        # Some steps evaluated but none passed - could be retest
+                        result.status = 'retest'
+                    # Otherwise keep current status
+        else:
+            # If no step_number, update overall status directly
+            result.status = status
         
         test_run.save()
         
@@ -3310,4 +3386,78 @@ def test_run_update_result(request, project_id, test_run_id):
         })
     
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@login_required
+def test_run_get_test_case_details(request, project_id, test_run_id, test_case_id):
+    """Get test case details for display in test run detail view"""
+    if not request.user.can_access_test_cases:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return JsonResponse({'error': 'Project not found'}, status=404)
+    
+    try:
+        test_run = TestRun.objects.get(id=ObjectId(test_run_id), project=project)
+        test_case = resolve_test_case(project, test_case_id)
+        
+        if not test_case:
+            return JsonResponse({'error': 'Test case not found'}, status=404)
+        
+        # Get result for this test case in this test run
+        result = None
+        for r in test_run.results:
+            if str(r.test_case.id) == str(test_case.id):
+                result = r
+                break
+        
+        # Get steps
+        steps = sorted(test_case.steps, key=lambda x: x.step_number) if test_case.steps else []
+        
+        # Prepare response
+        response_data = {
+            'id': str(test_case.id),
+            'title': test_case.title,
+            'type': test_case.type,
+            'priority': test_case.priority,
+            'description': test_case.description or '',
+            'preconditions': test_case.preconditions or '',
+            'section': {
+                'id': str(test_case.section.id),
+                'name': test_case.section.name,
+            },
+            'steps': [
+                {
+                    'step_number': step.step_number,
+                    'description': step.description,
+                    'expected_result': step.expected_result,
+                    'status': result.step_results.get(str(step.step_number), 'untested') if result and result.step_results else 'untested',
+                }
+                for step in steps
+            ],
+            'result': {
+                'status': result.status if result else 'untested',
+                'comment': result.comment if result else '',
+                'assigned_to_id': result.assigned_to_id if result and result.assigned_to_id else None,
+                'assigned_to_username': result.assigned_to.username if result and result.assigned_to else None,
+                'updated_at': result.updated_at.isoformat() if result and result.updated_at else None,
+            } if result else {
+                'status': 'untested',
+                'comment': '',
+                'assigned_to_id': None,
+                'assigned_to_username': None,
+                'updated_at': None,
+            }
+        }
+        
+        return JsonResponse(response_data)
+        
+    except TestRun.DoesNotExist:
+        return JsonResponse({'error': 'Test run not found'}, status=404)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error getting test case details: {str(e)}")
+        return JsonResponse({'error': f'Error: {str(e)}'}, status=500)
 

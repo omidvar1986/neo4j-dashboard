@@ -207,7 +207,7 @@ class Section(Document):
         self.updated_at = datetime.utcnow()
         self.clean()  # Validate before saving
         return super().save(*args, **kwargs)
-
+    
     @property
     def created_by(self):
         """Get the user who created this section"""
@@ -375,6 +375,7 @@ class TestRunResult(EmbeddedDocument):
     status = fields.StringField(max_length=20, choices=STATUS_CHOICES, default='untested')
     assigned_to_id = fields.IntField(null=True)  # Store user ID as integer
     comment = fields.StringField(blank=True)
+    step_results = fields.DictField(default=dict)  # Store step-level results: {step_number: status}
     created_at = fields.DateTimeField(default=datetime.utcnow)
     updated_at = fields.DateTimeField(default=datetime.utcnow)
     
@@ -566,26 +567,21 @@ class TestRun(Document):
             logger.error(f"Error getting test cases for summary in test run {self.id}: {str(e)}")
             total_test_cases = len(self.results)
         
-        # If we have no results but have test cases, all are untested
-        if len(self.results) == 0:
-            return {
-                'total': total_test_cases,
-                'passed': 0,
-                'blocked': 0,
-                'retest': 0,
-                'failed': 0,
-                'untested': total_test_cases,
-                'passed_percent': 0,
-            }
-        
-        # Use results count as total (should match test cases count)
-        total = len(self.results)
+        # Count statuses from results
         passed = sum(1 for r in self.results if r.status == 'passed')
         blocked = sum(1 for r in self.results if r.status == 'blocked')
         retest = sum(1 for r in self.results if r.status == 'retest')
         failed = sum(1 for r in self.results if r.status == 'failed')
-        untested = sum(1 for r in self.results if r.status == 'untested')
+        untested_results = sum(1 for r in self.results if r.status == 'untested')
         
+        # Calculate untested: test cases without results + results marked as untested
+        # Test cases without results are considered untested
+        test_cases_with_results = len(self.results)
+        test_cases_without_results = total_test_cases - test_cases_with_results
+        untested = test_cases_without_results + untested_results
+        
+        # Use total_test_cases as the total, not len(self.results)
+        total = total_test_cases
         
         passed_percent = int((passed / total) * 100) if total > 0 else 0
         

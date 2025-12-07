@@ -16,6 +16,7 @@ urlpatterns = [
     path('projects/<str:project_id>/runs/add/', views.test_run_add, name='test_run_add'),
     path('projects/<str:project_id>/runs/select-cases/', views.test_run_select_cases, name='test_run_select_cases'),
     # Test run detail routes with test_run_id (must be valid ObjectId format - 24 hex chars)
+    re_path(r'^projects/(?P<project_id>[^/]+)/runs/(?P<test_run_id>[0-9a-fA-F]{24})/test-case/(?P<test_case_id>[^/]+)/details/$', views.test_run_get_test_case_details, name='test_run_get_test_case_details'),
     re_path(r'^projects/(?P<project_id>[^/]+)/runs/(?P<test_run_id>[0-9a-fA-F]{24})/update-result/$', views.test_run_update_result, name='test_run_update_result'),
     re_path(r'^projects/(?P<project_id>[^/]+)/runs/(?P<test_run_id>[0-9a-fA-F]{24})/edit/$', views.test_run_edit, name='test_run_edit'),
     re_path(r'^projects/(?P<project_id>[^/]+)/runs/(?P<test_run_id>[0-9a-fA-F]{24})/delete/$', views.test_run_delete, name='test_run_delete'),

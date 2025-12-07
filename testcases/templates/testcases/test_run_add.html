@@ -182,14 +182,6 @@
         </div>
         
         <div class="form-group">
-            <label for="milestone">Milestone</label>
-            <select id="milestone" name="milestone">
-                <option value="">-- Select Milestone --</option>
-            </select>
-            <div class="form-hint">The milestone this test run belongs to.</div>
-        </div>
-        
-        <div class="form-group">
             <label for="assigned_to">Assign To</label>
             <select id="assigned_to" name="assigned_to">
                 <option value="">-- Select User --</option>
@@ -220,33 +212,16 @@
         </div>
         
         <div class="form-group">
-            <label>Test Case Inclusion</label>
-            <div class="radio-group">
-                <div class="radio-option">
-                    <input type="radio" id="inclusion_all" name="inclusion_type" value="all" checked>
-                    <label for="inclusion_all">Include all test cases</label>
-                    <div class="description">Select this option to include all test cases in this test run. If new test cases are added to the repository, they are also automatically included in this run.</div>
-                </div>
-                
-                <div class="radio-option">
-                    <input type="radio" id="inclusion_specific" name="inclusion_type" value="specific">
-                    <label for="inclusion_specific">Select specific test cases</label>
-                    <div class="description">You can alternatively select the test cases to include in this test run. New test cases are not automatically added to this run in this case.</div>
-                    <div class="test-case-selection" id="specificSelection">
-                        <button type="button" class="btn-select-cases" onclick="openSelectCasesModal()">
-                            Select Test Cases
-                        </button>
-                        <div class="selected-count" id="selectedCount">0 test cases included (change selection)</div>
-                        <input type="hidden" name="test_case_ids[]" id="testCaseIds" value="">
-                    </div>
-                </div>
-                
-                <div class="radio-option">
-                    <input type="radio" id="inclusion_dynamic" name="inclusion_type" value="dynamic">
-                    <label for="inclusion_dynamic">Dynamic Filtering</label>
-                    <div class="description">Automatically add test cases based on filter selection. New test cases are automatically added to the run if they match the filter (unless the run is closed).</div>
-                </div>
+            <label>Test Case Selection</label>
+            <div class="test-case-selection active" id="specificSelection">
+                <button type="button" class="btn-select-cases" onclick="openSelectCasesModal()">
+                    Select Test Cases
+                </button>
+                <div class="selected-count" id="selectedCount">0 test cases included (change selection)</div>
+                <input type="hidden" name="inclusion_type" value="specific">
+                <input type="hidden" name="test_case_ids[]" id="testCaseIds" value="">
             </div>
+            <div class="form-hint">Select the test cases to include in this test run.</div>
         </div>
         
         <div class="form-actions">
@@ -262,78 +237,395 @@
 
 <!-- Select Cases Modal -->
 <div id="selectCasesModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow: auto;">
-    <div style="max-width: 1200px; margin: 2rem auto; background: var(--card-bg); border-radius: 8px; padding: 2rem;">
-        <h2>Select Cases</h2>
-        <div id="casesContent" style="margin-top: 1rem;">
-            <p>Loading...</p>
+    <div style="max-width: 1400px; margin: 2rem auto; background: var(--card-bg); border-radius: 8px; padding: 0; display: flex; flex-direction: column; height: calc(100vh - 4rem);">
+        <div style="padding: 1.5rem; border-bottom: 1px solid var(--card-border);">
+            <h2 style="margin: 0; color: var(--text-color);">Select Cases</h2>
         </div>
-        <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
-            <button onclick="closeSelectCasesModal()" style="padding: 0.5rem 1rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
-            <button onclick="saveSelectedCases()" style="padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">OK</button>
+        <div style="flex: 1; display: flex; overflow: hidden;">
+            <!-- Left Pane: Section Tree -->
+            <div style="width: 300px; border-right: 1px solid var(--card-border); overflow: hidden; background: var(--input-bg); display: flex; flex-direction: column;">
+                <div style="padding: 1rem; border-bottom: 1px solid var(--card-border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <span style="font-weight: 600; color: var(--text-color);">Sections</span>
+                        <div>
+                            <a href="#" onclick="selectAllSections(); return false;" style="color: var(--btn-primary-bg); text-decoration: none; font-size: 0.875rem; margin-right: 0.5rem;">Select All</a>
+                            <span style="color: var(--text-color); opacity: 0.5;">|</span>
+                            <a href="#" onclick="selectNoneSections(); return false;" style="color: var(--btn-primary-bg); text-decoration: none; font-size: 0.875rem; margin-left: 0.5rem;">None</a>
+                        </div>
+                    </div>
+                    <input type="text" id="sectionSearch" placeholder="Search sections..." 
+                           style="width: 100%; padding: 0.5rem; border: 1px solid var(--card-border); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 0.875rem;"
+                           onkeyup="filterSections(this.value)">
+                </div>
+                <div id="sectionsTree" style="flex: 1; overflow-y: auto; padding: 0.5rem;">
+                    <p style="padding: 1rem; color: var(--text-color); opacity: 0.7;">Loading...</p>
+                </div>
+            </div>
+            
+            <!-- Middle Pane: Test Cases List -->
+            <div style="flex: 1; overflow-y: auto; background: var(--card-bg);">
+                <div style="padding: 1rem; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+                    <span id="currentSectionTitle" style="font-weight: 600; color: var(--text-color);">Select a section</span>
+                    <div>
+                        <button onclick="toggleColumns()" style="padding: 0.25rem 0.75rem; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 4px; cursor: pointer; color: var(--text-color); font-size: 0.875rem;">Columns</button>
+                        <a href="#" onclick="selectAllCases(); return false;" style="color: var(--btn-primary-bg); text-decoration: none; font-size: 0.875rem; margin-left: 1rem; margin-right: 0.5rem;">Select All</a>
+                        <span style="color: var(--text-color); opacity: 0.5;">|</span>
+                        <a href="#" onclick="selectNoneCases(); return false;" style="color: var(--btn-primary-bg); text-decoration: none; font-size: 0.875rem; margin-left: 0.5rem;">None</a>
+                    </div>
+                </div>
+                <div id="testCasesList" style="padding: 1rem;">
+                    <p style="text-align: center; color: var(--text-color); opacity: 0.7; padding: 2rem;">Select a section to view test cases</p>
+                </div>
+            </div>
+            
+            <!-- Right Pane: Selection Filter -->
+            <div style="width: 300px; border-left: 1px solid var(--card-border); overflow-y: auto; background: var(--input-bg);">
+                <div style="padding: 1rem; border-bottom: 1px solid var(--card-border);">
+                    <span style="font-weight: 600; color: var(--text-color);">Selection Filter</span>
+                </div>
+                <div id="selectionFilter" style="padding: 1rem;">
+                    <div style="margin-bottom: 1rem;">
+                        <div style="display: flex; align-items: center; margin-bottom: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px;" onclick="toggleFilter('automationType')">
+                            <span style="margin-right: 0.5rem;">▶</span>
+                            <span style="color: var(--text-color);">Automation Type</span>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px;" onclick="toggleFilter('priority')">
+                            <span style="margin-right: 0.5rem;">▶</span>
+                            <span style="color: var(--text-color);">Priority</span>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px;" onclick="toggleFilter('type')">
+                            <span style="margin-right: 0.5rem;">▶</span>
+                            <span style="color: var(--text-color);">Type</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--card-border);">
+                        <div style="margin-bottom: 0.75rem;">
+                            <input type="radio" id="matchOnly" name="filterMatch" value="only" checked style="margin-right: 0.5rem;">
+                            <label for="matchOnly" style="color: var(--text-color); font-size: 0.875rem; cursor: pointer;">Match only of the above</label>
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <input type="radio" id="matchAny" name="filterMatch" value="any" style="margin-right: 0.5rem;">
+                            <label for="matchAny" style="color: var(--text-color); font-size: 0.875rem; cursor: pointer;">Match any of the above</label>
+                        </div>
+                        <button onclick="applyFilter()" style="width: 100%; padding: 0.5rem; background: var(--btn-primary-bg); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 0.5rem;">Set Selection</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="padding: 1rem; border-top: 1px solid var(--card-border); display: flex; justify-content: flex-end; gap: 1rem; background: var(--input-bg);">
+            <button onclick="closeSelectCasesModal()" style="padding: 0.5rem 1.5rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+            <button onclick="saveSelectedCases()" style="padding: 0.5rem 1.5rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">OK</button>
         </div>
     </div>
 </div>
 
 <script>
-    // Handle inclusion type change
-    document.querySelectorAll('input[name="inclusion_type"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            const specificSelection = document.getElementById('specificSelection');
-            if (this.value === 'specific') {
-                specificSelection.classList.add('active');
-            } else {
-                specificSelection.classList.remove('active');
-            }
-        });
-    });
-    
     let selectedCases = [];
+    let sectionsData = [];
+    let currentSectionId = null;
     
     function openSelectCasesModal() {
         document.getElementById('selectCasesModal').style.display = 'block';
-        loadTestCases();
+        loadSectionsTree();
     }
     
     function closeSelectCasesModal() {
         document.getElementById('selectCasesModal').style.display = 'none';
     }
     
-    function loadTestCases() {
+    function loadSectionsTree() {
         fetch('{% url "testcases:test_run_select_cases" project_id=project.id %}')
             .then(response => response.json())
             .then(data => {
-                let html = '<div style="display: flex; gap: 2rem;"><div style="flex: 1;"><h3>Test Cases</h3>';
-                data.sections.forEach(section => {
-                    html += `<div style="margin-bottom: 1rem;"><strong>${section.name}</strong>`;
-                    section.test_cases.forEach(tc => {
-                        const checked = selectedCases.includes(tc.id) ? 'checked' : '';
-                        html += `<div style="margin-left: 1rem;"><input type="checkbox" value="${tc.id}" ${checked}> ${tc.title}</div>`;
-                    });
-                    html += '</div>';
-                });
-                html += '</div></div>';
-                document.getElementById('casesContent').innerHTML = html;
+                sectionsData = data.sections;
+                buildSectionsTree(data.sections);
             });
     }
     
-    function saveSelectedCases() {
-        const checkboxes = document.querySelectorAll('#casesContent input[type="checkbox"]:checked');
+    function buildSectionsTree(sections) {
+        // Add expanded property to all sections recursively
+        function addExpandedProperty(sectionList) {
+            sectionList.forEach(section => {
+                section.expanded = false;
+                if (section.children && section.children.length > 0) {
+                    addExpandedProperty(section.children);
+                }
+            });
+        }
+        addExpandedProperty(sections);
+        
+        // Render tree
+        let html = '';
+        function renderSection(section, level = 0) {
+            const indent = level * 18;
+            const hasChildren = section.children && section.children.length > 0;
+            const expandIcon = hasChildren ? (section.expanded ? '<i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>' : '<i class="fas fa-chevron-right" style="font-size: 0.75rem;"></i>') : '<span style="width: 12px; display: inline-block;"></span>';
+            const folderIcon = hasChildren ? '<i class="fas fa-folder" style="color: #ffa500; margin-right: 0.25rem;"></i>' : '<i class="fas fa-folder" style="color: #6c757d; margin-right: 0.25rem;"></i>';
+            const displayStyle = section.expanded ? 'block' : 'none';
+            const isSelected = currentSectionId === section.id;
+            const bgColor = isSelected ? 'var(--btn-primary-bg)' : 'transparent';
+            const textColor = isSelected ? 'white' : 'var(--text-color)';
+            
+            html += `<div class="section-tree-item" 
+                          style="padding: 0.5rem 0.5rem 0.5rem ${indent + 0.5}rem; cursor: pointer; border-radius: 4px; color: ${textColor}; background: ${bgColor}; display: flex; align-items: center; transition: all 0.2s;" 
+                          onmouseover="if (currentSectionId !== '${section.id}') this.style.background='var(--table-hover-bg)'" 
+                          onmouseout="if (currentSectionId !== '${section.id}') this.style.background='transparent'"
+                          onclick="selectSection('${section.id}')"
+                          data-section-id="${section.id}">`;
+            html += `<span style="margin-right: 0.5rem; width: 16px; display: inline-flex; align-items: center; justify-content: center;" onclick="event.stopPropagation(); toggleSection('${section.id}')">${expandIcon}</span>`;
+            html += `<input type="checkbox" onclick="event.stopPropagation(); toggleSectionCheckbox('${section.id}', this.checked)" style="margin-right: 0.5rem; cursor: pointer;">`;
+            html += `${folderIcon}`;
+            html += `<span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(section.name)}</span>`;
+            html += `</div>`;
+            
+            if (hasChildren) {
+                html += `<div id="section-children-${section.id}" style="display: ${displayStyle};">`;
+                section.children.forEach(child => {
+                    renderSection(child, level + 1);
+                });
+                html += `</div>`;
+            }
+        }
+        
+        sections.forEach(section => {
+            renderSection(section);
+        });
+        
+        document.getElementById('sectionsTree').innerHTML = html;
+    }
+    
+    function toggleSection(sectionId) {
+        const section = findSectionInTree(sectionsData, sectionId);
+        if (!section) return;
+        
+        section.expanded = !section.expanded;
+        const childrenDiv = document.getElementById(`section-children-${sectionId}`);
+        if (childrenDiv) {
+            childrenDiv.style.display = section.expanded ? 'block' : 'none';
+        }
+        
+        // Update icon
+        const sectionDiv = document.querySelector(`[data-section-id="${sectionId}"]`);
+        if (sectionDiv) {
+            const iconSpan = sectionDiv.querySelector('span:first-child');
+            if (iconSpan) {
+                iconSpan.innerHTML = section.expanded ? '<i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>' : '<i class="fas fa-chevron-right" style="font-size: 0.75rem;"></i>';
+            }
+        }
+    }
+    
+    function findSectionInTree(sections, sectionId) {
+        for (const section of sections) {
+            if (section.id === sectionId) {
+                return section;
+            }
+            if (section.children && section.children.length > 0) {
+                const found = findSectionInTree(section.children, sectionId);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+    
+    function selectSection(sectionId) {
+        // Remove previous selection highlight
+        document.querySelectorAll('.section-tree-item').forEach(item => {
+            if (item.dataset.sectionId !== sectionId) {
+                item.style.background = 'transparent';
+                item.style.color = 'var(--text-color)';
+            }
+        });
+        
+        currentSectionId = sectionId;
+        const section = findSectionInTree(sectionsData, sectionId);
+        
+        if (section) {
+            // Highlight selected section
+            const sectionDiv = document.querySelector(`[data-section-id="${sectionId}"]`);
+            if (sectionDiv) {
+                sectionDiv.style.background = 'var(--btn-primary-bg)';
+                sectionDiv.style.color = 'white';
+            }
+            
+            document.getElementById('currentSectionTitle').textContent = section.name;
+            renderTestCases(section.test_cases || []);
+        }
+    }
+    
+    function toggleSectionCheckbox(sectionId, checked) {
+        // When a section is checked, select all its test cases
+        const section = findSectionInTree(sectionsData, sectionId);
+        if (section && section.test_cases) {
+            section.test_cases.forEach(tc => {
+                if (checked) {
+                    if (!selectedCases.includes(tc.id)) {
+                        selectedCases.push(tc.id);
+                    }
+                } else {
+                    selectedCases = selectedCases.filter(id => id !== tc.id);
+                }
+            });
+            updateSelectedCount();
+            if (currentSectionId === sectionId) {
+                renderTestCases(section.test_cases);
+            }
+        }
+    }
+    
+    function renderTestCases(testCases) {
+        if (testCases.length === 0) {
+            document.getElementById('testCasesList').innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7; padding: 2rem;">No test cases in this section</p>';
+            return;
+        }
+        
+        let html = '<table style="width: 100%; border-collapse: collapse;">';
+        html += '<thead style="background: var(--input-bg); position: sticky; top: 0;">';
+        html += '<tr>';
+        html += '<th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--card-border); width: 30px;"><input type="checkbox" onclick="toggleAllCases(this.checked)"></th>';
+        html += '<th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--card-border);">Title</th>';
+        html += '<th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--card-border);">Type</th>';
+        html += '<th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--card-border);">Priority</th>';
+        html += '</tr>';
+        html += '</thead>';
+        html += '<tbody>';
+        
+        testCases.forEach(tc => {
+            const checked = selectedCases.includes(tc.id) ? 'checked' : '';
+            html += `<tr style="border-bottom: 1px solid var(--card-border);">`;
+            html += `<td style="padding: 0.75rem;"><input type="checkbox" value="${tc.id}" ${checked} onchange="updateSelectedCases()"></td>`;
+            html += `<td style="padding: 0.75rem; color: var(--text-color);">${escapeHtml(tc.title)}</td>`;
+            html += `<td style="padding: 0.75rem; color: var(--text-color);">${tc.type || 'Other'}</td>`;
+            html += `<td style="padding: 0.75rem; color: var(--text-color);">${tc.priority || 'Medium'}</td>`;
+            html += `</tr>`;
+        });
+        
+        html += '</tbody></table>';
+        document.getElementById('testCasesList').innerHTML = html;
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function updateSelectedCases() {
+        const checkboxes = document.querySelectorAll('#testCasesList input[type="checkbox"]:checked');
         selectedCases = Array.from(checkboxes).map(cb => cb.value);
+        updateSelectedCount();
+    }
+    
+    function toggleAllCases(checked) {
+        document.querySelectorAll('#testCasesList tbody input[type="checkbox"]').forEach(cb => {
+            cb.checked = checked;
+        });
+        updateSelectedCases();
+    }
+    
+    function selectAllSections() {
+        document.querySelectorAll('#sectionsTree input[type="checkbox"]').forEach(cb => {
+            cb.checked = true;
+        });
+    }
+    
+    function selectNoneSections() {
+        document.querySelectorAll('#sectionsTree input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+        });
+    }
+    
+    function selectAllCases() {
+        toggleAllCases(true);
+    }
+    
+    function selectNoneCases() {
+        toggleAllCases(false);
+    }
+    
+    function updateSelectedCount() {
+        document.getElementById('selectedCount').textContent = `${selectedCases.length} test case${selectedCases.length !== 1 ? 's' : ''} included (change selection)`;
+    }
+    
+    function toggleFilter(filterName) {
+        // Placeholder for filter toggle
+        console.log('Toggle filter:', filterName);
+    }
+    
+    function applyFilter() {
+        // Placeholder for filter application
+        console.log('Apply filter');
+    }
+    
+    function toggleColumns() {
+        // Placeholder for column toggle
+        console.log('Toggle columns');
+    }
+    
+    function filterSections(searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const allItems = document.querySelectorAll('.section-tree-item');
+        
+        allItems.forEach(item => {
+            const sectionName = item.textContent.toLowerCase();
+            const sectionDiv = item.closest('[data-section-id]') || item;
+            const sectionId = sectionDiv.dataset.sectionId;
+            
+            // Check if section or any parent/child matches
+            let shouldShow = false;
+            if (term === '' || sectionName.includes(term)) {
+                shouldShow = true;
+            } else {
+                // Check children
+                const childrenDiv = document.getElementById(`section-children-${sectionId}`);
+                if (childrenDiv) {
+                    const childItems = childrenDiv.querySelectorAll('.section-tree-item');
+                    childItems.forEach(child => {
+                        if (child.textContent.toLowerCase().includes(term)) {
+                            shouldShow = true;
+                        }
+                    });
+                }
+            }
+            
+            item.style.display = shouldShow ? 'flex' : 'none';
+            
+            // If a child matches, expand parent
+            if (shouldShow && term !== '') {
+                let parent = item.parentElement;
+                while (parent && parent.id && parent.id.startsWith('section-children-')) {
+                    const parentId = parent.id.replace('section-children-', '');
+                    const parentSection = findSectionInTree(sectionsData, parentId);
+                    if (parentSection) {
+                        parentSection.expanded = true;
+                        parent.style.display = 'block';
+                        // Update parent icon
+                        const parentDiv = document.querySelector(`[data-section-id="${parentId}"]`);
+                        if (parentDiv) {
+                            const iconSpan = parentDiv.querySelector('span:first-child');
+                            if (iconSpan) {
+                                iconSpan.innerHTML = '<i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>';
+                            }
+                        }
+                    }
+                    parent = parent.parentElement;
+                }
+            }
+        });
+    }
+    
+    function saveSelectedCases() {
         document.getElementById('testCaseIds').value = selectedCases.join(',');
-        document.getElementById('selectedCount').textContent = `${selectedCases.length} test cases included (change selection)`;
+        updateSelectedCount();
         closeSelectCasesModal();
     }
     
     // Update form submission to ensure test_case_ids are included
     document.getElementById('testRunForm').addEventListener('submit', function(e) {
-        const inclusionType = document.querySelector('input[name="inclusion_type"]:checked').value;
-        if (inclusionType === 'specific') {
-            const testCaseIds = document.getElementById('testCaseIds').value;
-            if (!testCaseIds) {
-                e.preventDefault();
-                alert('Please select at least one test case.');
-                return false;
-            }
+        const testCaseIds = document.getElementById('testCaseIds').value;
+        if (!testCaseIds) {
+            e.preventDefault();
+            alert('Please select at least one test case.');
+            return false;
         }
     });
 </script>

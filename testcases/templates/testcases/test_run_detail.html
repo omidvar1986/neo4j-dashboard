@@ -4,18 +4,52 @@
 {% block title %}{{ test_run.name }} - Test Run{% endblock %}
 
 {% block extra_css %}
+<!-- Prism.js for syntax highlighting -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+
 <style>
     .test-run-detail-page {
+        display: flex;
+        gap: 1rem;
         padding: 1rem;
-        max-width: 1400px;
-        margin: 0 auto;
+        height: calc(100vh - 100px);
+        overflow: hidden;
+    }
+    
+    .test-run-main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+    }
+    
+    .test-case-detail-panel {
+        width: 500px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    
+    .test-case-detail-panel.active {
+        display: flex;
     }
     
     .page-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
         padding-bottom: 1rem;
         border-bottom: 2px solid var(--card-border);
     }
@@ -35,22 +69,22 @@
         background: var(--card-bg);
         border: 1px solid var(--card-border);
         border-radius: 8px;
-        padding: 2rem;
-        margin-bottom: 2rem;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
         display: flex;
-        gap: 3rem;
+        gap: 2rem;
         align-items: center;
     }
     
     .summary-circle {
-        width: 120px;
-        height: 120px;
+        width: 100px;
+        height: 100px;
         border-radius: 50%;
         background: #e9ecef;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 2rem;
+        font-size: 1.75rem;
         font-weight: bold;
         color: var(--text-color);
     }
@@ -67,7 +101,7 @@
     }
     
     .stat-label {
-        width: 100px;
+        width: 80px;
         font-weight: 500;
     }
     
@@ -82,7 +116,7 @@
     
     .summary-percent {
         text-align: right;
-        font-size: 1.5rem;
+        font-size: 1.25rem;
         font-weight: bold;
     }
     
@@ -90,7 +124,7 @@
         background: var(--card-bg);
         border: 1px solid var(--card-border);
         border-radius: 8px;
-        padding: 1rem;
+        padding: 0.75rem;
         margin-bottom: 1rem;
         display: flex;
         gap: 1rem;
@@ -110,19 +144,27 @@
         border-radius: 4px;
         background: var(--input-bg);
         color: var(--text-color);
+        font-size: 0.875rem;
+    }
+    
+    .test-cases-container {
+        flex: 1;
+        overflow-y: auto;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
     }
     
     .test-cases-table {
         width: 100%;
         border-collapse: collapse;
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 8px;
-        overflow: hidden;
     }
     
     .test-cases-table thead {
         background: var(--input-bg);
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
     
     .test-cases-table th,
@@ -136,18 +178,18 @@
         font-weight: 600;
     }
     
-    .status-badge {
-        padding: 0.25rem 0.75rem;
-        border-radius: 4px;
-        font-size: 0.875rem;
-        font-weight: 500;
+    .test-cases-table tbody tr {
+        cursor: pointer;
+        transition: background-color 0.2s;
     }
     
-    .status-badge.untested { background: #e9ecef; color: #495057; }
-    .status-badge.passed { background: #d4edda; color: #155724; }
-    .status-badge.failed { background: #f8d7da; color: #721c24; }
-    .status-badge.blocked { background: #d6d8db; color: #383d41; }
-    .status-badge.retest { background: #fff3cd; color: #856404; }
+    .test-cases-table tbody tr:hover {
+        background: var(--table-hover-bg);
+    }
+    
+    .test-cases-table tbody tr.selected {
+        background: #e3f2fd;
+    }
     
     .status-select {
         padding: 0.25rem;
@@ -155,6 +197,7 @@
         border-radius: 4px;
         background: var(--input-bg);
         color: var(--text-color);
+        font-size: 0.875rem;
     }
     
     .empty-state {
@@ -163,18 +206,347 @@
         color: var(--text-color);
         opacity: 0.7;
     }
+    
+    /* Test Case Detail Panel Styles */
+    .test-case-panel-header {
+        padding: 1rem;
+        border-bottom: 1px solid var(--card-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--input-bg);
+    }
+    
+    .test-case-panel-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--text-color);
+        flex: 1;
+    }
+    
+    .test-case-panel-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--text-color);
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .test-case-panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+    
+    .test-case-preconditions {
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        background: var(--input-bg);
+        border-radius: 4px;
+        border-left: 3px solid var(--btn-primary-bg);
+    }
+    
+    .test-case-preconditions h5 {
+        margin: 0 0 0.5rem 0;
+        font-size: 0.875rem;
+        color: var(--text-color);
+    }
+    
+    .test-case-preconditions ol {
+        margin: 0;
+        padding-left: 1.5rem;
+        font-size: 0.875rem;
+        color: var(--text-color);
+    }
+    
+    .test-case-step {
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--card-border);
+        border-radius: 4px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .test-case-step.step-status-passed {
+        border-left: 4px solid #28a745;
+        background: rgba(40, 167, 69, 0.05);
+    }
+    
+    .test-case-step.step-status-failed {
+        border-left: 4px solid #dc3545;
+        background: rgba(220, 53, 69, 0.05);
+    }
+    
+    .test-case-step.step-status-blocked {
+        border-left: 4px solid #6c757d;
+        background: rgba(108, 117, 125, 0.05);
+    }
+    
+    .test-case-step.step-status-retest {
+        border-left: 4px solid #ffc107;
+        background: rgba(255, 193, 7, 0.05);
+    }
+    
+    .test-case-step.step-status-untested {
+        border-left: 4px solid var(--card-border);
+    }
+    
+    .test-case-step-header {
+        padding: 0.75rem;
+        background: var(--input-bg);
+        border-bottom: 1px solid var(--card-border);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .step-status-badge {
+        margin-left: auto;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .step-status-badge.status-passed {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .step-status-badge.status-failed {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .step-status-badge.status-blocked {
+        background: #d6d8db;
+        color: #383d41;
+    }
+    
+    .step-status-badge.status-retest {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .test-case-step-number {
+        background: var(--btn-primary-bg);
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+    
+    .test-case-step-content {
+        padding: 0.75rem;
+    }
+    
+    .test-case-step-field {
+        margin-bottom: 0.75rem;
+    }
+    
+    .test-case-step-field:last-child {
+        margin-bottom: 0;
+    }
+    
+    .test-case-step-field strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.875rem;
+        color: var(--text-color);
+    }
+    
+    .test-case-step-field-content {
+        background: var(--input-bg);
+        padding: 0.75rem;
+        border-radius: 4px;
+        border-left: 3px solid var(--btn-primary-bg);
+        font-size: 0.875rem;
+        color: var(--input-text);
+        min-height: 40px;
+    }
+    
+    .test-case-step-actions {
+        padding: 0.75rem;
+        border-top: 1px solid var(--card-border);
+        background: var(--input-bg);
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .test-case-step-actions button {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .btn-pass {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-pass:hover {
+        background: #218838;
+    }
+    
+    .btn-pass.active {
+        background: #155724;
+        box-shadow: 0 0 0 2px #28a745;
+        font-weight: bold;
+    }
+    
+    .btn-fail {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-fail:hover {
+        background: #c82333;
+    }
+    
+    .btn-fail.active {
+        background: #721c24;
+        box-shadow: 0 0 0 2px #dc3545;
+        font-weight: bold;
+    }
+    
+    .btn-block {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-block:hover {
+        background: #5a6268;
+    }
+    
+    .btn-block.active {
+        background: #383d41;
+        box-shadow: 0 0 0 2px #6c757d;
+        font-weight: bold;
+    }
+    
+    .btn-retest {
+        background: #ffc107;
+        color: #212529;
+    }
+    
+    .btn-retest:hover {
+        background: #e0a800;
+    }
+    
+    .btn-retest.active {
+        background: #856404;
+        color: white;
+        box-shadow: 0 0 0 2px #ffc107;
+        font-weight: bold;
+    }
+    
+    .btn-add-result {
+        background: var(--btn-primary-bg);
+        color: white;
+    }
+    
+    .btn-add-result:hover {
+        background: #0056b3;
+    }
+    
+    .test-case-status-section {
+        padding: 1rem;
+        border-top: 1px solid var(--card-border);
+        background: var(--input-bg);
+    }
+    
+    .test-case-status-box {
+        padding: 0.75rem;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 4px;
+        margin-bottom: 0.75rem;
+    }
+    
+    .test-case-status-box p {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--text-color);
+    }
+    
+    .test-case-status-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    /* Code block styling */
+    .code-block-wrapper {
+        margin: 0.5rem 0;
+        position: relative;
+    }
+    
+    .code-block-wrapper pre {
+        margin: 0;
+        padding: 1rem;
+        background: var(--code-bg, #282c34);
+        border-radius: 4px;
+        overflow-x: auto;
+        border-left: 3px solid var(--btn-primary-bg);
+    }
+    
+    .code-block-wrapper code {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.75rem;
+        line-height: 1.5;
+    }
+    
+    [data-theme="dark"] .code-block-wrapper pre {
+        background: #1e1e1e;
+    }
+    
+    [data-theme="light"] .code-block-wrapper pre {
+        background: #f4f4f4;
+        border: 1px solid #ddd;
+    }
+    
+    /* Inline code styling */
+    .inline-code {
+        background: var(--code-inline-bg, rgba(0, 0, 0, 0.05));
+        padding: 0.2em 0.4em;
+        border-radius: 3px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.85em;
+    }
+    
+    [data-theme="dark"] .inline-code {
+        background: rgba(255, 255, 255, 0.1);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="test-run-detail-page">
+    <div class="test-run-main-content">
     <div class="page-header">
         <h1>{{ test_run.name }}</h1>
         <div class="header-actions">
-            <a href="{% url 'testcases:test_run_edit' project_id=project.id|stringformat:"s" test_run_id=test_run.id|stringformat:"s" %}" class="btn btn-primary">
+                <a href="{% url 'testcases:test_run_edit' project_id=project.id|stringformat:"s" test_run_id=test_run.id|stringformat:"s" %}" class="btn btn-primary btn-sm">
                 <i class="fas fa-edit"></i> Edit
             </a>
-            <a href="{% url 'testcases:test_run_list' project_id=project.id|stringformat:"s" %}" class="btn btn-secondary">
+                <a href="{% url 'testcases:test_run_list' project_id=project.id|stringformat:"s" %}" class="btn btn-secondary btn-sm">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>
@@ -195,19 +567,19 @@
         </div>
         <div class="summary-stats">
             <div class="stat-row">
-                <span class="stat-label">0 Passed</span>
+                    <span class="stat-label">Passed</span>
                 <span class="stat-value passed">{{ summary.passed }} Passed</span>
             </div>
             <div class="stat-row">
-                <span class="stat-label">0 Blocked</span>
+                    <span class="stat-label">Blocked</span>
                 <span class="stat-value blocked">{{ summary.blocked }} Blocked</span>
             </div>
             <div class="stat-row">
-                <span class="stat-label">0 Retest</span>
+                    <span class="stat-label">Retest</span>
                 <span class="stat-value retest">{{ summary.retest }} Retest</span>
             </div>
             <div class="stat-row">
-                <span class="stat-label">0 Failed</span>
+                    <span class="stat-label">Failed</span>
                 <span class="stat-value failed">{{ summary.failed }} Failed</span>
             </div>
         </div>
@@ -227,7 +599,7 @@
         <div class="filter-item">
             <label>Sort:</label>
             <select>
-                <option>Section</option>
+                    <option>Priority</option>
             </select>
         </div>
         <div class="filter-item">
@@ -259,32 +631,39 @@
         </div>
     </div>
     
+        <div class="test-cases-container">
     {% if test_cases_data %}
     <table class="test-cases-table">
         <thead>
             <tr>
-                <th><input type="checkbox"></th>
-                <th>ID</th>
+                        <th style="width: 30px;"><input type="checkbox"></th>
+                        <th style="width: 80px;">ID</th>
                 <th>Title</th>
-                <th>Status</th>
-                <th>Assigned To</th>
+                        <th style="width: 120px;">Status</th>
+                        <th style="width: 120px;">Priority</th>
+                        <th style="width: 120px;">Assigned To</th>
             </tr>
         </thead>
         <tbody>
             {% for item in test_cases_data %}
             {% with test_case=item.test_case result=item.result %}
-            <tr>
-                <td><input type="checkbox" value="{{ test_case.id }}"></td>
+                    <tr class="test-case-row" data-test-case-id="{{ test_case.id }}" onclick="selectTestCase('{{ test_case.id }}')">
+                        <td onclick="event.stopPropagation();">
+                            <input type="checkbox" value="{{ test_case.id }}">
+                        </td>
                 <td>C{{ test_case.id|stringformat:"s"|slice:":8" }}</td>
                 <td>{{ test_case.title }}</td>
-                <td>
-                    <select class="status-select" onchange="updateResult('{{ test_case.id }}', this.value)">
+                        <td onclick="event.stopPropagation();">
+                            <select class="status-select" onchange="updateResult('{{ test_case.id }}', this.value, event)">
                         <option value="untested" {% if not result or result.status == 'untested' %}selected{% endif %}>Untested</option>
                         <option value="passed" {% if result and result.status == 'passed' %}selected{% endif %}>Passed</option>
                         <option value="failed" {% if result and result.status == 'failed' %}selected{% endif %}>Failed</option>
                         <option value="blocked" {% if result and result.status == 'blocked' %}selected{% endif %}>Blocked</option>
                         <option value="retest" {% if result and result.status == 'retest' %}selected{% endif %}>Retest</option>
                     </select>
+                </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ test_case.priority }}</span>
                 </td>
                 <td>
                     {% if result and result.assigned_to %}
@@ -304,9 +683,28 @@
         <p style="font-size: 0.875rem; margin-top: 0.5rem;">You can select a different group or change the filters.</p>
     </div>
     {% endif %}
+        </div>
+    </div>
+    
+    <!-- Test Case Detail Panel -->
+    <div class="test-case-detail-panel" id="testCaseDetailPanel">
+        <div class="test-case-panel-header">
+            <h3 id="testCasePanelTitle">Select a test case</h3>
+            <button class="test-case-panel-close" onclick="closeTestCasePanel()" title="Close">×</button>
+        </div>
+        <div class="test-case-panel-body" id="testCasePanelBody">
+            <p style="text-align: center; color: var(--text-color); opacity: 0.7; padding: 2rem;">
+                Click on a test case from the list to view its details
+            </p>
+        </div>
+    </div>
 </div>
 
 <script>
+    const projectId = '{{ project.id|stringformat:"s" }}';
+    const testRunId = '{{ test_run.id|stringformat:"s" }}';
+    let currentTestCaseId = null;
+    
     function applyFilters() {
         const assignedTo = document.querySelector('select[name="assigned_to"]').value;
         const status = document.querySelector('select[name="status"]').value;
@@ -320,9 +718,163 @@
         window.location.href = window.location.pathname + '?' + params.toString();
     }
     
-    function updateResult(testCaseId, status) {
-        console.log('[TEST_RUN_DETAIL] updateResult called:', { testCaseId, status });
-        fetch('{% url "testcases:test_run_update_result" project_id=project.id|stringformat:"s" test_run_id=test_run.id|stringformat:"s" %}', {
+    function selectTestCase(testCaseId) {
+        currentTestCaseId = testCaseId;
+        
+        // Update row selection
+        document.querySelectorAll('.test-case-row').forEach(row => {
+            row.classList.remove('selected');
+            if (row.dataset.testCaseId === testCaseId) {
+                row.classList.add('selected');
+            }
+        });
+        
+        // Show loading
+        const panel = document.getElementById('testCaseDetailPanel');
+        const panelBody = document.getElementById('testCasePanelBody');
+        const panelTitle = document.getElementById('testCasePanelTitle');
+        
+        panel.classList.add('active');
+        panelTitle.textContent = 'Loading...';
+        panelBody.innerHTML = '<p style="text-align: center; padding: 2rem;">Loading test case details...</p>';
+        
+        // Fetch test case details and return a promise
+        return fetch(`/testcases/projects/${projectId}/runs/${testRunId}/test-case/${testCaseId}/details/`)
+            .then(response => response.json())
+            .then(data => {
+                return new Promise((resolve) => {
+                if (data.error) {
+                    panelBody.innerHTML = `<p style="color: red; padding: 1rem;">Error: ${data.error}</p>`;
+                    resolve();
+                    return;
+                }
+                
+                // Update title
+                panelTitle.textContent = `T${data.id.substring(0, 8)} ${data.title}`;
+                
+                // Build HTML
+                let html = '';
+                
+                // Preconditions
+                if (data.preconditions) {
+                    const preconditions = data.preconditions.split('\n').filter(p => p.trim());
+                    if (preconditions.length > 0) {
+                        html += '<div class="test-case-preconditions">';
+                        html += '<h5>Preconditions:</h5>';
+                        html += '<ol>';
+                        preconditions.forEach((pre, idx) => {
+                            html += `<li class="precondition-content">${pre.trim()}</li>`;
+                        });
+                        html += '</ol>';
+                        html += '</div>';
+                    }
+                }
+                
+                // Steps
+                if (data.steps && data.steps.length > 0) {
+                    data.steps.forEach((step, index) => {
+                        const stepStatus = step.status || 'untested';
+                        const statusClass = stepStatus === 'passed' ? 'step-status-passed' : 
+                                          stepStatus === 'failed' ? 'step-status-failed' :
+                                          stepStatus === 'blocked' ? 'step-status-blocked' :
+                                          stepStatus === 'retest' ? 'step-status-retest' : 'step-status-untested';
+                        const statusLabel = stepStatus.charAt(0).toUpperCase() + stepStatus.slice(1);
+                        
+                        html += `<div class="test-case-step ${statusClass}">`;
+                        html += '<div class="test-case-step-header">';
+                        html += `<span class="test-case-step-number">${step.step_number}</span>`;
+                        html += `<strong>Step ${step.step_number}</strong>`;
+                        if (stepStatus !== 'untested') {
+                            html += `<span class="step-status-badge status-${stepStatus}">${statusLabel}</span>`;
+                        }
+                        html += '</div>';
+                        html += '<div class="test-case-step-content">';
+                        
+                        // Description
+                        html += '<div class="test-case-step-field">';
+                        html += '<strong>Description:</strong>';
+                        html += `<div class="test-case-step-field-content step-description-content">${escapeHtml(step.description)}</div>`;
+                        html += '</div>';
+                        
+                        // Expected Result
+                        html += '<div class="test-case-step-field">';
+                        html += '<strong>Expected Result:</strong>';
+                        html += `<div class="test-case-step-field-content step-expected-result-content">${escapeHtml(step.expected_result)}</div>`;
+                        html += '</div>';
+                        
+                        // Step Actions
+                        html += '<div class="test-case-step-actions">';
+                        const isLastStep = index === data.steps.length - 1;
+                        const passActive = stepStatus === 'passed' ? ' active' : '';
+                        const failActive = stepStatus === 'failed' ? ' active' : '';
+                        const blockActive = stepStatus === 'blocked' ? ' active' : '';
+                        const retestActive = stepStatus === 'retest' ? ' active' : '';
+                        
+                        html += `<button class="btn-pass${passActive}" onclick="updateStepResult('${data.id}', ${step.step_number}, 'passed', ${isLastStep})">✓ Pass${isLastStep ? '' : ' & Next'}</button>`;
+                        html += `<button class="btn-fail${failActive}" onclick="updateStepResult('${data.id}', ${step.step_number}, 'failed', ${isLastStep})">✗ Fail${isLastStep ? '' : ' & Next'}</button>`;
+                        html += `<button class="btn-block${blockActive}" onclick="updateStepResult('${data.id}', ${step.step_number}, 'blocked', ${isLastStep})">⊘ Block${isLastStep ? '' : ' & Next'}</button>`;
+                        html += `<button class="btn-retest${retestActive}" onclick="updateStepResult('${data.id}', ${step.step_number}, 'retest', ${isLastStep})">↻ Retest${isLastStep ? '' : ' & Next'}</button>`;
+                        html += `<button class="btn-add-result" onclick="addResult('${data.id}', ${step.step_number})">+ Add Result</button>`;
+                        html += '</div>';
+                        
+                        html += '</div>';
+                        html += '</div>';
+                    });
+                }
+                
+                // Status Section
+                html += '<div class="test-case-status-section">';
+                html += '<div class="test-case-status-box">';
+                html += `<p><strong>Status:</strong> <span class="status-badge ${data.result.status}">${data.result.status.charAt(0).toUpperCase() + data.result.status.slice(1)}</span></p>`;
+                if (data.result.assigned_to_username) {
+                    html += `<p><strong>Assigned To:</strong> ${data.result.assigned_to_username}</p>`;
+                }
+                if (data.result.updated_at) {
+                    html += `<p><strong>Last Updated:</strong> ${new Date(data.result.updated_at).toLocaleString()}</p>`;
+                }
+                html += '</div>';
+                html += '<div class="test-case-status-actions">';
+                html += `<button class="btn-add-result" onclick="addResult('${data.id}', null)">+ Add Result</button>`;
+                html += `<button class="btn-pass" onclick="updateResult('${data.id}', 'passed', false)">✓ Pass & Next</button>`;
+                html += '</div>';
+                html += '</div>';
+                
+                panelBody.innerHTML = html;
+                
+                // Process code blocks
+                setTimeout(() => {
+                    document.querySelectorAll('.step-description-content, .step-expected-result-content, .precondition-content').forEach(processCodeBlocks);
+                    resolve(); // Resolve promise after content is loaded
+                }, 100);
+            });
+            })
+            .catch(error => {
+                console.error('Error loading test case details:', error);
+                panelBody.innerHTML = '<p style="color: red; padding: 1rem;">Error loading test case details. Please try again.</p>';
+                return Promise.resolve(); // Resolve even on error so navigation can continue
+            });
+    }
+    
+    function closeTestCasePanel() {
+        document.getElementById('testCaseDetailPanel').classList.remove('active');
+        document.querySelectorAll('.test-case-row').forEach(row => {
+            row.classList.remove('selected');
+        });
+        currentTestCaseId = null;
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function updateResult(testCaseId, status, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        
+        fetch(`/testcases/projects/${projectId}/runs/${testRunId}/update-result/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -332,77 +884,288 @@
         })
         .then(response => response.json())
         .then(data => {
-            console.log('[TEST_RUN_DETAIL] Update result response:', data);
             if (data.success) {
-                // Reload page to update summary
                 window.location.reload();
+            } else {
+                alert('Error updating test result: ' + (data.error || 'Unknown error'));
             }
         })
         .catch(error => {
-            console.error('[TEST_RUN_DETAIL] Error updating result:', error);
+            console.error('Error updating result:', error);
             alert('Error updating test result. Please try again.');
         });
     }
     
-    // Debug logging for test run detail page
-    console.log('[TEST_RUN_DETAIL] ========== PAGE LOADED ==========');
-    console.log('[TEST_RUN_DETAIL] Test run ID:', '{{ test_run.id|stringformat:"s" }}');
-    console.log('[TEST_RUN_DETAIL] Project ID:', '{{ project.id|stringformat:"s" }}');
-    console.log('[TEST_RUN_DETAIL] Inclusion type:', '{{ test_run.inclusion_type }}');
-    console.log('[TEST_RUN_DETAIL] Summary data:', {
-        total: {{ summary.total }},
-        passed: {{ summary.passed }},
-        failed: {{ summary.failed }},
-        blocked: {{ summary.blocked }},
-        retest: {{ summary.retest }},
-        untested: {{ summary.untested }},
-        passed_percent: {{ summary.passed_percent }}
-    });
-    console.log('[TEST_RUN_DETAIL] Test cases data count:', {% if test_cases_data %}{{ test_cases_data|length }}{% else %}0{% endif %});
-    console.log('[TEST_RUN_DETAIL] Results count in test_run:', {{ test_run.results|length }});
-
-    {% if test_cases_data %}
-        console.log('[TEST_RUN_DETAIL] Test cases found:');
-        {% for item in test_cases_data %}
-        console.log('  - Test case:', '{{ item.test_case.id|stringformat:"s" }}', '-', '{{ item.test_case.title|escapejs }}', 
-                    'Status:', '{{ item.result.status|default:"untested" }}');
-        {% endfor %}
-    {% else %}
-        console.warn('[TEST_RUN_DETAIL] ⚠️ No test cases data available!');
-        console.log('[TEST_RUN_DETAIL] Checking if test cases exist in project...');
-    {% endif %}
-
-    // Check if we can fetch test cases via AJAX
-    function checkTestCases() {
-        console.log('[TEST_RUN_DETAIL] Checking test cases via AJAX...');
-        fetch('{% url "testcases:test_run_select_cases" project_id=project.id|stringformat:"s" %}')
-            .then(response => {
-                console.log('[TEST_RUN_DETAIL] AJAX response status:', response.status);
-                return response.json();
-            })
-            .then(data => {
-                console.log('[TEST_RUN_DETAIL] Available test cases in project:', data);
-                let totalCases = 0;
-                if (data.sections) {
-                    data.sections.forEach(section => {
-                        if (section.test_cases) {
-                            totalCases += section.test_cases.length;
-                            console.log(`[TEST_RUN_DETAIL] Section "${section.name}" has ${section.test_cases.length} test cases`);
-                        }
-                    });
+    function updateStepResult(testCaseId, stepNumber, status, isLast) {
+        fetch(`/testcases/projects/${projectId}/runs/${testRunId}/update-result/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `test_case_id=${testCaseId}&status=${status}&step_number=${stepNumber}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update summary display first
+                if (data.summary) {
+                    updateSummaryDisplay(data.summary);
                 }
-                console.log('[TEST_RUN_DETAIL] ✅ Total test cases in project:', totalCases);
-                if (totalCases === 0) {
-                    console.warn('[TEST_RUN_DETAIL] ⚠️ No test cases exist in this project!');
+                
+                // Navigate to next step or next test case
+                if (!isLast) {
+                    // Not last step - refresh panel and scroll to next step
+                    if (currentTestCaseId === testCaseId) {
+                        selectTestCase(testCaseId).then(() => {
+                            setTimeout(() => {
+                                const steps = document.querySelectorAll('.test-case-step');
+                                const nextStepIndex = Array.from(steps).findIndex(step => {
+                                    const stepNum = step.querySelector('.test-case-step-number');
+                                    return stepNum && parseInt(stepNum.textContent.trim()) == stepNumber + 1;
+                                });
+                                
+                                if (nextStepIndex >= 0) {
+                                    const nextStep = steps[nextStepIndex];
+                                    nextStep.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    // Highlight the next step briefly
+                                    nextStep.style.boxShadow = '0 0 10px rgba(0, 123, 255, 0.5)';
+                                    setTimeout(() => {
+                                        nextStep.style.boxShadow = '';
+                                    }, 2000);
+                                }
+                            }, 300);
+                        });
+                    }
+                } else {
+                    // Last step - move to next test case after a brief delay
+                    setTimeout(() => {
+                        const rows = Array.from(document.querySelectorAll('.test-case-row'));
+                        const currentIndex = rows.findIndex(row => row.dataset.testCaseId === currentTestCaseId);
+                        if (currentIndex >= 0 && currentIndex < rows.length - 1) {
+                            const nextRow = rows[currentIndex + 1];
+                            selectTestCase(nextRow.dataset.testCaseId);
+                        } else {
+                            // No more test cases, close the panel
+                            closeTestCasePanel();
+                        }
+                    }, 500);
+                }
+            } else {
+                alert('Error updating step result: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error updating step result:', error);
+            alert('Error updating step result. Please try again.');
+        });
+    }
+    
+    function updateSummaryDisplay(summary) {
+        // Update the summary circle
+        const summaryCircle = document.querySelector('.summary-circle');
+        if (summaryCircle) {
+            summaryCircle.textContent = summary.passed_percent + '%';
+        }
+        
+        // Update stat values
+        const statRows = document.querySelectorAll('.stat-row');
+        if (statRows.length >= 4) {
+            statRows[0].querySelector('.stat-value').textContent = summary.passed + ' Passed';
+            statRows[1].querySelector('.stat-value').textContent = summary.blocked + ' Blocked';
+            statRows[2].querySelector('.stat-value').textContent = summary.retest + ' Retest';
+            statRows[3].querySelector('.stat-value').textContent = summary.failed + ' Failed';
+        }
+        
+        // Update summary percent text
+        const summaryPercent = document.querySelector('.summary-percent');
+        if (summaryPercent) {
+            const percentDiv = summaryPercent.querySelector('div:first-child');
+            if (percentDiv) {
+                percentDiv.textContent = summary.passed_percent + '% passed';
+            }
+            const untestedDiv = summaryPercent.querySelector('div:last-child');
+            if (untestedDiv && summary.total > 0) {
+                const untestedPercent = Math.round((summary.untested / summary.total) * 100);
+                untestedDiv.textContent = `${summary.untested}/${summary.total} untested (${untestedPercent}%)`;
+            }
+        }
+    }
+    
+    function addResult(testCaseId, stepNumber) {
+        const comment = prompt('Enter a comment for this result:');
+        if (comment !== null) {
+            fetch(`/testcases/projects/${projectId}/runs/${testRunId}/update-result/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `test_case_id=${testCaseId}&status=untested&comment=${encodeURIComponent(comment)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (currentTestCaseId === testCaseId) {
+                        selectTestCase(testCaseId); // Refresh the panel
+                    }
+                } else {
+                    alert('Error adding result: ' + (data.error || 'Unknown error'));
                 }
             })
             .catch(error => {
-                console.error('[TEST_RUN_DETAIL] ❌ Error fetching test cases:', error);
+                console.error('Error adding result:', error);
+                alert('Error adding result. Please try again.');
             });
+        }
     }
-
-    // Run check on page load
-    checkTestCases();
+    
+    // Function to process code blocks in text
+    function processCodeBlocks(element) {
+        if (!element) return;
+        
+        // Get the innerHTML and work with it
+        let html = element.innerHTML;
+        
+        // Decode HTML entities (like &#96; for backticks)
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        let text = tempDiv.textContent || tempDiv.innerText || '';
+        
+        // If we can't get text, try decoding entities manually
+        if (!text || text.length === 0) {
+            text = html
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&#96;/g, '`')
+                .replace(/&#39;/g, "'")
+                .replace(/&quot;/g, '"')
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<[^>]+>/g, ''); // Remove remaining HTML tags
+        } else {
+            // Convert <br> tags to newlines in the original HTML for processing
+            html = html.replace(/<br\s*\/?>/gi, '\n');
+        }
+        
+        // Also check for HTML-encoded backticks (&#96;) and decode them in text
+        text = text.replace(/&#96;/g, '`');
+        
+        // Pattern to match code blocks: ```language\ncode\n``` or ```language code```
+        // Also handle cases where backticks might be HTML-encoded
+        // Match both ``` and &#96;&#96;&#96;
+        const codeBlockPattern = /(?:```|&#96;&#96;&#96;)(\w+)?\s*\n?([\s\S]*?)(?:```|&#96;&#96;&#96;)/g;
+        
+        // Check if we have code blocks in the text
+        const matches = [];
+        let match;
+        while ((match = codeBlockPattern.exec(text)) !== null) {
+            matches.push({
+                fullMatch: match[0],
+                language: match[1] || '',
+                code: match[2].trim(),
+                index: match.index
+            });
+        }
+        
+        // If no code blocks found, just process inline code
+        if (matches.length === 0) {
+            // Process inline code: `code` (but not inside code blocks)
+            const inlineCodePattern = /`([^`\n]+)`/g;
+            html = html.replace(inlineCodePattern, '<code class="inline-code">$1</code>');
+            element.innerHTML = html;
+            return;
+        }
+        
+        // Process code blocks
+        let result = '';
+        let lastIndex = 0;
+        
+        for (const codeMatch of matches) {
+            // Add text before the code block
+            if (codeMatch.index > lastIndex) {
+                const beforeText = text.substring(lastIndex, codeMatch.index);
+                // Escape HTML and convert newlines to <br>
+                let beforeHtml = beforeText
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/\n/g, '<br>');
+                // Process inline code in the text before
+                beforeHtml = beforeHtml.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>');
+                result += beforeHtml;
+            }
+            
+            // Process the code block
+            let code = codeMatch.code;
+            let language = codeMatch.language;
+            
+            // Detect language if not specified
+            if (!language) {
+                // Try to detect JSON
+                try {
+                    // Clean JSON - remove surrounding quotes if present
+                    let jsonCode = code.trim();
+                    if ((jsonCode.startsWith('"') && jsonCode.endsWith('"')) || 
+                        (jsonCode.startsWith("'") && jsonCode.endsWith("'"))) {
+                        jsonCode = jsonCode.slice(1, -1);
+                    }
+                    // Unescape quotes
+                    jsonCode = jsonCode.replace(/\\"/g, '"').replace(/\\'/g, "'");
+                    JSON.parse(jsonCode);
+                    language = 'json';
+                } catch (e) {
+                    // Try to detect other languages
+                    if (code.includes('curl') || code.includes('--header') || code.includes('--data') || code.includes('--location')) {
+                        language = 'bash';
+                    } else if (code.includes('function') || code.includes('const ') || code.includes('let ') || code.includes('var ')) {
+                        language = 'javascript';
+                    } else if (code.includes('def ') || code.includes('import ') || code.includes('from ')) {
+                        language = 'python';
+                    } else if (code.includes('<?php') || code.includes('<?=')) {
+                        language = 'php';
+                    } else if (code.match(/\b(SELECT|INSERT|UPDATE|DELETE|CREATE)\b/i)) {
+                        language = 'sql';
+                    } else {
+                        language = 'plaintext';
+                    }
+                }
+            }
+            
+            // Escape HTML in code
+            const escapedCode = code
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+            
+            result += `<div class="code-block-wrapper"><pre class="language-${language}"><code class="language-${language}">${escapedCode}</code></pre></div>`;
+            
+            lastIndex = codeMatch.index + codeMatch.fullMatch.length;
+        }
+        
+        // Add remaining text after last code block
+        if (lastIndex < text.length) {
+            const afterText = text.substring(lastIndex);
+            let afterHtml = afterText
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
+            // Process inline code
+            afterHtml = afterHtml.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>');
+            result += afterHtml;
+        }
+        
+        element.innerHTML = result;
+        
+        // Apply Prism highlighting to all code blocks
+        if (typeof Prism !== 'undefined') {
+            element.querySelectorAll('pre code').forEach((block) => {
+                Prism.highlightElement(block);
+            });
+        }
+    }
 </script>
 {% endblock %}
-
