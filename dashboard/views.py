@@ -2,6 +2,7 @@ import logging
 import json
 import os
 from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.http import JsonResponse, HttpResponse
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
@@ -356,6 +357,14 @@ def get_existing_nodes():
 
 def login_view(request):
     """Handle user login."""
+    from django.conf import settings
+    
+    # If Keycloak is enabled, redirect to Keycloak login
+    if getattr(settings, 'KEYCLOAK_ENABLED', False):
+        from mozilla_django_oidc.views import OIDCAuthenticationRequestView
+        return OIDCAuthenticationRequestView.as_view()(request)
+    
+    # Otherwise, use local authentication
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
@@ -373,6 +382,57 @@ def login_view(request):
             messages.error(request, 'Invalid username or password.')
 
     return render(request, 'dashboard/login.html')
+
+
+def logout_view(request):
+    """Handle user logout - supports both Keycloak and local authentication."""
+    from django.conf import settings
+    from django.contrib.auth import logout
+    from urllib.parse import urlencode
+    
+    # Only allow POST requests for logout (CSRF protection)
+    if request.method != 'POST':
+        messages.error(request, 'Invalid logout request.')
+        return redirect('dashboard:home')
+    
+    # Check if Keycloak is enabled
+    if getattr(settings, 'KEYCLOAK_ENABLED', False):
+        # Get the ID Token before logging out from Django (which clears session)
+        oidc_id_token = request.session.get('oidc_id_token')
+        
+        # Logout from Django session
+        logout(request)
+        
+        # Build Keycloak logout URL
+        keycloak_server = getattr(settings, 'KEYCLOAK_SERVER_URL', 'http://localhost:8080')
+        keycloak_realm = getattr(settings, 'KEYCLOAK_REALM', 'master')
+        logout_endpoint = f"{keycloak_server}/realms/{keycloak_realm}/protocol/openid-connect/logout"
+        
+        # Build redirect URI
+        post_logout_redirect = request.build_absolute_uri(reverse('dashboard:login'))
+        
+        # Prepare parameters
+        logout_params = {
+            'post_logout_redirect_uri': post_logout_redirect,
+            'client_id': getattr(settings, 'OIDC_RP_CLIENT_ID', 'neo4j_dashboard_client'),
+        }
+        
+        # Add id_token_hint if available (Crucial for avoiding 'Logout failed')
+        if oidc_id_token:
+            logout_params['id_token_hint'] = oidc_id_token
+            
+        logout_url = f"{logout_endpoint}?{urlencode(logout_params)}"
+        return redirect(logout_url)
+    
+    # Local authentication logout
+    logout(request)
+    messages.success(request, 'You have been logged out successfully.')
+    return redirect('dashboard:login')
+
+
+# Note: The OIDC callback is handled by mozilla_django_oidc automatically
+# If you need custom user creation/update logic, you can create a custom authentication backend
+# For now, the default OIDC backend will create/update users based on OIDC_CREATE_USER and OIDC_UPDATE_USER settings
 
 def register_view(request):
     """Handle user registration."""
@@ -4480,3 +4540,43 @@ def get_data_records_info(request):
     
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+def keycloak_debug_view(request):
+    """
+    Debug view to show Keycloak session and token information.
+    Restricted to superusers and staff.
+    """
+    from django.conf import settings
+    
+    # Try to retrieve OIDC token data from session
+    # mozilla-django-oidc stores tokens in session if OIDC_STORE_ACCESS_TOKEN/OIDC_STORE_ID_TOKEN are True
+    oidc_access_token = request.session.get('oidc_access_token')
+    oidc_id_token = request.session.get('oidc_id_token')
+    
+    token_claims = {}
+    if oidc_id_token:
+        try:
+            # Decode ID token without verification just for debugging display
+            import jwt
+            # Note: We don't verify here because we just want to see what's inside
+            token_claims = jwt.decode(oidc_id_token, options={"verify_signature": False})
+        except Exception as e:
+            token_claims = {'error': f"Failed to decode ID token: {str(e)}"}
+            
+    is_oidc = 'oidc_id_token' in request.session
+    
+    context = {
+        'session_data': dict(request.session),
+        'token_claims': token_claims,
+        'is_oidc': is_oidc,
+        'debug_info': {
+            'enabled': getattr(settings, 'KEYCLOAK_ENABLED', False),
+            'server_url': getattr(settings, 'KEYCLOAK_SERVER_URL', 'Not Configured'),
+            'realm': getattr(settings, 'KEYCLOAK_REALM', 'Not Configured'),
+            'client_id': getattr(settings, 'OIDC_RP_CLIENT_ID', 'Not Configured'),
+        }
+    }
+    
+    return render(request, 'dashboard/keycloak_debug.html', context)

@@ -9,7 +9,7 @@ urlpatterns = [
     path('neo4j/', views.neo4j_dashboard, name='neo4j_dashboard'),
     path('login/', views.login_view, name='login'),
     path('register/', views.register_view, name='register'),
-    path('logout/', auth_views.LogoutView.as_view(next_page='dashboard:login'), name='logout'),
+    path('logout/', views.logout_view, name='logout'),
     path('admin/user-management/', views.admin_user_management, name='admin_user_management'),
     path('get-existing-nodes/', views.get_existing_nodes_view, name='get_existing_nodes'),
     path('add-nodes/', views.add_nodes, name='add_nodes'),
@@ -69,4 +69,5 @@ urlpatterns = [
     path('wiremock-get-mappings/', views.wiremock_get_mappings, name='wiremock_get_mappings'),
     path('wiremock-get-logs/', views.wiremock_get_logs, name='wiremock_get_logs'),
     path('get-all-received-requests/', views.get_all_received_requests, name='get_all_received_requests'),
+    path('debug/keycloak/', views.keycloak_debug_view, name='keycloak_debug'),
 ]

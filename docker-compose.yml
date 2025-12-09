@@ -65,6 +65,56 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Wiremock Service
+  wiremock:
+    image: holomekc/wiremock-gui
+    container_name: neo4j_dashboard_wiremock
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./wiremock_mappings:/home/wiremock/mappings
+    restart: unless-stopped
+
+  # Keycloak (Optional - for development/testing)
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: neo4j_dashboard_keycloak
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=keycloak
+    ports:
+      - "8080:8080"
+    command: start-dev
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - keycloak  # Only start when explicitly requested: docker-compose --profile keycloak up
+
+  # Keycloak Database
+  keycloak-db:
+    image: postgres:15
+    container_name: neo4j_dashboard_keycloak_db
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=keycloak
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - keycloak
+
   # Django Web Application
   web:
     build: .
@@ -99,6 +149,13 @@ services:
       - MONGODB_USER=mongodb_user
       - MONGODB_PASSWORD=Milad1986
       - MONGODB_DB=testcases_db
+      # Keycloak settings (set KEYCLOAK_ENABLED=True in .env to enable)
+      # - KEYCLOAK_ENABLED=False
+      # - KEYCLOAK_SERVER_URL=http://keycloak:8080
+      # - KEYCLOAK_REALM=master
+      # - KEYCLOAK_CLIENT_ID=your-client-id
+      # - KEYCLOAK_CLIENT_SECRET=your-client-secret
+      # - KEYCLOAK_REDIRECT_URI=http://localhost:8000/oidc/callback/
     volumes:
       - ./logs:/app/logs
       - ./staticfiles:/app/staticfiles
@@ -111,3 +168,4 @@ volumes:
   neo4j_import:
   neo4j_plugins:
   mongodb_data:
+  keycloak_db_data:

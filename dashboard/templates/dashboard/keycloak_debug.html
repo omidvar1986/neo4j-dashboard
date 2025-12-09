@@ -1,0 +1,46 @@
+{% extends 'dashboard/base.html' %}
+
+{% block content %}
+<div class="pc-container">
+    <div class="pc-content">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Keycloak Debug Information</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if not is_oidc %}
+                            <div class="alert alert-warning">
+                                <strong>Warning:</strong> You are not logged in via Keycloak OIDC.
+                            </div>
+                        {% endif %}
+
+                        <h6>Session Information</h6>
+                        <pre>{{ session_data|pprint }}</pre>
+
+                        <hr>
+
+                        <h6>Token Claims</h6>
+                        {% if user.is_authenticated %}
+                            <p>Here are the claims extracted from your OIDC token (if available in session):</p>
+                            <pre>{{ token_claims|pprint }}</pre>
+                        {% else %}
+                            <p>User is not authenticated.</p>
+                        {% endif %}
+
+                        <hr>
+                        <h6>Environment Configuration</h6>
+                         <ul>
+                            <li><strong>KEYCLOAK_ENABLED:</strong> {{ debug_info.enabled }}</li>
+                            <li><strong>KEYCLOAK_SERVER_URL:</strong> {{ debug_info.server_url }}</li>
+                            <li><strong>KEYCLOAK_REALM:</strong> {{ debug_info.realm }}</li>
+                            <li><strong>KEYCLOAK_CLIENT_ID:</strong> {{ debug_info.client_id }}</li>
+                         </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

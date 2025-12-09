@@ -1,6 +1,7 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -81,23 +82,23 @@
             --shadow-lg: rgba(0, 0, 0, 0.5);
         }
 
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 0; 
-            padding: 0; 
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
             background-color: var(--bg-color);
             color: var(--text-color);
             transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        .navbar { 
-            background-color: var(--navbar-bg); 
+        .navbar {
+            background-color: var(--navbar-bg);
             padding: 15px 20px;
             position: relative;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .navbar-left {
@@ -106,8 +107,8 @@
             align-items: center;
         }
 
-        .navbar a { 
-            color: var(--navbar-text); 
+        .navbar a {
+            color: var(--navbar-text);
             text-decoration: none;
             font-weight: 500;
             padding: 8px 16px;
@@ -115,11 +116,11 @@
             transition: all 0.3s ease;
         }
 
-        .navbar a:hover { 
+        .navbar a:hover {
             background-color: rgba(255, 255, 255, 0.1);
             text-decoration: none;
         }
-        
+
         .admin-link {
             display: inline-flex;
             align-items: center;
@@ -132,14 +133,14 @@
             transition: all 0.3s ease;
             font-weight: 500;
         }
-        
+
         .admin-link:hover {
             background: var(--btn-primary-bg);
             opacity: 0.9;
             transform: translateY(-1px);
             box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
         }
-        
+
         .admin-link i {
             margin-right: 6px;
         }
@@ -163,45 +164,45 @@
             transform: scale(1.05);
         }
 
-        .container { 
-            max-width: 1200px; 
-            margin: 20px auto; 
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
             padding: 20px;
             background-color: var(--container-bg);
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             transition: background-color 0.3s ease, box-shadow 0.3s ease;
             border: 1px solid var(--border-color);
         }
 
-        .back-to-home { 
-            margin: 15px 0; 
+        .back-to-home {
+            margin: 15px 0;
         }
 
-        .back-to-home a { 
-            display: inline-block; 
-            padding: 10px 20px; 
-            background-color: var(--navbar-bg); 
-            color: var(--navbar-text); 
-            text-decoration: none; 
+        .back-to-home a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: var(--navbar-bg);
+            color: var(--navbar-text);
+            text-decoration: none;
             border-radius: 6px;
             transition: all 0.3s ease;
             font-weight: 500;
         }
 
-        .back-to-home a:hover { 
+        .back-to-home a:hover {
             background-color: var(--navbar-bg);
             opacity: 0.9;
             transform: translateY(-2px);
         }
 
-        .messages { 
-            margin: 20px 0; 
+        .messages {
+            margin: 20px 0;
         }
 
-        .alert { 
-            padding: 15px; 
-            border-radius: 8px; 
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
             margin-bottom: 15px;
             border: 1px solid var(--alert-border);
             background-color: var(--alert-bg);
@@ -209,7 +210,7 @@
             transition: all 0.3s ease;
         }
 
-        .alert-success { 
+        .alert-success {
             background-color: var(--alert-bg);
             color: var(--text-color);
             border: 1px solid var(--alert-border);
@@ -227,7 +228,7 @@
             border: 1px solid #2e7d32;
         }
 
-        .alert-error { 
+        .alert-error {
             background-color: var(--alert-bg);
             color: var(--text-color);
             border: 1px solid var(--alert-border);
@@ -324,13 +325,13 @@
         }
 
         .welcome-message p {
-             font-size: 1.2em;
-             color: inherit;
+            font-size: 1.2em;
+            color: inherit;
         }
 
         .welcome-message a {
-             color: inherit;
-             text-decoration: underline;
+            color: inherit;
+            text-decoration: underline;
         }
 
         /* Card styles for dark mode compatibility */
@@ -461,53 +462,53 @@
         [data-theme="dark"] .text-dark {
             color: var(--text-color) !important;
         }
-        
+
         /* Ensure all labels are visible */
         [data-theme="dark"] label,
         [data-theme="dark"] .form-label {
             color: var(--text-color) !important;
         }
-        
+
         /* Ensure all paragraphs and text are visible */
         [data-theme="dark"] p {
             color: var(--text-color);
         }
-        
+
         [data-theme="dark"] .text-muted {
             color: #b0b0b0 !important;
         }
-        
+
         /* Ensure links are visible but distinct */
         [data-theme="dark"] a {
             color: var(--btn-primary-bg);
         }
-        
+
         [data-theme="dark"] a:hover {
             color: var(--btn-primary-bg);
             opacity: 0.8;
         }
-        
+
         /* Ensure breadcrumbs are visible */
         [data-theme="dark"] .breadcrumb {
             background-color: transparent;
         }
-        
+
         [data-theme="dark"] .breadcrumb-item {
             color: var(--text-color);
         }
-        
+
         [data-theme="dark"] .breadcrumb-item.active {
             color: var(--text-color);
             opacity: 0.8;
         }
-        
+
         /* Ensure help text is visible */
         [data-theme="dark"] .form-text,
         [data-theme="dark"] small {
             color: var(--text-color) !important;
             opacity: 0.85;
         }
-        
+
         /* Ensure all headings are visible */
         [data-theme="dark"] h1,
         [data-theme="dark"] h2,
@@ -517,14 +518,14 @@
         [data-theme="dark"] h6 {
             color: var(--text-color) !important;
         }
-        
+
         /* Ensure card headers are visible */
         [data-theme="dark"] .card-header {
             background-color: var(--card-bg);
             border-bottom-color: var(--border-color);
             color: var(--text-color);
         }
-        
+
         [data-theme="dark"] .card-header h3,
         [data-theme="dark"] .card-header h4,
         [data-theme="dark"] .card-header h5 {
@@ -533,33 +534,38 @@
     </style>
     {% block extra_head %}{% endblock %}
 </head>
+
 <body>
     <!-- Add CSRF token to body for forms -->
     {% csrf_token %}
     <div class="navbar">
         <div class="navbar-left">
             {% if user.is_authenticated %}
-                <!-- Only show essential navigation items -->
-                <a href="{% url 'dashboard:home' %}">🏠 Dashboard</a>
+            <!-- Only show essential navigation items -->
+            <a href="{% url 'dashboard:home' %}">🏠 Dashboard</a>
             {% endif %}
         </div>
         <div class="navbar-right" style="display: flex; align-items: center; gap: 10px;">
             {% if user.is_authenticated %}
-                {% if user.can_access_admin_queries %}
-                    <a href="{% url 'dashboard:admin_user_management' %}" 
-                       class="admin-link" 
-                       title="User Management">
-                        <i class="fas fa-users-cog"></i>
-                        <span>User Management</span>
-                    </a>
-                {% endif %}
-                <span class="user-info">👤 {{ user.username }} ({{ user.role|yesno:"Admin,Node User,Query User" }})</span>
-                <form id="logout-form" action="{% url 'dashboard:logout' %}" method="post" style="display: inline-block; margin-right: 10px;">
-                    {% csrf_token %}
-                    <button type="submit" class="logout-button">🚪 Logout</button>
-                </form>
+            {% if user.can_access_admin_queries %}
+            <a href="http://localhost:8080/admin/master/console/" target="_blank" class="admin-link"
+                title="Keycloak Admin Console" style="margin-right: 5px;">
+                <i class="fas fa-key"></i>
+                <span>Keycloak Console</span>
+            </a>
+            <a href="{% url 'dashboard:admin_user_management' %}" class="admin-link" title="User Management">
+                <i class="fas fa-users-cog"></i>
+                <span>User Management</span>
+            </a>
             {% endif %}
-             <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+            <span class="user-info">👤 {{ user.username }} ({{ user.role|yesno:"Admin,Node User,Query User" }})</span>
+            <form id="logout-form" action="{% url 'dashboard:logout' %}" method="post"
+                style="display: inline-block; margin-right: 10px;">
+                {% csrf_token %}
+                <button type="submit" class="logout-button">🚪 Logout</button>
+            </form>
+            {% endif %}
+            <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
         </div>
     </div>
 
@@ -573,30 +579,37 @@
     <div class="container">
         <!-- Display messages -->
         {% if messages %}
-            <div class="messages">
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
             </div>
+            {% endfor %}
+        </div>
         {% endif %}
 
         {% if request.resolver_match.url_name != 'home' and user.is_authenticated %}
-            {% if request.resolver_match.app_name != 'testcases' %}
-                <div class="back-to-home">
-                    {% if request.resolver_match.url_name == 'neo4j_dashboard' %}
-                        <!-- On Neo4j project page, show "Back to Home" -->
-                        <a href="{% url 'dashboard:home' %}">← Back to Home</a>
-                    {% elif request.resolver_match.url_name == 'predefined_queries' or request.resolver_match.url_name == 'explore_layers' or request.resolver_match.url_name == 'add_nodes' or request.resolver_match.url_name == 'manual_queries' or request.resolver_match.url_name == 'admin_queries' or request.resolver_match.url_name == 'admin_user_management' or request.resolver_match.url_name == 'graph_view' or request.resolver_match.url_name == 'test_impact_analysis' or request.resolver_match.url_name == 'test_analysis' or request.resolver_match.url_name == 'manage_nodes' or request.resolver_match.url_name == 'define_relations' or request.resolver_match.url_name == 'confirm_relationships' or request.resolver_match.url_name == 'get_existing_nodes' %}
-                        <!-- On Neo4j feature pages, show "Back to Project" -->
-                        <a href="{% url 'dashboard:neo4j_dashboard' %}">← Back to Project</a>
-                    {% else %}
-                        <!-- On other pages, show "Back to Home" -->
-                        <a href="{% url 'dashboard:home' %}">← Back to Home</a>
-                    {% endif %}
-                </div>
+        {% if request.resolver_match.app_name != 'testcases' %}
+        <div class="back-to-home">
+            {% if request.resolver_match.url_name == 'neo4j_dashboard' %}
+            <!-- On Neo4j project page, show "Back to Home" -->
+            <a href="{% url 'dashboard:home' %}">← Back to Home</a>
+            {% elif request.resolver_match.url_name == 'predefined_queries' or request.resolver_match.url_name ==
+            'explore_layers' or request.resolver_match.url_name == 'add_nodes' or request.resolver_match.url_name ==
+            'manual_queries' or request.resolver_match.url_name == 'admin_queries' or request.resolver_match.url_name ==
+            'admin_user_management' or request.resolver_match.url_name == 'graph_view' or
+            request.resolver_match.url_name == 'test_impact_analysis' or request.resolver_match.url_name ==
+            'test_analysis' or request.resolver_match.url_name == 'manage_nodes' or request.resolver_match.url_name ==
+            'define_relations' or request.resolver_match.url_name == 'confirm_relationships' or
+            request.resolver_match.url_name == 'get_existing_nodes' %}
+            <!-- On Neo4j feature pages, show "Back to Project" -->
+            <a href="{% url 'dashboard:neo4j_dashboard' %}">← Back to Project</a>
+            {% else %}
+            <!-- On other pages, show "Back to Home" -->
+            <a href="{% url 'dashboard:home' %}">← Back to Home</a>
             {% endif %}
+        </div>
+        {% endif %}
         {% endif %}
         {% block content %}
         {% endblock %}
@@ -615,11 +628,11 @@
         function toggleTheme() {
             const currentTheme = document.documentElement.getAttribute('data-theme');
             const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            
+
             document.documentElement.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             updateThemeButton(newTheme);
-            
+
             // Add a smooth transition effect
             document.body.style.transition = 'background-color 0.3s ease, color 0.3s ease';
         }
@@ -633,14 +646,14 @@
             }
         }
 
-         // Automatically hide messages after a few seconds
-         document.addEventListener('DOMContentLoaded', function() {
+        // Automatically hide messages after a few seconds
+        document.addEventListener('DOMContentLoaded', function () {
             const messages = document.querySelectorAll('.messages .alert');
-            messages.forEach(function(message) {
-                setTimeout(function() {
+            messages.forEach(function (message) {
+                setTimeout(function () {
                     message.style.opacity = '0';
                     message.style.transition = 'opacity 0.5s ease-in-out';
-                    setTimeout(function() {
+                    setTimeout(function () {
                         message.remove();
                     }, 500);
                 }, 5000);
@@ -648,4 +661,5 @@
         });
     </script>
 </body>
+
 </html>

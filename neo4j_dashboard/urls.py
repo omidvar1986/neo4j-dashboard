@@ -5,4 +5,12 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('', include('dashboard.urls', namespace='dashboard')),  # اضافه کردن namespace
     path('testcases/', include('testcases.urls', namespace='testcases')),
-] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+]
+
+# Add Keycloak/OIDC URLs if enabled
+if getattr(settings, 'KEYCLOAK_ENABLED', False):
+    urlpatterns += [
+        path('oidc/', include('mozilla_django_oidc.urls')),
+    ]
+
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

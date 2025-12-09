@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'mozilla_django_oidc',  # Keycloak/OIDC authentication
     'dashboard',
     'testcases',
 ]
@@ -77,6 +78,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
 ]
+
+# Add OIDC middleware only when Keycloak is enabled
+# Note: KEYCLOAK_ENABLED is checked after it's defined below, so we'll add it conditionally
 
 ROOT_URLCONF = 'neo4j_dashboard.urls'
 
@@ -137,9 +141,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'dashboard.user'
 
 # Authentication Settings
-LOGIN_URL = 'dashboard:login'
-LOGIN_REDIRECT_URL = 'dashboard:home'
-LOGOUT_REDIRECT_URL = 'dashboard:login'
+KEYCLOAK_ENABLED = os.getenv('KEYCLOAK_ENABLED', 'True').lower() == 'true'
+
+if KEYCLOAK_ENABLED:
+    # Use OIDC authentication when Keycloak is enabled
+    AUTHENTICATION_BACKENDS = (
+        'dashboard.auth.KeycloakOIDCBackend',
+        'django.contrib.auth.backends.ModelBackend',  # Fallback to local auth
+    )
+    LOGIN_URL = 'oidc_authentication_init'
+    LOGIN_REDIRECT_URL = 'dashboard:home'
+    LOGOUT_REDIRECT_URL = 'dashboard:login'  # Redirect to login page after logout
+else:
+    # Use local authentication when Keycloak is disabled
+    AUTHENTICATION_BACKENDS = (
+        'django.contrib.auth.backends.ModelBackend',
+    )
+    LOGIN_URL = 'dashboard:login'
+    LOGIN_REDIRECT_URL = 'dashboard:home'
+    LOGOUT_REDIRECT_URL = 'dashboard:login'
 
 # CSRF Configuration
 CSRF_TRUSTED_ORIGINS = [
@@ -179,3 +199,74 @@ except Exception as e:
     MONGODB_USER = os.getenv('MONGODB_USER', 'mongodb_user')
     MONGODB_PASSWORD = os.getenv('MONGODB_PASSWORD', 'Milad1986')
     MONGODB_DB = os.getenv('MONGODB_DB', 'testcases_db')
+
+# Keycloak/OIDC Configuration
+if KEYCLOAK_ENABLED:
+    # Keycloak Server Configuration
+    KEYCLOAK_SERVER_URL = os.getenv('KEYCLOAK_SERVER_URL', 'http://localhost:8080').rstrip('/')
+    KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM', 'master')
+    
+    # Build OIDC endpoints from Keycloak server URL and realm
+    OIDC_OP_AUTHORIZATION_ENDPOINT = os.getenv(
+        'KEYCLOAK_AUTHORIZATION_ENDPOINT',
+        f'{KEYCLOAK_SERVER_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/auth'
+    )
+    OIDC_OP_TOKEN_ENDPOINT = os.getenv(
+        'KEYCLOAK_TOKEN_ENDPOINT',
+        f'{KEYCLOAK_SERVER_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token'
+    )
+    OIDC_OP_USER_ENDPOINT = os.getenv(
+        'KEYCLOAK_USERINFO_ENDPOINT',
+        f'{KEYCLOAK_SERVER_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/userinfo'
+    )
+    OIDC_OP_LOGOUT_ENDPOINT = os.getenv(
+        'KEYCLOAK_LOGOUT_ENDPOINT',
+        f'{KEYCLOAK_SERVER_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/logout'
+    )
+    OIDC_OP_JWKS_ENDPOINT = f'{KEYCLOAK_SERVER_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/certs'
+    
+    # OIDC Client Configuration
+    OIDC_RP_CLIENT_ID = os.getenv('KEYCLOAK_CLIENT_ID', '')
+    OIDC_RP_CLIENT_SECRET = os.getenv('KEYCLOAK_CLIENT_SECRET', '')
+    OIDC_RP_SIGN_ALGO = 'RS256'
+    OIDC_RP_SCOPES = os.getenv('KEYCLOAK_SCOPE', 'openid profile email')
+    
+    # OIDC Redirect URI
+    OIDC_REDIRECT_URI = os.getenv('KEYCLOAK_REDIRECT_URI', 'http://localhost:8000/oidc/callback/')
+    
+    # OIDC Claim Mappings
+    OIDC_RP_USERNAME_CLAIM = os.getenv('KEYCLOAK_USERNAME_CLAIM', 'preferred_username')
+    OIDC_RP_EMAIL_CLAIM = os.getenv('KEYCLOAK_EMAIL_CLAIM', 'email')
+    OIDC_RP_FIRST_NAME_CLAIM = os.getenv('KEYCLOAK_FIRST_NAME_CLAIM', 'given_name')
+    OIDC_RP_LAST_NAME_CLAIM = os.getenv('KEYCLOAK_LAST_NAME_CLAIM', 'family_name')
+    OIDC_RP_GROUPS_CLAIM = os.getenv('KEYCLOAK_GROUPS_CLAIM', 'groups')
+    
+    # OIDC User Creation/Update Settings
+    OIDC_CREATE_USER = os.getenv('KEYCLOAK_AUTO_CREATE_USERS', 'True').lower() == 'true'
+    OIDC_UPDATE_USER = os.getenv('KEYCLOAK_AUTO_UPDATE_USERS', 'True').lower() == 'true'
+    
+    # OIDC Session Settings
+    OIDC_RENEW_ID_TOKEN_EXPIRY_SECONDS = int(os.getenv('KEYCLOAK_SESSION_TIMEOUT', '3600'))
+    
+    # OIDC Issuer (for token validation)
+    OIDC_OP_ISSUER = os.getenv(
+        'KEYCLOAK_ISSUER',
+        f'{KEYCLOAK_SERVER_URL}/realms/{KEYCLOAK_REALM}'
+    )
+    
+    # Additional OIDC Settings
+    OIDC_STORE_ACCESS_TOKEN = True
+    OIDC_STORE_ID_TOKEN = True
+    OIDC_VERIFY_KID = True
+    OIDC_USE_NONCE = True
+    
+    # Log OIDC configuration (without secrets)
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Keycloak OIDC enabled for realm: {KEYCLOAK_REALM}")
+    logger.info(f"Keycloak Server URL: {KEYCLOAK_SERVER_URL}")
+    logger.info(f"OIDC Client ID: {OIDC_RP_CLIENT_ID}")
+    logger.info(f"OIDC Redirect URI: {OIDC_REDIRECT_URI}")
+    
+    # Add OIDC middleware when Keycloak is enabled (must be after AuthenticationMiddleware)
+    MIDDLEWARE.append('mozilla_django_oidc.middleware.SessionRefresh')

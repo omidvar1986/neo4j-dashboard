@@ -10,6 +10,7 @@
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
     }
+
     .welcome-card {
         border-radius: 20px;
         box-shadow: 0 10px 30px var(--shadow);
@@ -18,12 +19,15 @@
         border: 1px solid var(--card-border);
         transition: background-color 0.3s ease, border-color 0.3s ease;
     }
+
     [data-theme="light"] .welcome-card {
         background: rgba(255, 255, 255, 0.95);
     }
+
     [data-theme="dark"] .welcome-card {
         background: rgba(37, 37, 37, 0.95);
     }
+
     .project-card {
         border: 1px solid var(--card-border);
         border-radius: 20px;
@@ -33,14 +37,17 @@
         box-shadow: 0 5px 15px var(--shadow);
         overflow: hidden;
     }
+
     .project-card:hover {
         transform: translateY(-10px);
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
     }
+
     .project-card .card-body {
         padding: 2rem;
         text-align: center;
     }
+
     .project-icon {
         width: 100px;
         height: 100px;
@@ -55,22 +62,23 @@
         transition: transform 0.3s ease, box-shadow 0.3s ease;
         background: transparent;
     }
-    
+
     .project-card:hover .project-icon {
         transform: scale(1.1) rotate(5deg);
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
     }
-    
+
     .project-icon img {
         width: 100%;
         height: 100%;
         object-fit: contain;
         transition: transform 0.3s ease;
     }
-    
+
     .project-card:hover .project-icon img {
         transform: scale(1.05);
     }
+
     .project-title {
         font-size: 1.5rem;
         font-weight: 700;
@@ -78,6 +86,7 @@
         color: var(--text-color);
         transition: color 0.3s ease;
     }
+
     .project-description {
         color: var(--text-color);
         opacity: 0.8;
@@ -85,6 +94,7 @@
         line-height: 1.6;
         transition: color 0.3s ease, opacity 0.3s ease;
     }
+
     .project-btn {
         border-radius: 25px;
         padding: 12px 30px;
@@ -93,21 +103,25 @@
         letter-spacing: 0.5px;
         transition: all 0.3s ease;
     }
+
     .project-btn:hover {
         transform: scale(1.05);
     }
+
     .welcome-title {
         color: var(--text-color);
         font-weight: 700;
         margin-bottom: 1rem;
         transition: color 0.3s ease;
     }
+
     .welcome-subtitle {
         color: var(--text-color);
         opacity: 0.9;
         font-size: 1.1rem;
         transition: color 0.3s ease, opacity 0.3s ease;
     }
+
     .stats-card {
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.2);
@@ -137,11 +151,11 @@
                         </p>
 
                         {% if messages %}
-                            {% for message in messages %}
-                                <div class="alert alert-{{ message.tags }} mt-3">
-                                    {{ message }}
-                                </div>
-                            {% endfor %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} mt-3">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
                         {% endif %}
                     </div>
                 </div>
@@ -150,6 +164,29 @@
 
         <!-- Project Cards -->
         <div class="row">
+            <!-- Keycloak Admin Console Card -->
+            {% if user.can_access_admin_queries %}
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card project-card">
+                    <div class="card-body">
+                        <div class="project-icon" style="background: rgba(102, 126, 234, 0.1);">
+                            <i class="fas fa-key fa-4x"
+                                style="color: #667eea; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;"></i>
+                        </div>
+                        <h3 class="project-title">Keycloak Admin</h3>
+                        <p class="project-description">
+                            Manage users, roles, and authentication settings directly in the Keycloak
+                            Administration Console. Full identity and access management control.
+                        </p>
+                        <a href="http://localhost:8080/admin/master/console/" target="_blank"
+                            class="btn btn-primary project-btn">
+                            <i class="fas fa-external-link-alt"></i> Open Console
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Neo4j Project Card -->
             {% if user.can_access_neo4j %}
             <div class="col-lg-6 col-xl-4 mb-4">
@@ -160,8 +197,8 @@
                         </div>
                         <h3 class="project-title">Neo4j Dashboard</h3>
                         <p class="project-description">
-                            Manage your Neo4j graph database with powerful tools for queries, 
-                            node management, visualization, and test analysis. Complete graph 
+                            Manage your Neo4j graph database with powerful tools for queries,
+                            node management, visualization, and test analysis. Complete graph
                             database administration suite.
                         </p>
                         <a href="{% url 'dashboard:neo4j_dashboard' %}" class="btn btn-primary project-btn">
@@ -202,7 +239,7 @@
                         </div>
                         <h3 class="project-title">Wiremock</h3>
                         <p class="project-description">
-                            Manage API mock mappings and monitor request logs. Create, edit, and delete 
+                            Manage API mock mappings and monitor request logs. Create, edit, and delete
                             stub mappings with a beautiful interface for comprehensive API testing.
                         </p>
                         <a href="{% url 'dashboard:wiremock_dashboard' %}" class="btn btn-primary project-btn">
@@ -223,7 +260,7 @@
                         </div>
                         <h3 class="project-title">Test Cases</h3>
                         <p class="project-description">
-                            Create, manage, and organize test cases with detailed steps, preconditions, 
+                            Create, manage, and organize test cases with detailed steps, preconditions,
                             and expected results. Comprehensive test case management system.
                         </p>
                         <a href="{% url 'testcases:project_dashboard' %}" class="btn btn-primary project-btn">
