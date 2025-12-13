@@ -2343,6 +2343,8 @@ def test_case_import(request, project_id):
                     return steps
                 
                 def process_section(section_elem, path_parts):
+                    nonlocal imported_count, error_count
+
                     section_name = clean_text(section_elem.findtext('name', ''))
                     if not section_name:
                         return

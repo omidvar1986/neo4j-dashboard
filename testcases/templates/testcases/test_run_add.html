@@ -214,12 +214,12 @@
         <div class="form-group">
             <label>Test Case Selection</label>
             <div class="test-case-selection active" id="specificSelection">
-                <button type="button" class="btn-select-cases" onclick="openSelectCasesModal()">
-                    Select Test Cases
-                </button>
-                <div class="selected-count" id="selectedCount">0 test cases included (change selection)</div>
+                        <button type="button" class="btn-select-cases" onclick="openSelectCasesModal()">
+                            Select Test Cases
+                        </button>
+                        <div class="selected-count" id="selectedCount">0 test cases included (change selection)</div>
                 <input type="hidden" name="inclusion_type" value="specific">
-                <input type="hidden" name="test_case_ids[]" id="testCaseIds" value="">
+                        <input type="hidden" name="test_case_ids[]" id="testCaseIds" value="">
             </div>
             <div class="form-hint">Select the test cases to include in this test run.</div>
         </div>
@@ -497,7 +497,7 @@
             html += `<td style="padding: 0.75rem; color: var(--text-color);">${tc.type || 'Other'}</td>`;
             html += `<td style="padding: 0.75rem; color: var(--text-color);">${tc.priority || 'Medium'}</td>`;
             html += `</tr>`;
-        });
+                });
         
         html += '</tbody></table>';
         document.getElementById('testCasesList').innerHTML = html;
@@ -610,7 +610,7 @@
                     parent = parent.parentElement;
                 }
             }
-        });
+            });
     }
     
     function saveSelectedCases() {
@@ -621,11 +621,11 @@
     
     // Update form submission to ensure test_case_ids are included
     document.getElementById('testRunForm').addEventListener('submit', function(e) {
-        const testCaseIds = document.getElementById('testCaseIds').value;
-        if (!testCaseIds) {
-            e.preventDefault();
-            alert('Please select at least one test case.');
-            return false;
+            const testCaseIds = document.getElementById('testCaseIds').value;
+            if (!testCaseIds) {
+                e.preventDefault();
+                alert('Please select at least one test case.');
+                return false;
         }
     });
 </script>

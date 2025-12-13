@@ -1008,7 +1008,7 @@
                 if (data.success) {
                     if (currentTestCaseId === testCaseId) {
                         selectTestCase(testCaseId); // Refresh the panel
-                    }
+                        }
                 } else {
                     alert('Error adding result: ' + (data.error || 'Unknown error'));
                 }
@@ -1075,8 +1075,8 @@
             html = html.replace(inlineCodePattern, '<code class="inline-code">$1</code>');
             element.innerHTML = html;
             return;
-        }
-        
+    }
+
         // Process code blocks
         let result = '';
         let lastIndex = 0;
