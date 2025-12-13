@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     gcc \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment
@@ -35,10 +36,10 @@ FROM python:3.13-slim
 
 # Maintainer information
 LABEL maintainer="DevOps Team" \
-      description="Neo4j Dashboard Django Application" \
-      version="${VERSION}" \
-      build-date="${BUILD_DATE}" \
-      vcs-ref="${VCS_REF}"
+    description="Neo4j Dashboard Django Application" \
+    version="${VERSION}" \
+    build-date="${BUILD_DATE}" \
+    vcs-ref="${VCS_REF}"
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
