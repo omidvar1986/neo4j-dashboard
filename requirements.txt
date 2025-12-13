@@ -6,7 +6,7 @@ requests>=2.31.0
 gunicorn>=21.2.0
 whitenoise>=6.5.0
 django-cors-headers>=4.3.0
-git+https://github.com/nobitex/python-wiremock.git
+# git+https://github.com/nobitex/python-wiremock.git
 pydantic~=2.11
 mongoengine>=0.27.0
 pymongo>=4.6.0
