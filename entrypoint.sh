@@ -5,7 +5,7 @@ echo "🚀 Starting Neo4j Dashboard..."
 
 # Wait for PostgreSQL to be ready
 echo "⏳ Waiting for PostgreSQL to be ready..."
-while ! nc -z postgres 5433; do
+while ! nc -z postgres 5432; do
   echo "PostgreSQL is unavailable - sleeping"
   sleep 1
 done
