@@ -15,7 +15,7 @@ services:
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U neo4j_dashboard_user -d neo_dashboard"]
+      test: [ "CMD-SHELL", "pg_isready -U neo4j_dashboard_user -d neo_dashboard" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,10 +37,10 @@ services:
       - neo4j_import:/var/lib/neo4j/import
       - neo4j_plugins:/plugins
     ports:
-      - "7474:7474"  # HTTP
-      - "7687:7687"  # Bolt
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 7687"]
+      test: [ "CMD-SHELL", "nc -z localhost 7687" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -59,7 +59,7 @@ services:
     ports:
       - "27017:27017"
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -94,7 +94,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     profiles:
-      - keycloak  # Only start when explicitly requested: docker-compose --profile keycloak up
+      - keycloak # Only start when explicitly requested: docker-compose --profile keycloak up
 
   # Keycloak Database
   keycloak-db:
@@ -107,7 +107,7 @@ services:
     volumes:
       - keycloak_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      test: [ "CMD-SHELL", "pg_isready -U keycloak -d keycloak" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -132,7 +132,7 @@ services:
       # Django settings
       - DEBUG=False
       - SECRET_KEY=django-insecure-sx42i2cydw$405*%s0e_*rwr@t&ixl_6h53*dr0c9+#itt^z6y
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+      # ALLOWED_HOSTS is loaded from .env
       # Database settings
       - POSTGRES_NAME=neo_dashboard
       - POSTGRES_USER=neo4j_dashboard_user
