@@ -2,13 +2,13 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 # Load environment variables from .env file
 # Load environment variables from .env file only if it exists (local development)
 if (BASE_DIR / '.env').exists():
     load_dotenv()
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-sx42i2cydw$405*%s0e_*rwr@t&ixl_6h53*dr0c9+#itt^z6y')
@@ -18,6 +18,16 @@ DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# Trust Nginx proxy for SSL status
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Allow localhost to be trusted
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 
+    'https://localhost,https://127.0.0.1,https://qa.ntx.ir,https://qa-dash-neo.nxbo.ir'
+).split(',')
+
+# Honor forwarded host when behind proxy (needed for correct redirect URIs)
+USE_X_FORWARDED_HOST = True
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -140,6 +150,11 @@ STATICFILES_DIRS = [
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# File upload size limits (to match nginx client_max_body_size 100M)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100 MB in bytes
+FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100 MB in bytes
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Increase if needed for large forms
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -167,11 +182,7 @@ else:
     LOGIN_REDIRECT_URL = 'dashboard:home'
     LOGOUT_REDIRECT_URL = 'dashboard:login'
 
-# CSRF Configuration
-CSRF_TRUSTED_ORIGINS = [
-    'https://qa-dash-neo.nxbo.ir',
-    'http://qa-dash-neo.nxbo.ir',
-]
+
 
 # Neo4j Configuration
 # Neo4j URI باید به نام سرویس داکر (neo4j) اشاره کند
@@ -239,6 +250,8 @@ if KEYCLOAK_ENABLED:
     
     # OIDC Redirect URI
     OIDC_REDIRECT_URI = os.getenv('KEYCLOAK_REDIRECT_URI', 'http://localhost:8000/oidc/callback/')
+    # Force absolute callback URL so it doesn't downgrade to http
+    OIDC_CALLBACK_URL = OIDC_REDIRECT_URI
     
     # OIDC Claim Mappings
     OIDC_RP_USERNAME_CLAIM = os.getenv('KEYCLOAK_USERNAME_CLAIM', 'preferred_username')

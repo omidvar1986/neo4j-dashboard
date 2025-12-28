@@ -7,28 +7,31 @@
 <style>
     .test-case-page {
         display: flex;
-        height: calc(100vh - 100px);
-        padding: 1rem;
-        gap: 1rem;
+        min-height: calc(100vh - 120px);
+        padding: 1.5rem;
+        gap: 1.5rem;
     }
+
     .test-case-sidebar {
-        width: 300px;
+        width: 320px;
+        max-width: 360px;
         background: var(--sidebar-bg);
-        border: 1px solid var(--sidebar-border);
+        border: 1px solid rgba(0, 0, 0, 0.06);
         border-radius: 8px;
         padding: 1rem;
         overflow-y: auto;
-        box-shadow: 0 2px 10px var(--shadow);
+        box-shadow: none;
         transition: background-color 0.3s ease, border-color 0.3s ease;
     }
+
     .test-case-main {
         flex: 1;
         background: var(--card-bg);
-        border: 1px solid var(--card-border);
+        border: 1px solid rgba(0, 0, 0, 0.06);
         border-radius: 8px;
         padding: 1.5rem;
         overflow-y: auto;
-        box-shadow: 0 2px 10px var(--shadow);
+        box-shadow: none;
         transition: background-color 0.3s ease, border-color 0.3s ease;
     }
 
@@ -82,6 +85,7 @@
     .input-with-icon select {
         padding-left: 1.75rem;
     }
+
     .tree-header {
         font-weight: bold;
         margin-bottom: 1rem;
@@ -93,12 +97,13 @@
         color: var(--text-color);
         transition: border-color 0.3s ease, color 0.3s ease;
     }
+
     .tree-item {
         padding: 0;
         margin: 0;
         cursor: pointer;
     }
-    
+
     .tree-item-content {
         padding: 0.5rem 0.5rem;
         display: flex;
@@ -109,37 +114,37 @@
         min-height: 32px;
         margin: 1px 0;
     }
-    
+
     .tree-item:hover .tree-item-content {
         background-color: var(--tree-hover);
     }
-    
+
     .tree-item.active .tree-item-content {
         background-color: var(--tree-active);
         color: white;
     }
-    
+
     .tree-item.active:hover .tree-item-content {
         background-color: var(--tree-active);
         opacity: 0.9;
     }
-    
+
     /* Search match highlighting */
     .tree-item.search-match .tree-item-content {
         background-color: rgba(255, 193, 7, 0.15) !important;
         border-left: 3px solid #ffc107;
         padding-left: calc(0.5rem - 3px);
     }
-    
+
     .tree-item.search-match:hover .tree-item-content {
         background-color: rgba(255, 193, 7, 0.25) !important;
     }
-    
+
     .tree-item.search-match.active .tree-item-content {
         background-color: var(--tree-active) !important;
         border-left: 3px solid #ffc107;
     }
-    
+
     .tree-expand-icon {
         width: 20px;
         height: 20px;
@@ -154,11 +159,11 @@
         position: relative;
         z-index: 1;
     }
-    
+
     .tree-expand-icon:hover {
         background-color: rgba(0, 0, 0, 0.08);
     }
-    
+
     .tree-chevron {
         font-size: 0.75rem;
         color: var(--text-color);
@@ -169,32 +174,32 @@
         text-align: center;
         font-weight: 600;
     }
-    
+
     [data-theme="dark"] .tree-chevron {
         opacity: 0.9;
     }
-    
+
     .tree-chevron.collapsed {
         transform: rotate(-90deg);
     }
-    
+
     /* Make chevron more visible when expanded */
     .tree-chevron.fa-chevron-down {
         color: var(--text-color);
         opacity: 0.9;
     }
-    
+
     [data-theme="dark"] .tree-chevron.fa-chevron-down {
         opacity: 1;
     }
-    
+
     .tree-spacer {
         width: 20px;
         display: inline-block;
         flex-shrink: 0;
         margin-right: 8px;
     }
-    
+
     .tree-folder-icon {
         color: var(--btn-primary-bg);
         font-size: 1rem;
@@ -204,7 +209,7 @@
         text-align: center;
         transition: color 0.3s ease;
     }
-    
+
     .tree-file-icon {
         color: var(--text-color);
         opacity: 0.8;
@@ -215,36 +220,35 @@
         text-align: center;
         transition: color 0.3s ease, opacity 0.3s ease;
     }
-    
+
     [data-theme="dark"] .tree-file-icon {
         opacity: 0.9;
     }
-    
+
     .tree-item-name {
         flex: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        white-space: normal;
+        word-break: break-word;
         font-size: 0.9rem;
     }
-    
+
     .tree-section {
         font-weight: 600;
     }
-    
+
     .tree-section-item {
         margin: 0;
         position: relative;
     }
-    
+
     .tree-test-case .tree-item-content {
         padding-left: 0.75rem;
     }
-    
+
     .tree-section .tree-item-content {
         font-weight: 600;
     }
-    
+
     .tree-children {
         margin-left: 0;
         padding-left: 0;
@@ -255,7 +259,7 @@
         opacity: 1;
         position: relative;
     }
-    
+
     /* Vertical line connecting parent to children */
     .tree-children::before {
         content: '';
@@ -268,13 +272,13 @@
         z-index: 0;
         transition: background-color 0.3s ease;
     }
-    
+
     /* Indentation for nested items */
     .tree-section-item .tree-section-item {
         margin-left: 24px;
         position: relative;
     }
-    
+
     /* Horizontal line connecting to parent */
     .tree-section-item .tree-section-item::before {
         content: '';
@@ -287,12 +291,12 @@
         z-index: 0;
         transition: background-color 0.3s ease;
     }
-    
+
     /* Vertical line for nested sections */
     .tree-section-item .tree-section-item .tree-children::before {
         left: 10px;
     }
-    
+
     .tree-children.collapsed {
         max-height: 0;
         opacity: 0;
@@ -301,15 +305,15 @@
         padding: 0;
         border: none;
     }
-    
+
     .tree-children.collapsed::before {
         display: none;
     }
-    
+
     .tree-chevron-empty {
         opacity: 0.3;
     }
-    
+
     .tree-test-case {
         margin-left: 24px;
         font-size: 0.9rem;
@@ -317,7 +321,7 @@
         position: relative;
         transition: color 0.3s ease;
     }
-    
+
     /* Horizontal line connecting test case to parent */
     .tree-test-case::before {
         content: '';
@@ -330,16 +334,17 @@
         z-index: 0;
         transition: background-color 0.3s ease;
     }
-    
+
     .tree-test-case:hover .tree-item-content {
         background: var(--tree-hover);
         color: var(--text-color);
     }
-    
+
     .tree-test-case.active .tree-item-content {
         background: var(--tree-active);
         color: white;
     }
+
     .add-test-case-sidebar-btn {
         width: 100%;
         background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
@@ -351,42 +356,45 @@
         margin-bottom: 1rem;
         transition: all 0.3s ease;
     }
+
     .add-test-case-sidebar-btn:hover {
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
         color: white;
     }
-    
+
     /* Search Bar Styles */
     .search-input:focus {
         outline: none;
         border-color: var(--btn-primary-bg);
         box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
     }
-    
+
     .search-input:hover {
         border-color: var(--btn-primary-bg);
     }
-    
+
     .search-clear-btn:hover {
         opacity: 1 !important;
         color: var(--btn-primary-bg) !important;
     }
-    
+
     .search-container {
         animation: fadeInDown 0.3s ease;
     }
-    
+
     @keyframes fadeInDown {
         from {
             opacity: 0;
             transform: translateY(-10px);
         }
+
         to {
             opacity: 1;
             transform: translateY(0);
         }
     }
+
     .section-header {
         background: var(--table-header-bg);
         padding: 1rem;
@@ -399,16 +407,20 @@
         color: var(--text-color);
         transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
     }
+
     .section-header:hover {
         background: var(--table-hover-bg);
     }
+
     .test-case-row {
         border-bottom: 1px solid var(--table-border);
         transition: background-color 0.3s ease, border-color 0.3s ease;
     }
+
     .test-case-row:hover {
         background: var(--table-hover-bg);
     }
+
     .tree-summary {
         margin-top: 1rem;
         padding-top: 1rem;
@@ -418,28 +430,47 @@
         opacity: 0.9;
         transition: border-color 0.3s ease, color 0.3s ease, opacity 0.3s ease;
     }
-    
+
     [data-theme="dark"] .tree-summary {
         opacity: 0.95;
     }
+
     .tree-navigation {
         max-height: calc(100vh - 300px);
         overflow-y: auto;
         padding-right: 0.5rem;
     }
+
     .tree-navigation::-webkit-scrollbar {
         width: 6px;
     }
+
     .tree-navigation::-webkit-scrollbar-track {
         background: #f1f1f1;
         border-radius: 3px;
     }
+
     .tree-navigation::-webkit-scrollbar-thumb {
         background: #888;
         border-radius: 3px;
     }
+
     .tree-navigation::-webkit-scrollbar-thumb:hover {
         background: #555;
+    }
+
+    /* SortableJS Drag Styles */
+    .sortable-ghost {
+        opacity: 0.4;
+        background-color: var(--tree-hover);
+        border: 1px dashed var(--btn-primary-bg);
+    }
+
+    .sortable-drag {
+        cursor: grabbing;
+        opacity: 1;
+        background-color: var(--tree-active);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     }
 </style>
 {% endblock %}
@@ -452,84 +483,68 @@
         <a href="#" class="btn add-test-case-sidebar-btn" onclick="addSection(); return false;">
             <i class="fas fa-plus"></i> Add Section
         </a>
-        
+
         <!-- Search Bar -->
         <div class="search-container mb-3" style="position: relative;">
-            <form method="get" action="{% url 'testcases:test_case_list' project_id=project.id %}" id="search-form" style="position: relative;" onsubmit="return false;">
+            <form method="get" action="{% url 'testcases:test_case_list' project_id=project.id %}" id="search-form"
+                style="position: relative;" onsubmit="return false;">
                 {% if selected_section %}
-                    <input type="hidden" name="section" value="{{ selected_section }}">
+                <input type="hidden" name="section" value="{{ selected_section }}">
                 {% endif %}
                 {% if selected_test_case %}
-                    <input type="hidden" name="test_case" value="{{ selected_test_case.id|stringformat:"s" }}">
+                <input type="hidden" name="test_case" value="{{ selected_test_case.id|stringformat:" s" }}">
                 {% endif %}
                 {% if current_sort %}
-                    <input type="hidden" name="sort" value="{{ current_sort }}">
+                <input type="hidden" name="sort" value="{{ current_sort }}">
                 {% endif %}
                 {% if current_filter and current_filter != 'all' %}
-                    <input type="hidden" name="filter" value="{{ current_filter }}">
+                <input type="hidden" name="filter" value="{{ current_filter }}">
                 {% endif %}
                 <div class="search-input-wrapper" style="position: relative; display: flex; align-items: center;">
-                    <i class="fas fa-search search-icon" style="position: absolute; left: 0.75rem; color: var(--text-color); opacity: 0.6; z-index: 2; pointer-events: none; font-size: 0.85rem;"></i>
-                    <input 
-                        type="text" 
-                        name="search" 
-                        id="search-input"
-                        class="form-control search-input" 
-                        placeholder="Search..." 
-                        value="{{ search_query }}"
+                    <i class="fas fa-search search-icon"
+                        style="position: absolute; left: 0.75rem; color: var(--text-color); opacity: 0.6; z-index: 2; pointer-events: none; font-size: 0.85rem;"></i>
+                    <input type="text" name="search" id="search-input" class="form-control search-input"
+                        placeholder="Search..." value="{{ search_query }}"
                         style="padding-left: 2rem; padding-right: 2.25rem; height: 38px; border-radius: 20px; border: 2px solid var(--card-border); background: var(--input-bg); color: var(--input-text); font-size: 0.85rem; transition: all 0.3s ease;"
-                        onkeyup="handleSearchInput(event)"
-                        onkeydown="handleSearchKeyDown(event)"
-                    >
+                        onkeyup="handleSearchInput(event)" onkeydown="handleSearchKeyDown(event)">
                     {% if search_query %}
-                    <button 
-                        type="button" 
-                        class="btn btn-link search-clear-btn" 
-                        onclick="clearSearch()"
+                    <button type="button" class="btn btn-link search-clear-btn" onclick="clearSearch()"
                         style="position: absolute; right: 0.25rem; padding: 0.25rem 0.4rem; color: var(--text-color); opacity: 0.6; z-index: 2; border: none; background: none; text-decoration: none; font-size: 0.85rem;"
-                        title="Clear search"
-                    >
+                        title="Clear search">
                         <i class="fas fa-times-circle"></i>
                     </button>
                     {% endif %}
                 </div>
             </form>
         </div>
-        
+
         <div class="tree-header" style="cursor: pointer;" onclick="toggleTreeSection('tree-navigation');">
             <span>Test Cases</span>
             <i class="fas fa-chevron-down" id="tree-header-icon" style="color: var(--text-color); opacity: 0.7;"></i>
         </div>
-        
+
         <div id="tree-navigation" class="tree-navigation" style="display: block;">
-            {% if section_tree %}
-                {% for item in section_tree %}
-                    {% include 'testcases/tree_item.html' with item=item level=0 search_query=search_query %}
-                {% empty %}
-                    <div class="p-2" style="color: var(--text-color); opacity: 0.8;">
-                        {% if search_query %}
-                            No results found for "{{ search_query }}".
-                        {% else %}
-                            No sections with test cases yet.
-                        {% endif %}
-                    </div>
-                {% endfor %}
+            {% if tree_html %}
+                {{ tree_html|safe }}
             {% else %}
                 <div class="p-2" style="color: var(--text-color); opacity: 0.8;">
                     {% if search_query %}
-                        No results found for "{{ search_query }}".
+                    No results found for "{{ search_query }}".
                     {% else %}
-                        No sections with test cases yet.
+                    No sections with test cases yet.
                     {% endif %}
                 </div>
             {% endif %}
         </div>
-        
+
         {% if section_tree %}
-            <div class="tree-summary">
-                <i class="fas fa-info-circle"></i>
-                Contains <strong>{{ total_sections }}</strong> section{{ total_sections|pluralize }} and <strong>{{ total_cases }}</strong> case{{ total_cases|pluralize }}.
-            </div>
+        <div class="tree-summary" id="tree-summary"
+             data-total-sections="{{ total_sections }}"
+             data-total-cases="{{ total_cases }}">
+            <i class="fas fa-info-circle"></i>
+            Contains <strong class="summary-total-sections">{{ total_sections }}</strong> section{{ total_sections|pluralize }}
+            and <strong class="summary-total-cases">{{ total_cases }}</strong> case{{ total_cases|pluralize }}.
+        </div>
         {% endif %}
     </div>
 
@@ -543,21 +558,23 @@
                         <h2 class="mb-0">
                             <i class="fas fa-clipboard-check text-primary"></i> Test Cases
                             {% if search_query %}
-                                <span class="badge bg-primary ms-2" style="font-size: 0.75rem; font-weight: normal;">
-                                    <i class="fas fa-filter"></i> Searching: "{{ search_query }}"
-                                </span>
+                            <span class="badge bg-primary ms-2" style="font-size: 0.75rem; font-weight: normal;">
+                                <i class="fas fa-filter"></i> Searching: "{{ search_query }}"
+                            </span>
                             {% endif %}
                         </h2>
                         {% if selected_section_obj %}
                         <div class="d-flex align-items-center gap-2" style="font-size: 0.9rem;">
-                            <a href="{% url 'testcases:project_dashboard' %}" class="btn btn-sm btn-outline-secondary" title="Return to Projects Dashboard">
+                            <a href="{% url 'testcases:project_dashboard' %}" class="btn btn-sm btn-outline-secondary"
+                                title="Return to Projects Dashboard">
                                 <i class="fas fa-home"></i> Projects
                             </a>
                         </div>
                         {% endif %}
                     </div>
                     <div>
-                        <a href="{% url 'testcases:project_dashboard' %}" class="btn btn-sm btn-outline-primary" title="Switch to another project">
+                        <a href="{% url 'testcases:project_dashboard' %}" class="btn btn-sm btn-outline-primary"
+                            title="Switch to another project">
                             <i class="fas fa-exchange-alt"></i> Switch Project
                         </a>
                     </div>
@@ -569,12 +586,16 @@
                         <div class="input-with-icon">
                             <i class="fas fa-sort-amount-down"></i>
                             <select class="form-select form-select-sm" id="sort-select" onchange="updateSortFilter()">
-                                <option value="section" {% if current_sort == 'section' %}selected{% endif %}>Section</option>
+                                <option value="section" {% if current_sort == 'section' %}selected{% endif %}>Section
+                                </option>
                                 <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Title</option>
-                                <option value="date_newest" {% if current_sort == 'date_newest' %}selected{% endif %}>Date (Newest)</option>
-                                <option value="date_oldest" {% if current_sort == 'date_oldest' %}selected{% endif %}>Date (Oldest)</option>
+                                <option value="date_newest" {% if current_sort == 'date_newest' %}selected{% endif %}>Date
+                                    (Newest)</option>
+                                <option value="date_oldest" {% if current_sort == 'date_oldest' %}selected{% endif %}>Date
+                                    (Oldest)</option>
                                 <option value="type" {% if current_sort == 'type' %}selected{% endif %}>Type</option>
-                                <option value="priority" {% if current_sort == 'priority' %}selected{% endif %}>Priority</option>
+                                <option value="priority" {% if current_sort == 'priority' %}selected{% endif %}>Priority
+                                </option>
                             </select>
                         </div>
                     </div>
@@ -582,11 +603,13 @@
                         <label class="form-label">Section</label>
                         <div class="input-with-icon">
                             <i class="fas fa-sitemap"></i>
-                            <select class="form-select form-select-sm" id="section-select" onchange="updateSortFilter()">
+                            <select class="form-select form-select-sm" id="section-select"
+                                onchange="updateSortFilter()">
                                 <option value="">All Sections</option>
                                 {% if all_sections %}
                                     {% for section in all_sections %}
-                                        <option value="{{ section.id|stringformat:"s" }}" {% if selected_section == section.id|stringformat:"s" %}selected{% endif %}>
+                                        <option value="{{ section.id|stringformat:'s' }}"
+                                            {% if selected_section == section.id|stringformat:'s' %}selected{% endif %}>
                                             {{ section.name }}
                                         </option>
                                     {% endfor %}
@@ -598,12 +621,14 @@
                         <label class="form-label">Filter</label>
                         <div class="input-with-icon">
                             <i class="fas fa-filter"></i>
-                            <select class="form-select form-select-sm" id="filter-select" onchange="updateSortFilter()">
+                            <select class="form-select form-select-sm" id="filter-select"
+                                onchange="updateSortFilter()">
                                 <option value="all" {% if current_filter == 'all' %}selected{% endif %}>All</option>
                                 {% if unique_types %}
                                     <optgroup label="By Type">
                                         {% for type in unique_types %}
-                                            <option value="type_{{ type }}" {% if current_filter == "type_"|add:type %}selected{% endif %}>
+                                            <option value="type_{{ type }}"
+                                                {% if current_filter == 'type_'|add:type %}selected{% endif %}>
                                                 {{ type }}
                                             </option>
                                         {% endfor %}
@@ -612,7 +637,8 @@
                                 {% if unique_priorities %}
                                     <optgroup label="By Priority">
                                         {% for priority in unique_priorities %}
-                                            <option value="priority_{{ priority }}" {% if current_filter == "priority_"|add:priority %}selected{% endif %}>
+                                            <option value="priority_{{ priority }}"
+                                                {% if current_filter == 'priority_'|add:priority %}selected{% endif %}>
                                                 {{ priority }}
                                             </option>
                                         {% endfor %}
@@ -621,32 +647,38 @@
                             </select>
                         </div>
                     </div>
-                    <a href="{% url 'testcases:section_manage' project_id=project.id %}" class="btn btn-outline-secondary btn-sm">
+                    <a href="{% url 'testcases:section_manage' project_id=project.id %}"
+                        class="btn btn-outline-secondary btn-sm">
                         <i class="fas fa-cog"></i> Manage Sections
                     </a>
                     <div class="btn-group">
-                        <a href="{% url 'testcases:test_run_list' project_id=project.id %}" class="btn btn-outline-primary btn-sm">
+                        <a href="{% url 'testcases:test_run_list' project_id=project.id %}"
+                            class="btn btn-outline-primary btn-sm">
                             <i class="fas fa-play-circle"></i> Test Runs & Results
                         </a>
                     </div>
-                    {% if user_can_edit %}
+                    {% if user.role == 3 or user.can_import_test_cases %}
                     <div class="btn-group">
-                        <a href="{% url 'testcases:test_case_import' project_id=project.id %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'testcases:test_case_import' project_id=project.id %}"
+                            class="btn btn-primary btn-sm">
                             <i class="fas fa-file-import"></i> Import
                         </a>
                     </div>
                     {% endif %}
                     <div class="btn-group">
-                        <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle"
+                            data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-file-export"></i> Export
                         </button>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{% url 'testcases:test_case_export' project_id=project.id %}?format=excel">
-                                <i class="fas fa-file-excel"></i> Export to Excel
-                            </a></li>
-                            <li><a class="dropdown-item" href="{% url 'testcases:test_case_export' project_id=project.id %}?format=csv">
-                                <i class="fas fa-file-csv"></i> Export to CSV
-                            </a></li>
+                            <li><a class="dropdown-item"
+                                    href="{% url 'testcases:test_case_export' project_id=project.id %}?format=excel">
+                                    <i class="fas fa-file-excel"></i> Export to Excel
+                                </a></li>
+                            <li><a class="dropdown-item"
+                                    href="{% url 'testcases:test_case_export' project_id=project.id %}?format=csv">
+                                    <i class="fas fa-file-csv"></i> Export to CSV
+                                </a></li>
                         </ul>
                     </div>
                 </div>
@@ -654,239 +686,381 @@
         </div>
 
         {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
         {% endif %}
 
         <!-- Selected Test Case Detail View (Flash 2) - Shows when individual test case is clicked -->
         {% if selected_test_case_obj %}
-            <!-- Show only detail view when test case is selected -->
-            {% include 'testcases/test_case_detail_card.html' %}
+        <!-- Show only detail view when test case is selected -->
+        {% include 'testcases/test_case_detail_card.html' %}
         {% elif selected_section_obj %}
-            <!-- Section View (Flash 1) - Shows when section is clicked -->
-            <!-- Section Header with Test Cases List -->
-            <div class="test-case-table mb-4">
-                <div class="section-header-expanded" style="background: var(--table-header-bg); padding: 1rem; border-radius: 8px 8px 0 0; border-bottom: 2px solid var(--border-color);">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center gap-2 mb-2">
-                                <a href="{% url 'testcases:project_dashboard' %}" class="btn btn-sm btn-outline-secondary" title="Return to Projects">
-                                    <i class="fas fa-arrow-left"></i> Projects
-                                </a>
-                                <span style="color: var(--text-color); opacity: 0.5;">/</span>
-                                <a href="{% url 'testcases:test_case_list' project_id=project.id %}" class="btn btn-sm btn-outline-secondary" title="View All Test Cases">
-                                    {{ project.name }}
-                                </a>
-                            </div>
-                            <h4 class="mb-1">{{ selected_section_obj.name }}</h4>
-                            {% if selected_section_obj.description %}
-                                <p class="mb-2" style="color: var(--text-color); opacity: 0.85; font-size: 0.9rem;">{{ selected_section_obj.description|linebreaks }}</p>
-                            {% endif %}
-                            <small style="color: var(--text-color); opacity: 0.8;">{{ test_cases|length }} test case{{ test_cases|length|pluralize }}</small>
-                        </div>
-                        <div>
-                            <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ selected_section_obj.id|stringformat:"s" }}" class="btn btn-sm btn-primary">
-                                <i class="fas fa-plus"></i> Add Case
+        <!-- Section View (Flash 1) - Shows when section is clicked -->
+        <!-- Section Header with Test Cases List -->
+        <div class="test-case-table mb-4">
+            <div class="section-header-expanded"
+                style="background: var(--table-header-bg); padding: 1rem; border-radius: 8px 8px 0 0; border-bottom: 2px solid var(--border-color);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <a href="{% url 'testcases:project_dashboard' %}" class="btn btn-sm btn-outline-secondary"
+                                title="Return to Projects">
+                                <i class="fas fa-arrow-left"></i> Projects
+                            </a>
+                            <span style="color: var(--text-color); opacity: 0.5;">/</span>
+                            <a href="{% url 'testcases:test_case_list' project_id=project.id %}"
+                                class="btn btn-sm btn-outline-secondary" title="View All Test Cases">
+                                {{ project.name }}
                             </a>
                         </div>
+                        <h4 class="mb-1">{{ selected_section_obj.name }}</h4>
+                        {% if selected_section_obj.description %}
+                        <p id="section-description" class="mb-2"
+                           data-desc="{{ selected_section_obj.description|linebreaks }}"
+                           style="color: var(--text-color); opacity: 0.85; font-size: 0.9rem;"></p>
+                        {% endif %}
+                        <small id="section-testcase-count"
+                               data-count="{{ test_cases|length }}"
+                               style="color: var(--text-color); opacity: 0.8;">
+                            {{ test_cases|length }} test case{{ test_cases|length|pluralize }}
+                        </small>
                     </div>
-                </div>
-                
-                {% if test_cases %}
-                    <div class="table-responsive" style="background: var(--table-bg); border-radius: 0 0 8px 8px;">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 50px;">
-                                        <input type="checkbox" class="section-select-all" data-section="{{ selected_section_obj.id }}">
-                                    </th>
-                                    <th style="width: 100px;">ID</th>
-                                    <th>Title</th>
-                                    <th style="width: 50px;"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for test_case in test_cases %}
-                                    <tr class="test-case-row" style="cursor: pointer;" onclick="window.location.href='?test_case={{ test_case.id|stringformat:"s" }}'">
-                                        <td onclick="event.stopPropagation();">
-                                            <input type="checkbox" class="test-case-checkbox" value="{{ test_case.id|stringformat:"s" }}" data-section="{{ selected_section_obj.id }}">
-                                        </td>
-                                        <td><strong>C{{ test_case.id|stringformat:"s"|slice:":8" }}</strong></td>
-                                        <td>{{ test_case.title }}</td>
-                                        <td class="text-end">
-                                            <i class="fas fa-chevron-right" style="color: var(--text-color); opacity: 0.7;"></i>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="p-2 border-top" style="background: var(--table-bg); border-radius: 0 0 8px 8px;">
-                        <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ selected_section_obj.id|stringformat:"s" }}" class="text-decoration-none me-3">
-                            Add Case
+                    <div>
+                        <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ selected_section_obj.id|stringformat:"
+                            s" }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-plus"></i> Add Case
                         </a>
-                        <a href="#" class="text-decoration-none" onclick="addSubsection('{{ selected_section_obj.id|stringformat:"s" }}'); return false;">Add Subsection</a>
-                    </div>
-                {% else %}
-                    <div class="text-center p-5" style="background: var(--table-bg); border-radius: 0 0 8px 8px;">
-                        <i class="fas fa-clipboard-list fa-3x mb-3" style="color: var(--text-color); opacity: 0.6;"></i>
-                        <p style="color: var(--text-color); opacity: 0.8;">No test cases in this section. <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ selected_section_obj.id|stringformat:"s" }}" style="color: var(--btn-primary-bg);">Create your first test case</a></p>
-                        <p style="color: var(--text-color); opacity: 0.8; margin-top: 0.5rem;">or <a href="#" style="color: var(--btn-primary-bg);" onclick="addSubsection('{{ selected_section_obj.id|stringformat:"s" }}'); return false;">create a subsection</a></p>
-                    </div>
-                {% endif %}
-                
-                {% if selected_section_subsections %}
-                <div class="subsections-container mt-4" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden;">
-                    <div class="p-3" style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);">
-                        <h5 class="mb-0" style="color: var(--text-color); font-size: 1rem;">
-                            <i class="fas fa-folder-open me-2"></i>Subsections ({{ selected_section_subsections|length }})
-                        </h5>
-                    </div>
-                    <div class="subsections-list">
-                        {% for subsection_data in selected_section_subsections %}
-                            <div class="subsection-item" style="padding: 1rem; {% if not forloop.last %}border-bottom: 1px solid var(--border-color);{% endif %} cursor: pointer; transition: background-color 0.2s;" 
-                                 onmouseover="this.style.background='var(--hover-bg)';" 
-                                 onmouseout="this.style.background='var(--card-bg)';"
-                                 onclick="window.location.href='?section={{ subsection_data.subsection.id|stringformat:"s" }}'">
-                                <div class="d-flex align-items-center justify-content-between">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex align-items-center">
-                                            <i class="fas fa-folder me-2" style="color: var(--text-color); opacity: 0.7;"></i>
-                                            <strong style="color: var(--text-color);">{{ subsection_data.subsection.name }}</strong>
-                                        </div>
-                                        {% if subsection_data.subsection.description %}
-                                            <p class="mb-0 mt-1" style="color: var(--text-color); opacity: 0.7; font-size: 0.875rem; margin-left: 1.75rem;">{{ subsection_data.subsection.description|truncatewords:15 }}</p>
-                                        {% endif %}
-                                    </div>
-                                    <div class="d-flex align-items-center gap-3">
-                                        <span class="badge" style="background: var(--card-border); color: var(--text-color);">
-                                            {{ subsection_data.test_case_count }} case{{ subsection_data.test_case_count|pluralize }}
-                                        </span>
-                                        <i class="fas fa-chevron-right" style="color: var(--text-color); opacity: 0.5;"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
                     </div>
                 </div>
-                {% endif %}
             </div>
-        {% else %}
-                <!-- Default View - All Test Cases -->
-                <!-- Filters - Only show if test cases exist -->
-                <!-- Test Cases List -->
-                <div class="test-case-table">
-                    {% if test_cases %}
-                        {% regroup test_cases by section as test_cases_by_section %}
-                        {% for section_group in test_cases_by_section %}
-                            <div class="section-header" onclick="toggleSection('section-{{ section_group.grouper.id }}')">
-                                <i class="fas fa-chevron-down me-2" id="icon-section-{{ section_group.grouper.id }}"></i>
-                                <strong>{{ section_group.grouper.name }}</strong>
-                                <span class="badge bg-secondary ms-2">{{ section_group.list|length }}</span>
-                                <i class="fas fa-edit ms-auto" style="font-size: 0.8rem; color: var(--text-color); opacity: 0.7;"></i>
+
+            {% if test_cases %}
+            <div class="table-responsive" style="background: var(--table-bg); border-radius: 0 0 8px 8px;">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50px;">
+                                <input type="checkbox" class="section-select-all"
+                                    data-section="{{ selected_section_obj.id }}">
+                            </th>
+                            <th style="width: 100px;">ID</th>
+                            <th>Title</th>
+                            <th style="width: 50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for test_case in test_cases %}
+                        <tr class="test-case-row" style="cursor: pointer;"
+                            onclick="window.location.href='?test_case={{ test_case.id|stringformat:" s" }}'">
+                            <td onclick="event.stopPropagation();">
+                                <input type="checkbox" class="test-case-checkbox" value="{{ test_case.id|stringformat:"
+                                    s" }}" data-section="{{ selected_section_obj.id }}">
+                            </td>
+                            <td><strong>C{{ test_case.id|stringformat:"s"|slice:":8" }}</strong></td>
+                            <td>{{ test_case.title }}</td>
+                            <td class="text-end">
+                                <i class="fas fa-chevron-right" style="color: var(--text-color); opacity: 0.7;"></i>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-2 border-top" style="background: var(--table-bg); border-radius: 0 0 8px 8px;">
+                <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ selected_section_obj.id|stringformat:"
+                    s" }}" class="text-decoration-none me-3">
+                    Add Case
+                </a>
+                <a href="#" class="text-decoration-none"
+                    onclick="addSubsection('{{ selected_section_obj.id|stringformat:" s" }}'); return false;">Add
+                    Subsection</a>
+            </div>
+            {% else %}
+            <div class="text-center p-5" style="background: var(--table-bg); border-radius: 0 0 8px 8px;">
+                <i class="fas fa-clipboard-list fa-3x mb-3" style="color: var(--text-color); opacity: 0.6;"></i>
+                <p style="color: var(--text-color); opacity: 0.8;">No test cases in this section. <a
+                        href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ selected_section_obj.id|stringformat:"
+                        s" }}" style="color: var(--btn-primary-bg);">Create your first test case</a></p>
+                <p style="color: var(--text-color); opacity: 0.8; margin-top: 0.5rem;">or <a href="#"
+                        style="color: var(--btn-primary-bg);"
+                        onclick="addSubsection('{{ selected_section_obj.id|stringformat:" s" }}'); return false;">create
+                        a subsection</a></p>
+            </div>
+            {% endif %}
+
+            {% if selected_section_subsections %}
+            <div class="subsections-container mt-4"
+                style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden;">
+                <div class="p-3"
+                    style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);">
+                    <h5 class="mb-0" style="color: var(--text-color); font-size: 1rem;">
+                        <i class="fas fa-folder-open me-2"></i>Subsections ({{ selected_section_subsections|length }})
+                    </h5>
+                </div>
+                <div class="subsections-list">
+                    {% for subsection_data in selected_section_subsections %}
+                    <div class="subsection-item"
+                        style="padding: 0.75rem 1rem; {% if not forloop.last %}border-bottom: 1px solid var(--border-color);{% endif %} cursor: pointer; transition: background-color 0.2s;"
+                        onmouseover="this.style.background='var(--hover-bg)';"
+                        onmouseout="this.style.background='var(--card-bg)';"
+                        onclick="window.location.href='?section={{ subsection_data.subsection.id|stringformat:" s" }}'">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fas fa-folder" style="color: var(--text-color); opacity: 0.7;"></i>
+                                <span style="color: var(--text-color); font-weight: 600;">
+                                    {{ subsection_data.subsection.name }}
+                                </span>
                             </div>
-                            <div id="section-{{ section_group.grouper.id }}" class="section-content">
-                                <div class="table-responsive">
-                                    <table class="table table-hover mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th style="width: 50px;">
-                                                    <input type="checkbox" class="section-select-all" data-section="{{ section_group.grouper.id }}">
-                                                </th>
-                                                <th style="width: 80px;">ID</th>
-                                                <th>Title</th>
-                                                <th>Type</th>
-                                                <th>Priority</th>
-                                                <th>Steps</th>
-                                                <th style="width: 150px;">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for test_case in section_group.list %}
-                                                <tr class="test-case-row" style="cursor: pointer;" onclick="window.location.href='?test_case={{ test_case.id|stringformat:"s" }}'">
-                                                    <td onclick="event.stopPropagation();">
-                                                        <input type="checkbox" class="test-case-checkbox" value="{{ test_case.id|stringformat:"s" }}" data-section="{{ section_group.grouper.id }}">
-                                                    </td>
-                                                    <td>C{{ test_case.id|stringformat:"s"|slice:":8" }}</td>
-                                                    <td>{{ test_case.title }}</td>
-                                                    <td>
-                                                        <span class="badge bg-secondary">{{ test_case.type }}</span>
-                                                    </td>
-                                                    <td>
-                                                        <span class="badge 
+                            <span class="badge" style="background: var(--card-border); color: var(--text-color);">
+                                {{ subsection_data.test_case_count }} case{{ subsection_data.test_case_count|pluralize }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <!-- Default View - All Test Cases -->
+        <!-- Filters - Only show if test cases exist -->
+        <!-- Test Cases List -->
+        <div class="test-case-table">
+            {% if test_cases %}
+            {% regroup test_cases by section as test_cases_by_section %}
+            {% for section_group in test_cases_by_section %}
+            <div class="section-header" onclick="toggleSection('section-{{ section_group.grouper.id }}')">
+                <i class="fas fa-chevron-down me-2" id="icon-section-{{ section_group.grouper.id }}"></i>
+                <strong>{{ section_group.grouper.name }}</strong>
+                <span class="badge bg-secondary ms-2">{{ section_group.list|length }}</span>
+                <i class="fas fa-edit ms-auto" style="font-size: 0.8rem; color: var(--text-color); opacity: 0.7;"></i>
+            </div>
+            <div id="section-{{ section_group.grouper.id }}" class="section-content">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;">
+                                    <input type="checkbox" class="section-select-all"
+                                        data-section="{{ section_group.grouper.id }}">
+                                </th>
+                                <th style="width: 80px;">ID</th>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>Priority</th>
+                                <th>Steps</th>
+                                <th style="width: 150px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for test_case in section_group.list %}
+                            <tr class="test-case-row" style="cursor: pointer;"
+                                onclick="window.location.href='?test_case={{ test_case.id|stringformat:" s" }}'">
+                                <td onclick="event.stopPropagation();">
+                                    <input type="checkbox" class="test-case-checkbox"
+                                        value="{{ test_case.id|stringformat:" s" }}"
+                                        data-section="{{ section_group.grouper.id }}">
+                                </td>
+                                <td>C{{ test_case.id|stringformat:"s"|slice:":8" }}</td>
+                                <td>{{ test_case.title }}</td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ test_case.type }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge 
                                                             {% if test_case.priority == 'Critical' %}bg-danger
                                                             {% elif test_case.priority == 'High' %}bg-warning
                                                             {% elif test_case.priority == 'Medium' %}bg-info
                                                             {% else %}bg-secondary
                                                             {% endif %}">
-                                                            {{ test_case.priority }}
-                                                        </span>
-                                                    </td>
-                                                    <td>{{ test_case.steps|length }} step{{ test_case.steps|length|pluralize }}</td>
-                                                    <td onclick="event.stopPropagation();">
-                                                        {% if user_can_edit %}
-                                                        <a href="{% url 'testcases:test_case_edit' project_id=project.id pk=test_case.id|stringformat:"s" %}" class="btn btn-sm btn-warning" title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </a>
-                                                        {% else %}
-                                                        <button class="btn btn-sm btn-warning" disabled title="You do not have permission to edit test cases">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        {% endif %}
-                                                        {% if user_can_delete %}
-                                                        <form method="post" action="{% url 'testcases:test_case_delete' project_id=project.id pk=test_case.id|stringformat:"s" %}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this test case?');">
-                                                            {% csrf_token %}
-                                                            <button type="submit" class="btn btn-sm btn-danger" title="Delete">
-                                                                <i class="fas fa-trash"></i>
-                                                            </button>
-                                                        </form>
-                                                        {% else %}
-                                                        <button class="btn btn-sm btn-danger" disabled title="You do not have permission to delete test cases">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                        {% endif %}
-                                                    </td>
-                                                </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div class="p-2 border-top">
-                                    <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ section_group.grouper.id|stringformat:"s" }}" class="text-decoration-none me-3">
-                                        Add Case
+                                        {{ test_case.priority }}
+                                    </span>
+                                </td>
+                                <td>{{ test_case.steps|length }} step{{ test_case.steps|length|pluralize }}</td>
+                                <td onclick="event.stopPropagation();">
+                                    {% if user_can_edit %}
+                                    <a href="{% url 'testcases:test_case_edit' project_id=project.id pk=test_case.id|stringformat:"
+                                        s" %}" class="btn btn-sm btn-warning" title="Edit">
+                                        <i class="fas fa-edit"></i>
                                     </a>
-                                    <a href="#" class="text-decoration-none" onclick="addSubsection('{{ section_group.grouper.id|stringformat:"s" }}'); return false;">Add Subsection</a>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="text-center p-5">
-                            <i class="fas fa-clipboard-list fa-3x mb-3" style="color: var(--text-color); opacity: 0.6;"></i>
-                            {% if search_query %}
-                                <p style="color: var(--text-color); opacity: 0.8;">
-                                    No test cases found matching "<strong>{{ search_query }}</strong>". 
-                                    <a href="javascript:void(0);" onclick="clearSearch();" style="color: var(--btn-primary-bg);">Clear search</a> or 
-                                    <a href="{% url 'testcases:test_case_add' project_id=project.id %}" style="color: var(--btn-primary-bg);">create a new test case</a>.
-                                </p>
-                            {% else %}
-                                <p style="color: var(--text-color); opacity: 0.8;">No test cases found. <a href="{% url 'testcases:test_case_add' project_id=project.id %}" style="color: var(--btn-primary-bg);">Create your first test case</a></p>
-                            {% endif %}
-                        </div>
-                    {% endif %}
+                                    {% else %}
+                                    <button class="btn btn-sm btn-warning" disabled
+                                        title="You do not have permission to edit test cases">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    {% endif %}
+                                    {% if user_can_delete %}
+                                    <form method="post"
+                                        action="{% url 'testcases:test_case_delete' project_id=project.id pk=test_case.id|stringformat:"
+                                        s" %}" class="d-inline"
+                                        onsubmit="return confirm('Are you sure you want to delete this test case?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-danger" disabled
+                                        title="You do not have permission to delete test cases">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
+                <div class="p-2 border-top">
+                    <a href="{% url 'testcases:test_case_add' project_id=project.id %}?section={{ section_group.grouper.id|stringformat:"
+                        s" }}" class="text-decoration-none me-3">
+                        Add Case
+                    </a>
+                    <a href="#" class="text-decoration-none"
+                        onclick="addSubsection('{{ section_group.grouper.id|stringformat:" s" }}'); return false;">Add
+                        Subsection</a>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="text-center p-5">
+                <i class="fas fa-clipboard-list fa-3x mb-3" style="color: var(--text-color); opacity: 0.6;"></i>
+                {% if search_query %}
+                <p style="color: var(--text-color); opacity: 0.8;">
+                    No test cases found matching "<strong>{{ search_query }}</strong>".
+                    <a href="javascript:void(0);" onclick="clearSearch();" style="color: var(--btn-primary-bg);">Clear
+                        search</a> or
+                    <a href="{% url 'testcases:test_case_add' project_id=project.id %}"
+                        style="color: var(--btn-primary-bg);">create a new test case</a>.
+                </p>
+                {% else %}
+                <p style="color: var(--text-color); opacity: 0.8;">No test cases found. <a
+                        href="{% url 'testcases:test_case_add' project_id=project.id %}"
+                        style="color: var(--btn-primary-bg);">Create your first test case</a></p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <script>
+    // Drag and Drop (SortableJS) Implementation
+    document.addEventListener('DOMContentLoaded', function () {
+        // Ensure section description and counts render even if templating hiccups
+        const descEl = document.getElementById('section-description');
+        if (descEl && descEl.dataset.desc) {
+            descEl.innerHTML = descEl.dataset.desc;
+        }
+        const countEl = document.getElementById('section-testcase-count');
+        if (countEl && countEl.dataset.count) {
+            const n = parseInt(countEl.dataset.count, 10) || 0;
+            const plural = n === 1 ? '' : 's';
+            countEl.textContent = `${n} test case${plural}`;
+        }
+        const summary = document.getElementById('tree-summary');
+        if (summary) {
+            const s = summary.querySelector('.summary-total-sections');
+            const c = summary.querySelector('.summary-total-cases');
+            const totalSections = summary.dataset.totalSections || '';
+            const totalCases = summary.dataset.totalCases || '';
+            if (s) s.textContent = totalSections;
+            if (c) c.textContent = totalCases;
+        }
+
+        // Initialize on root tree navigation
+        const rootEl = document.getElementById('tree-navigation');
+        if (rootEl) {
+            initSortable(rootEl);
+        }
+
+        // Initialize on all nested section children containers
+        document.querySelectorAll('.tree-children').forEach(el => {
+            initSortable(el);
+        });
+    });
+
+    function initSortable(el) {
+        new Sortable(el, {
+            group: 'nested', // Share group to allow moving between lists
+            animation: 150,
+            fallbackOnBody: true,
+            swapThreshold: 0.65,
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
+            handle: '.tree-item-content', // Drag handle
+            onEnd: function (evt) {
+                const itemEl = evt.item;
+                const newIndex = evt.newIndex;
+                const newParentEl = evt.to; // The container dropped into
+
+                // Determine new parent ID
+                let parentId = null;
+                if (newParentEl.id === 'tree-navigation') {
+                    parentId = null; // Root
+                } else if (newParentEl.id.startsWith('tree-section-')) {
+                    parentId = newParentEl.id.replace('tree-section-', '').trim();
+                }
+
+                // Collect all siblings in the new container to update their order
+                const siblings = Array.from(newParentEl.children).filter(child =>
+                    child.classList.contains('tree-section-item') || child.classList.contains('tree-test-case')
+                );
+
+                const itemsToUpdate = siblings.map((child, index) => {
+                    return {
+                        id: child.getAttribute('data-id'),
+                        type: child.getAttribute('data-type'),
+                        order: index, // New order based on position
+                        parent_id: parentId
+                    };
+                });
+
+                // Filter out any invalid items (if any non-draggable elements exist)
+                const validItems = itemsToUpdate.filter(i => i.id && i.type);
+
+                if (validItems.length > 0) {
+                    saveOrder(validItems);
+                }
+            }
+        });
+    }
+
+    function saveOrder(items) {
+        fetch("{% url 'testcases:reorder_items' project_id=project.id %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({ items: items })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Optional: Show a subtle toast notification
+                    console.log('Order saved successfully');
+                } else {
+                    console.error('Error saving order:', data.error);
+                    alert('Failed to save new order.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while saving the order.');
+            });
+    }
+
     // Search functionality
     let searchTimeout;
     let isSubmitting = false;
-    
+
     function handleSearchKeyDown(event) {
         // Prevent form submission on Enter key
         if (event.key === 'Enter') {
@@ -896,20 +1070,20 @@
             return false;
         }
     }
-    
+
     function handleSearchInput(event) {
         // Don't do anything if we're currently submitting
         if (isSubmitting) {
             return;
         }
-        
+
         // Clear previous timeout
         clearTimeout(searchTimeout);
-        
+
         // Get current value
         const searchInput = document.getElementById('search-input');
         const searchValue = searchInput.value;
-        
+
         // Debounce the search (wait 1000ms after user stops typing)
         searchTimeout = setTimeout(() => {
             // Check if value is still the same (user stopped typing)
@@ -918,7 +1092,7 @@
             }
         }, 1000);
     }
-    
+
     function submitSearch() {
         if (isSubmitting) {
             return;
@@ -928,12 +1102,12 @@
         // Submit the form
         form.submit();
     }
-    
+
     // Reset submitting flag when page loads (in case of back button)
-    window.addEventListener('load', function() {
+    window.addEventListener('load', function () {
         isSubmitting = false;
     });
-    
+
     function clearSearch() {
         const searchInput = document.getElementById('search-input');
         searchInput.value = '';
@@ -942,7 +1116,7 @@
         url.searchParams.delete('search');
         window.location.href = url.toString();
     }
-    
+
     // Update sort and filter while preserving section/test_case/search parameters
     function updateSortFilter() {
         const sortSelect = document.getElementById('sort-select');
@@ -951,14 +1125,14 @@
         const sortValue = sortSelect ? sortSelect.value : '';
         const filterValue = filterSelect ? filterSelect.value : '';
         const sectionValue = sectionSelect ? sectionSelect.value : '';
-        
+
         // Get current URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const testCase = urlParams.get('test_case');
-        
+
         // Build new URL with preserved parameters
         const newParams = new URLSearchParams();
-        
+
         // Set section filter
         if (sectionSelect) {
             if (sectionValue) {
@@ -970,39 +1144,39 @@
                 newParams.set('section', section);
             }
         }
-        
+
         // Preserve test_case if it exists
         if (testCase) {
             newParams.set('test_case', testCase);
         }
-        
+
         // Add sort parameter
         if (sortValue) {
             newParams.set('sort', sortValue);
         }
-        
+
         // Add filter parameter
         if (filterValue && filterValue !== 'all') {
             newParams.set('filter', filterValue);
         }
-        
+
         // Preserve search parameter
         const searchInput = document.getElementById('search-input');
         if (searchInput && searchInput.value.trim()) {
             newParams.set('search', searchInput.value.trim());
         }
-        
+
         // Navigate to new URL
         const newUrl = window.location.pathname + (newParams.toString() ? '?' + newParams.toString() : '');
         window.location.href = newUrl;
     }
-    
+
     // Toggle section collapse/expand
     function toggleSection(sectionId) {
         const section = document.getElementById(sectionId);
         const icon = document.getElementById('icon-' + sectionId);
         const header = icon.closest('.section-header');
-        
+
         if (section.classList.contains('collapsed')) {
             section.classList.remove('collapsed');
             header.classList.remove('collapsed');
@@ -1018,7 +1192,7 @@
 
     // Section select all functionality
     document.querySelectorAll('.section-select-all').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
+        checkbox.addEventListener('change', function () {
             const sectionId = this.dataset.section;
             const checkboxes = document.querySelectorAll(`.test-case-checkbox[data-section="${sectionId}"]`);
             checkboxes.forEach(cb => cb.checked = this.checked);
@@ -1029,14 +1203,14 @@
     const urlParams = new URLSearchParams(window.location.search);
     const selectedSection = urlParams.get('section');
     const selectedTestCase = urlParams.get('test_case');
-    
+
     function toggleTreeItem(itemId, iconId) {
         const element = document.getElementById(itemId);
         const icon = iconId ? document.getElementById(iconId) : null;
-        
+
         if (element) {
             const isCollapsed = element.classList.contains('collapsed');
-            
+
             if (isCollapsed) {
                 // Expand
                 element.classList.remove('collapsed');
@@ -1046,7 +1220,7 @@
                 setTimeout(() => {
                     element.style.maxHeight = '5000px';
                 }, 300);
-                
+
                 if (icon) {
                     icon.classList.remove('collapsed');
                     icon.classList.remove('fa-chevron-right');
@@ -1059,7 +1233,7 @@
                 element.offsetHeight;
                 element.classList.add('collapsed');
                 element.style.maxHeight = '0';
-                
+
                 if (icon) {
                     icon.classList.add('collapsed');
                     icon.classList.remove('fa-chevron-down');
@@ -1070,7 +1244,7 @@
     }
     // Make toggleTreeItem available globally
     window.toggleTreeItem = toggleTreeItem;
-    
+
     // Expand tree to show selected items
     if (selectedSection) {
         document.querySelectorAll(`.tree-item[data-section="${selectedSection}"]`).forEach(item => {
@@ -1094,7 +1268,7 @@
             }
         });
     }
-    
+
     if (selectedTestCase) {
         document.querySelectorAll(`.tree-item[data-test-case="${selectedTestCase}"]`).forEach(item => {
             item.classList.add('active');
@@ -1117,10 +1291,10 @@
             }
         });
     }
-    
+
     // Make toggleTreeItem available globally
     window.toggleTreeItem = toggleTreeItem;
-    
+
     // Toggle main tree section
     function toggleTreeSection(sectionId) {
         const element = document.getElementById(sectionId);
@@ -1141,9 +1315,9 @@
             }
         }
     }
-    
+
     // Ensure tree is expanded by default
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // Expand all sections that have selected items
         const treeNavigation = document.getElementById('tree-navigation');
         if (treeNavigation) {
@@ -1154,7 +1328,7 @@
             });
         }
     });
-    
+
     // Function to add section (root level) - shows modal
     function addSection() {
         // Show modal
@@ -1163,30 +1337,30 @@
         document.getElementById('section-name-input').value = '';
         document.getElementById('section-description-input').value = '';
     }
-    
+
     // Function to close Add Section modal
     function closeAddSectionModal() {
         document.getElementById('addSectionModal').style.display = 'none';
     }
-    
+
     // Store project ID for use in JavaScript
     const projectId = '{{ project.id|stringformat:"s" }}';
-    
+
     // Handle Add Section form submission
     function submitAddSection() {
         const name = document.getElementById('section-name-input').value.trim();
         const description = document.getElementById('section-description-input').value.trim();
-        
+
         if (!name) {
             alert('Section name is required.');
             return;
         }
-        
+
         // Create and submit form
         const submitForm = document.createElement('form');
         submitForm.method = 'POST';
         submitForm.action = `/testcases/projects/${projectId}/sections/add/`;
-        
+
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (csrfToken) {
             const csrfInput = document.createElement('input');
@@ -1195,24 +1369,24 @@
             csrfInput.value = csrfToken.value;
             submitForm.appendChild(csrfInput);
         }
-        
+
         const nameInput = document.createElement('input');
         nameInput.type = 'hidden';
         nameInput.name = 'section_name';
         nameInput.value = name;
         submitForm.appendChild(nameInput);
-        
+
         // Always send description, even if empty
         const descInput = document.createElement('input');
         descInput.type = 'hidden';
         descInput.name = 'section_description';
         descInput.value = description;
         submitForm.appendChild(descInput);
-        
+
         document.body.appendChild(submitForm);
         submitForm.submit();
     }
-    
+
     // Function to add subsection - shows modal
     function addSubsection(sectionId) {
         // Store section ID for form submission
@@ -1223,14 +1397,14 @@
         document.getElementById('subsection-name-input').value = '';
         document.getElementById('subsection-description-input').value = '';
     }
-    
+
     // Function to close modal
     function closeAddSubsectionModal() {
         document.getElementById('addSubsectionModal').style.display = 'none';
     }
-    
+
     // Close modal when clicking outside
-    window.onclick = function(event) {
+    window.onclick = function (event) {
         const addSectionModal = document.getElementById('addSectionModal');
         const addSubsectionModal = document.getElementById('addSubsectionModal');
         if (event.target == addSectionModal) {
@@ -1240,24 +1414,24 @@
             addSubsectionModal.style.display = 'none';
         }
     }
-    
+
     // Handle form submission
     function submitAddSubsection() {
         const form = document.getElementById('add-subsection-form');
         const sectionId = form.getAttribute('data-section-id');
         const name = document.getElementById('subsection-name-input').value.trim();
         const description = document.getElementById('subsection-description-input').value.trim();
-        
+
         if (!name) {
             alert('Section name is required.');
             return;
         }
-        
+
         // Create and submit form
         const submitForm = document.createElement('form');
         submitForm.method = 'POST';
         submitForm.action = `/testcases/projects/${projectId}/section/${sectionId}/add-subsection/`;
-        
+
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (csrfToken) {
             const csrfInput = document.createElement('input');
@@ -1266,13 +1440,13 @@
             csrfInput.value = csrfToken.value;
             submitForm.appendChild(csrfInput);
         }
-        
+
         const nameInput = document.createElement('input');
         nameInput.type = 'hidden';
         nameInput.name = 'subsection_name';
         nameInput.value = name;
         submitForm.appendChild(nameInput);
-        
+
         if (description) {
             const descInput = document.createElement('input');
             descInput.type = 'hidden';
@@ -1280,7 +1454,7 @@
             descInput.value = description;
             submitForm.appendChild(descInput);
         }
-        
+
         document.body.appendChild(submitForm);
         submitForm.submit();
     }
@@ -1297,9 +1471,10 @@
             <form id="add-section-form">
                 <div class="form-group-add-section">
                     <label for="section-name-input">Name <span style="color: red;">*</span></label>
-                    <input type="text" id="section-name-input" class="form-control-add-section" placeholder="Ex: Save Dialog Tests, Contact Form or Performance Tests" required>
+                    <input type="text" id="section-name-input" class="form-control-add-section"
+                        placeholder="Ex: Save Dialog Tests, Contact Form or Performance Tests" required>
                 </div>
-                
+
                 <div class="form-group-add-section">
                     <label for="section-description-input">Description</label>
                     <div class="description-toolbar">
@@ -1307,7 +1482,8 @@
                         <i class="fas fa-image" title="Image"></i>
                         <i class="fas fa-question-circle" title="Help"></i>
                     </div>
-                    <textarea id="section-description-input" class="form-control-add-section" rows="4" placeholder="An optional description for this section (e.g. to explain its content or purpose)."></textarea>
+                    <textarea id="section-description-input" class="form-control-add-section" rows="4"
+                        placeholder="An optional description for this section (e.g. to explain its content or purpose)."></textarea>
                 </div>
             </form>
         </div>
@@ -1333,9 +1509,10 @@
             <form id="add-subsection-form">
                 <div class="form-group-add-section">
                     <label for="subsection-name-input">Name <span style="color: red;">*</span></label>
-                    <input type="text" id="subsection-name-input" class="form-control-add-section" placeholder="Ex: Save Dialog Tests, Contact Form or Performance Tests" required>
+                    <input type="text" id="subsection-name-input" class="form-control-add-section"
+                        placeholder="Ex: Save Dialog Tests, Contact Form or Performance Tests" required>
                 </div>
-                
+
                 <div class="form-group-add-section">
                     <label for="subsection-description-input">Description</label>
                     <div class="description-toolbar">
@@ -1343,7 +1520,8 @@
                         <i class="fas fa-image" title="Image"></i>
                         <i class="fas fa-question-circle" title="Help"></i>
                     </div>
-                    <textarea id="subsection-description-input" class="form-control-add-section" rows="4" placeholder="An optional description for this section (e.g. to explain its content or purpose)."></textarea>
+                    <textarea id="subsection-description-input" class="form-control-add-section" rows="4"
+                        placeholder="An optional description for this section (e.g. to explain its content or purpose)."></textarea>
                 </div>
             </form>
         </div>
@@ -1372,7 +1550,7 @@
         justify-content: center;
         align-items: center;
     }
-    
+
     /* Modal Content */
     .modal-content-add-section {
         background-color: var(--modal-bg);
@@ -1387,7 +1565,7 @@
         flex-direction: column;
         transition: background-color 0.3s ease, border-color 0.3s ease;
     }
-    
+
     /* Modal Header */
     .modal-header-add-section {
         background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
@@ -1398,13 +1576,13 @@
         justify-content: space-between;
         align-items: center;
     }
-    
+
     .modal-header-add-section h3 {
         margin: 0;
         font-size: 1.25rem;
         font-weight: 600;
     }
-    
+
     .modal-close {
         color: white;
         font-size: 1.5rem;
@@ -1412,11 +1590,11 @@
         cursor: pointer;
         line-height: 1;
     }
-    
+
     .modal-close:hover {
         opacity: 0.7;
     }
-    
+
     /* Modal Body */
     .modal-body-add-section {
         padding: 1.5rem;
@@ -1425,11 +1603,11 @@
         color: var(--text-color);
         transition: background-color 0.3s ease, color 0.3s ease;
     }
-    
+
     .form-group-add-section {
         margin-bottom: 1.5rem;
     }
-    
+
     .form-group-add-section label {
         display: block;
         margin-bottom: 0.5rem;
@@ -1437,7 +1615,7 @@
         color: var(--text-color);
         transition: color 0.3s ease;
     }
-    
+
     .form-control-add-section {
         width: 100%;
         padding: 0.75rem;
@@ -1449,20 +1627,20 @@
         color: var(--input-text);
         transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
     }
-    
+
     .form-control-add-section:focus {
         outline: none;
         border-color: var(--btn-primary-bg);
         box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
     }
-    
+
     .description-toolbar {
         display: flex;
         gap: 0.5rem;
         margin-bottom: 0.5rem;
         justify-content: flex-end;
     }
-    
+
     .description-toolbar i {
         color: var(--text-color);
         opacity: 0.8;
@@ -1470,21 +1648,21 @@
         padding: 0.25rem;
         transition: color 0.3s ease, opacity 0.3s ease;
     }
-    
+
     [data-theme="dark"] .description-toolbar i {
         opacity: 0.9;
     }
-    
+
     .description-toolbar i:hover {
         color: var(--btn-primary-bg);
         opacity: 1;
     }
-    
+
     /* File Attachment Area */
     .file-attachment-area {
         margin-top: 1.5rem;
     }
-    
+
     .file-drop-zone {
         border: 2px dashed var(--border-color);
         border-radius: 8px;
@@ -1494,17 +1672,17 @@
         cursor: pointer;
         transition: all 0.3s;
     }
-    
+
     .file-drop-zone:hover {
         border-color: var(--btn-primary-bg);
         background-color: var(--tree-hover);
     }
-    
+
     .file-drop-zone i {
         color: var(--btn-primary-bg);
         margin-bottom: 0.5rem;
     }
-    
+
     .file-drop-zone p {
         margin: 0;
         color: var(--text-color);
@@ -1512,11 +1690,11 @@
         font-size: 0.9rem;
         transition: color 0.3s ease, opacity 0.3s ease;
     }
-    
+
     [data-theme="dark"] .file-drop-zone p {
         opacity: 0.9;
     }
-    
+
     /* Modal Footer */
     .modal-footer-add-section {
         padding: 1rem 1.5rem;
@@ -1527,7 +1705,7 @@
         background-color: var(--modal-header-bg);
         transition: border-color 0.3s ease, background-color 0.3s ease;
     }
-    
+
     .btn-add-section {
         background-color: #28a745;
         color: white;
@@ -1541,11 +1719,11 @@
         align-items: center;
         gap: 0.5rem;
     }
-    
+
     .btn-add-section:hover {
         background-color: #218838;
     }
-    
+
     .btn-cancel-section {
         background-color: #dc3545;
         color: white;
@@ -1559,7 +1737,7 @@
         align-items: center;
         gap: 0.5rem;
     }
-    
+
     .btn-cancel-section:hover {
         background-color: #c82333;
     }

@@ -1960,6 +1960,8 @@ def manage_nodes(request):
 @user_passes_test(lambda u: u.can_access_admin_queries())
 def admin_user_management(request):
     """Admin view to manage users and their approval status."""
+    from testcases.models import SectionPermission
+    
     users = user.objects.all().order_by('username') # Fetch all users, ordered by username
     
     # Handle POST requests for approving/disapproving users
@@ -2004,6 +2006,26 @@ def admin_user_management(request):
                 target_user.can_access_test_cases = 'can_access_test_cases' in request.POST.getlist('project_access')
                 target_user.save()
                 messages.success(request, f'Project access for user {target_user.username} updated.')
+            elif action == 'set_testcase_permissions':
+                # Handle test case permissions (edit/delete)
+                can_edit = 'can_edit_testcases' in request.POST.getlist('testcase_permissions')
+                can_delete = 'can_delete_testcases' in request.POST.getlist('testcase_permissions')
+                
+                # Get or create SectionPermission
+                try:
+                    perm = SectionPermission.objects.get(user_id=target_user.id)
+                    perm.can_edit = can_edit
+                    perm.can_delete = can_delete
+                    perm.save()
+                except SectionPermission.DoesNotExist:
+                    perm = SectionPermission(
+                        user_id=target_user.id,
+                        can_edit=can_edit,
+                        can_delete=can_delete
+                    )
+                    perm.save()
+                
+                messages.success(request, f'Test case permissions for user {target_user.username} updated.')
             elif action == 'delete': # Handle delete action
                  if not target_user.is_superuser: # Only allow deleting non-superusers from this view
                      target_user.delete()
@@ -2023,6 +2045,7 @@ def admin_user_management(request):
         'ROLE_CHOICES': user.ROLE_CHOICES, # Pass role choices to the template
     }
     return render(request, 'dashboard/admin_user_management.html', context)
+
 
 @login_required
 def neo4j_dashboard(request):

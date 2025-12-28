@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.template.loader import render_to_string
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, Http404, HttpResponse
@@ -523,12 +524,31 @@ def test_case_list(request, project_id=None):
                 
                 # ALWAYS include root sections - they should appear in the tree even if empty
                 # This ensures newly created sections are visible
+                # Combine into children for ordered display
+                children = []
+                for tc in section_test_cases:
+                    children.append({
+                        'type': 'test_case',
+                        'data': tc,
+                        'order': getattr(tc, 'order', 0)
+                    })
+                
+                for sub in subsections:
+                    children.append({
+                        'type': 'section',
+                        'data': sub, # This is the subsection tree node
+                        'order': getattr(sub['section'], 'order', 0)
+                    })
+                
+                children.sort(key=lambda x: x['order'])
+
                 section_matches_search = search_query and (search_query.lower() in section.name.lower() or 
                                                           (section.description and search_query.lower() in section.description.lower()))
                 tree.append({
                     'section': section,
                     'test_cases': section_test_cases,
                     'subsections': subsections,
+                    'children': children,
                     'has_cases': has_test_cases or has_subsections or has_direct_subsections,
                     'matches_search': section_matches_search if search_query else False,
                 })
@@ -569,12 +589,31 @@ def test_case_list(request, project_id=None):
                 
                 # ALWAYS include subsections - they should appear in the tree even if empty
                 # This ensures newly created subsections are visible
+                # Combine into children for ordered display
+                children = []
+                for tc in section_test_cases:
+                    children.append({
+                        'type': 'test_case',
+                        'data': tc,
+                        'order': getattr(tc, 'order', 0)
+                    })
+                
+                for sub in subsections:
+                    children.append({
+                        'type': 'section',
+                        'data': sub, # This is the subsection tree node
+                        'order': getattr(sub['section'], 'order', 0)
+                    })
+                
+                children.sort(key=lambda x: x['order'])
+
                 section_matches_search = search_query and (search_query.lower() in section.name.lower() or 
                                                           (section.description and search_query.lower() in section.description.lower()))
                 tree.append({
                     'section': section,
                     'test_cases': section_test_cases,
                     'subsections': subsections,
+                    'children': children,
                     'has_cases': has_test_cases or has_subsections or has_direct_subsections,
                     'matches_search': section_matches_search if search_query else False,
                 })
@@ -636,6 +675,46 @@ def test_case_list(request, project_id=None):
     unique_types = sorted(set(tc.type for tc in all_test_cases if tc.type))
     unique_priorities = sorted(set(tc.priority for tc in all_test_cases if tc.priority))
     
+    # Pre-render sidebar tree HTML to avoid template recursion issues that leak raw template tags
+    def render_tree_section(node, level=0):
+        """Render a section node and its children to HTML."""
+        children_html_parts = []
+        for child in node.get('children', []):
+            if child.get('type') == 'test_case' and child.get('data'):
+                tc = child['data']
+                children_html_parts.append(render_to_string(
+                    'testcases/tree_test_case_node.html',
+                    {
+                        'tc': tc,
+                        'selected_test_case': test_case_filter,
+                        'search_query': search_query,
+                    },
+                    request=request
+                ))
+            elif child.get('type') == 'section' and child.get('data'):
+                children_html_parts.append(render_tree_section(child['data'], level + 1))
+
+        children_html = ''.join(children_html_parts)
+
+        return render_to_string(
+            'testcases/tree_section_node.html',
+            {
+                'section': node.get('section'),
+                'children_html': children_html,
+                'level': level,
+                'selected_section': section_filter,
+                'selected_test_case': test_case_filter,
+                'search_query': search_query,
+                'matches_search': node.get('matches_search', False),
+            },
+            request=request
+        )
+
+    def render_tree_items(tree, level=0):
+        return ''.join(render_tree_section(it, level) for it in tree)
+
+    tree_html = render_tree_items(section_tree, 0)
+
     context = {
         'project': project,
         'test_cases': test_cases,
@@ -651,6 +730,7 @@ def test_case_list(request, project_id=None):
         'selected_test_case_steps': selected_test_case_steps,
         'selected_test_case_history': selected_test_case_history,
         'section_tree': section_tree,
+        'tree_html': tree_html,
         'total_sections': total_sections,
         'total_cases': total_cases,
         'current_sort': sort_param,
@@ -1002,6 +1082,11 @@ def section_add(request, project_id):
     section_name = request.POST.get('section_name', '').strip()
     section_description = request.POST.get('section_description', '').strip()
     
+    # Validate description length
+    if section_description and len(section_description) > 1000:
+        messages.error(request, 'Description cannot exceed 1000 characters.')
+        return redirect('testcases:test_case_list', project_id=str(project.id))
+    
     if section_name:
         try:
             # Check if section already exists at root level (no parent) in this project
@@ -1064,6 +1149,11 @@ def section_add_subsection(request, project_id, section_id):
     if request.method == 'POST':
         subsection_name = request.POST.get('subsection_name', '').strip()
         subsection_description = request.POST.get('subsection_description', '').strip()
+        
+        # Validate description length
+        if subsection_description and len(subsection_description) > 1000:
+            messages.error(request, 'Description cannot exceed 1000 characters.')
+            return redirect('testcases:test_case_list', project_id=str(project.id))
         
         if subsection_name:
             try:
@@ -1245,13 +1335,13 @@ def section_manage(request, project_id):
     all_test_cases = []
     
     for section in all_sections:
-        # Get test cases in this section
-        test_cases = list(TestCase.objects(section=section, is_deleted=False).order_by('-created_at'))
+        # Get test cases directly in this section (not in subsections)
+        test_cases = list(TestCase.objects(project=project, section=section, is_deleted=False).order_by('-created_at'))
         
-        # Count test cases in this section
+        # Count test cases directly in this section
         test_case_count = len(test_cases)
         
-        # Count subsections
+        # Count direct subsections (children of this section)
         subsection_count = Section.objects(project=project, parent=section).count()
         
         sections_data.append({
@@ -1334,6 +1424,11 @@ def section_edit(request, project_id, section_id):
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         description = request.POST.get('description', '').strip()
+        
+        # Validate description length
+        if description and len(description) > 1000:
+            messages.error(request, 'Description cannot exceed 1000 characters.')
+            return redirect('testcases:section_edit', project_id=str(project.id), section_id=section_id)
         
         if name:
             # Check if name already exists (excluding current section) - within same project
@@ -1628,8 +1723,10 @@ def test_case_import(request, project_id):
         messages.error(request, 'Project not found.')
         return redirect('testcases:project_dashboard')
     
-    if not user_can_edit_sections(request.user):
-        messages.error(request, 'You do not have permission to import test cases.')
+    # Check if user has permission to import test cases
+    # Admin users (role 3) always have permission, or users with explicit import permission
+    if request.user.role != 3 and not request.user.can_import_test_cases:
+        messages.error(request, 'You do not have permission to import test cases. Please contact an administrator.')
         return redirect('testcases:test_case_list', project_id=str(project.id))
     
     if request.method == 'POST':
@@ -1665,6 +1762,7 @@ def test_case_import(request, project_id):
                         # Get or create section - try multiple column name variations
                         # Priority: Section Hie (Section Hierarchy) > Section > Section Des > Suite
                         section_path = (
+                            row.get('Section Hierarchy', '').strip() or
                             row.get('Section Hie', '').strip() or
                             row.get('Section Hier', '').strip() or
                             row.get('Section Hierarchical', '').strip() or
@@ -2003,6 +2101,7 @@ def test_case_import(request, project_id):
                         # Get or create section - try multiple column name variations
                         # Priority: Section Hie (Section Hierarchy) > Section > Section Des > Suite
                         section_path = (
+                            str(row_dict.get('Section Hierarchy', '')).strip() or
                             str(row_dict.get('Section Hie', '')).strip() or
                             str(row_dict.get('Section Hier', '')).strip() or
                             str(row_dict.get('Section Hierarchical', '')).strip() or
@@ -3462,4 +3561,82 @@ def test_run_get_test_case_details(request, project_id, test_run_id, test_case_i
         logger = logging.getLogger(__name__)
         logger.error(f"Error getting test case details: {str(e)}")
         return JsonResponse({'error': f'Error: {str(e)}'}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def reorder_items(request, project_id):
+    """Reorder sections or test cases"""
+    if not request.user.can_access_test_cases:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    # Check edit permissions
+    if not user_can_edit_sections(request.user):
+         return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return JsonResponse({'error': 'Project not found'}, status=404)
+        
+    try:
+        data = json.loads(request.body)
+        items = data.get('items', [])
+        
+        if not items:
+             return JsonResponse({'success': True})
+
+        for item in items:
+             item_type = item.get('type')
+             item_id = item.get('id')
+             parent_id = item.get('parent_id') # For section parent or test case section
+             order = item.get('order')
+             
+             if not item_id:
+                 continue
+
+             if item_type == 'section':
+                 try:
+                     section = Section.objects.get(id=ObjectId(item_id), project=project)
+                     if order is not None:
+                         section.order = int(order)
+                     
+                     if parent_id:
+                         try:
+                             # Avoid circular reference
+                             if str(section.id) == str(parent_id):
+                                 continue
+                             section.parent = Section.objects.get(id=ObjectId(parent_id), project=project)
+                         except Section.DoesNotExist:
+                             pass
+                     elif 'parent_id' in item: # Explicitly set to None/root if present but empty
+                         section.parent = None
+                     
+                     section.save()
+                 except Section.DoesNotExist:
+                     continue
+                     
+             elif item_type == 'test_case':
+                 try:
+                     test_case = TestCase.objects.get(id=ObjectId(item_id), project=project)
+                     if order is not None:
+                         test_case.order = int(order)
+                     
+                     if parent_id: # For test case, parent_id is the section ID
+                         try:
+                             test_case.section = Section.objects.get(id=ObjectId(parent_id), project=project)
+                         except Section.DoesNotExist:
+                             pass
+                     # If parent_id is missing/null, we might technically leave it or error? 
+                     # Test cases generally need a section. If dropped in root, maybe we shouldn't allow it.
+                     
+                     test_case.save()
+                 except TestCase.DoesNotExist:
+                     continue
+                     
+        return JsonResponse({'success': True})
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
 

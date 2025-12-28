@@ -36,7 +36,11 @@ urlpatterns = [
     path('projects/<str:project_id>/import/', views.test_case_import, name='test_case_import'),
     path('projects/<str:project_id>/add/', views.test_case_add, name='test_case_add'),
     
-    # Test case detail routes (with project) - MUST come before test_case_list to avoid URL conflicts
+    path('projects/<str:project_id>/reorder/', views.reorder_items, name='reorder_items'),
+
+    # Test case detail routes (with project) - MUST come before test_case_list to avoid URL conflicts.
+    # NOTE: Keep the generic "<pk>/" routes AFTER more specific ones like "reorder/" to avoid
+    # accidentally routing reorder requests into test_case_detail (causing 404s).
     path('projects/<str:project_id>/<str:pk>/delete/', views.test_case_delete, name='test_case_delete'),
     path('projects/<str:project_id>/<str:pk>/edit/', views.test_case_edit, name='test_case_edit'),
     path('projects/<str:project_id>/<str:pk>/', views.test_case_detail, name='test_case_detail'),

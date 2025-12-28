@@ -21,6 +21,22 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:latest
+    container_name: neo4j_dashboard_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      # Ensure nginx.crt and nginx.key are in ./nginx/ssl/
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./staticfiles:/app/staticfiles
+    depends_on:
+      - web
+    restart: unless-stopped
+
   # Neo4j Database
   neo4j:
     image: neo4j:5.5
@@ -75,52 +91,13 @@ services:
       - ./wiremock_mappings:/home/wiremock/mappings
     restart: unless-stopped
 
-  # Keycloak (Optional - for development/testing)
-  keycloak:
-    image: quay.io/keycloak/keycloak:latest
-    container_name: neo4j_dashboard_keycloak
-    environment:
-      - KEYCLOAK_ADMIN=admin
-      - KEYCLOAK_ADMIN_PASSWORD=admin
-      - KC_DB=postgres
-      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
-      - KC_DB_USERNAME=keycloak
-      - KC_DB_PASSWORD=keycloak
-    ports:
-      - "8080:8080"
-    command: start-dev
-    depends_on:
-      keycloak-db:
-        condition: service_healthy
-    restart: unless-stopped
-    profiles:
-      - keycloak # Only start when explicitly requested: docker-compose --profile keycloak up
-
-  # Keycloak Database
-  keycloak-db:
-    image: postgres:15
-    container_name: neo4j_dashboard_keycloak_db
-    environment:
-      - POSTGRES_DB=keycloak
-      - POSTGRES_USER=keycloak
-      - POSTGRES_PASSWORD=keycloak
-    volumes:
-      - keycloak_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U keycloak -d keycloak" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    profiles:
-      - keycloak
-
   # Django Web Application
   web:
     build: .
     container_name: neo4j_dashboard_web
-    ports:
-      - "8000:8000"
+    # Ports are disabled so it is only reached via Nginx
+    # ports:
+    #   - "8000:8000"
 
     env_file:
       - .env
@@ -135,8 +112,7 @@ services:
 
     environment:
       # Django settings
-      - DEBUG=False
-      # Database settings overrides (if needed, otherwise loaded from .env)
+      # Database settings overrides
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - MONGODB_HOST=mongodb
@@ -156,4 +132,4 @@ volumes:
   neo4j_import:
   neo4j_plugins:
   mongodb_data:
-  keycloak_db_data:
+  keycloak_db_data: # Left in volumes just in case, but unused by services now

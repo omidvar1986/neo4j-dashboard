@@ -1,81 +1,87 @@
-{% comment %}
-Recursive template for rendering tree items (sections and test cases)
-level: 0 for root sections, 1 for first-level subsections, etc.
-{% endcomment %}
 {% load static %}
-<div class="tree-section-item" style="position: relative;">
-    <div class="tree-item tree-section {% if selected_section == item.section.id|stringformat:"s" %}active{% endif %} {% if item.matches_search %}search-match{% endif %}" 
-         data-section="{{ item.section.id|stringformat:"s" }}">
-        <div class="tree-item-content" onclick="window.location.href='?section={{ item.section.id|stringformat:"s" }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}'">
-            <span class="tree-expand-icon" onclick="event.stopPropagation(); toggleTreeItem('tree-section-{{ item.section.id|stringformat:"s" }}', 'tree-icon-section-{{ item.section.id|stringformat:"s" }}');">
-                {% if item.subsections or item.test_cases %}
-                    <i class="fas fa-chevron-down tree-chevron" id="tree-icon-section-{{ item.section.id|stringformat:"s" }}"></i>
+
+{% if item and item.section %}
+<div class="tree-section-item"
+     data-id="{{ item.section.id }}"
+     data-type="section">
+
+    <div class="tree-item tree-section
+        {% if selected_section|default:'' == item.section.id|stringformat:'s' %}active{% endif %}
+        {% if item.matches_search %}search-match{% endif %}">
+
+        <div class="tree-item-content"
+             onclick="window.location.href='?section={{ item.section.id }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}'">
+
+            <span class="tree-expand-icon"
+                  onclick="event.stopPropagation(); toggleTreeItem(
+                      'tree-section-{{ item.section.id }}',
+                      'tree-icon-section-{{ item.section.id }}'
+                  );">
+
+                {% if item.children %}
+                    <i class="fas fa-chevron-down tree-chevron"
+                       id="tree-icon-section-{{ item.section.id }}"></i>
                 {% else %}
-                    <i class="fas fa-chevron-right tree-chevron tree-chevron-empty" style="opacity: 0.4;"></i>
+                    <i class="fas fa-chevron-right tree-chevron tree-chevron-empty"
+                       style="opacity:0.4;"></i>
                 {% endif %}
             </span>
+
             <i class="fas fa-folder tree-folder-icon"></i>
+
             <span class="tree-item-name">
-                {% if search_query and item.matches_search %}
-                    {{ item.section.name|safe }}
-                {% else %}
-                    {{ item.section.name }}
-                {% endif %}
+                {{ item.section.name|default:"(No name)" }}
             </span>
+
             {% if item.matches_search %}
-                <i class="fas fa-search" style="margin-left: 0.5rem; color: #ffc107; font-size: 0.75rem;" title="Matches search"></i>
+                <i class="fas fa-search"
+                   style="margin-left:0.5rem;color:#ffc107;font-size:0.75rem;"
+                   title="Matches search"></i>
             {% endif %}
         </div>
     </div>
-    
-    {% if item.subsections or item.test_cases %}
-    <div id="tree-section-{{ item.section.id|stringformat:"s" }}" class="tree-children" style="display: block;">
-        {% for test_case in item.test_cases %}
-            {% if search_query %}
-                {% with title_lower=test_case.title|lower desc_lower=test_case.description|default:""|lower precond_lower=test_case.preconditions|default:""|lower query_lower=search_query|lower %}
-                    {% if query_lower in title_lower or query_lower in desc_lower or query_lower in precond_lower %}
-                        <div class="tree-item tree-test-case search-match {% if selected_test_case == test_case.id|stringformat:"s" %}active{% endif %}" 
-                             data-test-case="{{ test_case.id|stringformat:"s" }}">
-                    {% else %}
-                        <div class="tree-item tree-test-case {% if selected_test_case == test_case.id|stringformat:"s" %}active{% endif %}" 
-                             data-test-case="{{ test_case.id|stringformat:"s" }}">
-                    {% endif %}
-                {% endwith %}
-            {% else %}
-                <div class="tree-item tree-test-case {% if selected_test_case == test_case.id|stringformat:"s" %}active{% endif %}" 
-                     data-test-case="{{ test_case.id|stringformat:"s" }}">
-            {% endif %}
-                <div class="tree-item-content" onclick="window.location.href='?test_case={{ test_case.id|stringformat:"s" }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}'">
-                    <span class="tree-spacer"></span>
-                    <i class="fas fa-file-alt tree-file-icon"></i>
-                    <span class="tree-item-name">
-                        C{{ test_case.id|stringformat:"s"|slice:":8" }}: 
+
+    {% if item.children %}
+    <div id="tree-section-{{ item.section.id }}" class="tree-children" style="display:block;">
+        {% for child in item.children %}
+
+            {% if child.type == 'test_case' and child.data %}
+                {% with tc=child.data %}
+                <div class="tree-item tree-test-case
+                    {% if selected_test_case|default:'' == tc.id|stringformat:'s' %}active{% endif %}
+                    {% if search_query %}search-match{% endif %}"
+                    data-id="{{ tc.id }}"
+                    data-type="test_case">
+
+                    <div class="tree-item-content"
+                         onclick="window.location.href='?test_case={{ tc.id }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}'">
+
+                        <span class="tree-spacer"></span>
+                        <i class="fas fa-file-alt tree-file-icon"></i>
+
+                        <span class="tree-item-name">
+                            C{{ tc.id|stringformat:'s'|slice:":8" }}:
+                            {{ tc.title|default:"Untitled"|truncatewords:10 }}
+                        </span>
+
                         {% if search_query %}
-                            {% with title_lower=test_case.title|lower query_lower=search_query|lower %}
-                                {% if query_lower in title_lower %}
-                                    <mark style="background: #ffc107; padding: 0 2px; border-radius: 2px;">{{ test_case.title|truncatewords:10 }}</mark>
-                                {% else %}
-                                    {{ test_case.title|truncatewords:10 }}
-                                {% endif %}
-                            {% endwith %}
-                        {% else %}
-                            {{ test_case.title|truncatewords:10 }}
+                            <i class="fas fa-search"
+                               style="margin-left:0.5rem;color:#ffc107;font-size:0.75rem;"
+                               title="Matches search"></i>
                         {% endif %}
-                    </span>
-                    {% if search_query %}
-                        {% with title_lower=test_case.title|lower desc_lower=test_case.description|default:""|lower precond_lower=test_case.preconditions|default:""|lower query_lower=search_query|lower %}
-                            {% if query_lower in title_lower or query_lower in desc_lower or query_lower in precond_lower %}
-                                <i class="fas fa-search" style="margin-left: 0.5rem; color: #ffc107; font-size: 0.75rem;" title="Matches search"></i>
-                            {% endif %}
-                        {% endwith %}
-                    {% endif %}
+                    </div>
                 </div>
-            </div>
-        {% endfor %}
-        
-        {% for subsection in item.subsections %}
-            {% include 'testcases/tree_item.html' with item=subsection level=level|add:1 search_query=search_query %}
+                {% endwith %}
+
+            {% elif child.type == 'section' and child.data %}
+                {% include 'testcases/tree_item.html'
+                   with item=child.data
+                   level=level|add:1
+                   search_query=search_query %}
+            {% endif %}
+
         {% endfor %}
     </div>
     {% endif %}
 </div>
+{% endif %}

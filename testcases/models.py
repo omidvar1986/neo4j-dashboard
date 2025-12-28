@@ -10,7 +10,7 @@ User = get_user_model()
 class Project(Document):
     """Test case project - allows multiple teams to have separate projects"""
     name = fields.StringField(max_length=200, required=True, unique=True)
-    description = fields.StringField(blank=True)
+    description = fields.StringField(blank=True, max_length=1000)  # Max 1000 characters
     is_active = fields.BooleanField(default=True)
     created_by_id = fields.IntField(null=True)  # Store user ID as integer
     updated_by_id = fields.IntField(null=True)  # Store user ID as integer
@@ -88,7 +88,7 @@ class ChangeHistory(Document):
     action = fields.StringField(max_length=20, choices=ACTION_CHOICES, required=True)
     user_id = fields.IntField(required=True)  # Store user ID as integer
     timestamp = fields.DateTimeField(default=datetime.utcnow)
-    description = fields.StringField(blank=True)  # Optional description of what changed
+    description = fields.StringField(blank=True, max_length=1000)  # Max 1000 characters  # Optional description of what changed
     
     meta = {
         'collection': 'change_history',
@@ -162,11 +162,13 @@ class Section(Document):
     project = fields.ReferenceField(Project, required=True)
     name = fields.StringField(max_length=200, required=True)
     parent = fields.ReferenceField('self', null=True, blank=True)
-    description = fields.StringField(blank=True)
+    description = fields.StringField(blank=True, max_length=1000)  # Max 1000 characters
     created_by_id = fields.IntField(null=True)  # Store user ID as integer
     updated_by_id = fields.IntField(null=True)  # Store user ID as integer
     created_at = fields.DateTimeField(default=datetime.utcnow)
+    created_at = fields.DateTimeField(default=datetime.utcnow)
     updated_at = fields.DateTimeField(default=datetime.utcnow)
+    order = fields.IntField(default=0)
 
     meta = {
         'collection': 'sections',
@@ -179,7 +181,7 @@ class Section(Document):
             # Leave unnamed so MongoDB reuses existing project_1 index if present
             {'fields': ['project']}
         ],
-        'ordering': ['name']
+        'ordering': ['order', 'name']
     }
     
     def clean(self):
@@ -319,11 +321,12 @@ class TestCase(Document):
     created_at = fields.DateTimeField(default=datetime.utcnow)
     updated_at = fields.DateTimeField(default=datetime.utcnow)
     is_deleted = fields.BooleanField(default=False)
+    order = fields.IntField(default=0)
 
     meta = {
         'collection': 'test_cases',
         'indexes': [('project', 'section'), 'project', 'section', 'created_at', 'is_deleted'],
-        'ordering': ['-created_at']
+        'ordering': ['order', '-created_at']
     }
 
     def __str__(self):
@@ -404,7 +407,7 @@ class TestRun(Document):
     
     project = fields.ReferenceField(Project, required=True)
     name = fields.StringField(max_length=500, required=True)
-    description = fields.StringField(blank=True)
+    description = fields.StringField(blank=True, max_length=1000)  # Max 1000 characters
     references = fields.StringField(blank=True, help_text="Reference IDs to external tickets")
     milestone_id = fields.StringField(blank=True)  # Can reference a milestone if implemented
     assigned_to_id = fields.IntField(null=True)  # Store user ID as integer
